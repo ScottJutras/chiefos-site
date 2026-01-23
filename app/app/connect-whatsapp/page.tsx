@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -42,6 +42,9 @@ export default function ConnectWhatsAppPage() {
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
 
+  // Polling control
+  const pollRef = useRef<number | null>(null);
+
   async function requireAuth() {
     const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
@@ -64,7 +67,7 @@ export default function ConnectWhatsAppPage() {
   }
 
   // IMPORTANT:
-  // chiefos_link_codes.portal_user_id is actually the auth user id in your schema/data.
+  // chiefos_link_codes.portal_user_id is the auth user id in your current schema/data.
   async function fetchLatestUnexpiredUnusedCode(portalUserId: string) {
     const { data, error } = await supabase
       .from("chiefos_link_codes")
@@ -142,9 +145,7 @@ export default function ConnectWhatsAppPage() {
   }
 
   async function checkLinked() {
-    setError(null);
-    setChecking(true);
-
+    // NOTE: don't flip UI into "Checking..." during background polling
     try {
       const user = await requireAuth();
       if (!user) return;
@@ -168,8 +169,18 @@ export default function ConnectWhatsAppPage() {
         router.push("/app/expenses");
         return;
       }
+    } catch (e: any) {
+      // For polling we keep errors quiet; button-driven check will show errors
+    }
+  }
 
-      // Not linked yet — refresh code display (may still be valid)
+  // Button-driven "I sent it" (shows status)
+  async function checkLinkedWithUI() {
+    setError(null);
+    setChecking(true);
+    try {
+      await checkLinked();
+      // If not linked yet, refresh code view (maybe still valid)
       await load();
     } catch (e: any) {
       setError(e?.message ?? "Unknown error checking link status.");
@@ -182,6 +193,24 @@ export default function ConnectWhatsAppPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ Auto-redirect polling: once a code is on screen, poll until mapping exists
+  useEffect(() => {
+    if (!codeRow?.code) return;
+
+    // clear existing
+    if (pollRef.current) window.clearInterval(pollRef.current);
+
+    pollRef.current = window.setInterval(() => {
+      checkLinked().catch(() => null);
+    }, 1500);
+
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codeRow?.code]);
 
   if (loading) {
     return <div className="p-8 text-gray-600">Loading…</div>;
@@ -212,9 +241,6 @@ export default function ConnectWhatsAppPage() {
           <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <div className="font-semibold">Error</div>
             <div className="mt-1">{error}</div>
-            <div className="mt-3 text-xs text-red-600">
-              Tip: open DevTools → Network and click “Get a new code” to see the failing request.
-            </div>
           </div>
         ) : null}
 
@@ -230,7 +256,9 @@ export default function ConnectWhatsAppPage() {
 
           {codeRow?.expires_at ? (
             <div className="mt-2 text-xs text-gray-500">Expires at {fmtTime(codeRow.expires_at)}.</div>
-          ) : null}
+          ) : (
+            <div className="mt-2 text-xs text-gray-500">Tip: the page will auto-redirect once linked.</div>
+          )}
 
           <div className="mt-4 flex gap-2">
             <button
@@ -242,7 +270,7 @@ export default function ConnectWhatsAppPage() {
             </button>
 
             <button
-              onClick={checkLinked}
+              onClick={checkLinkedWithUI}
               disabled={checking}
               className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
             >
@@ -251,7 +279,7 @@ export default function ConnectWhatsAppPage() {
           </div>
 
           <div className="mt-4 text-sm text-gray-600">
-            After you send it, come back here and press <span className="font-semibold">I sent it</span>.
+            After you send it, you can just wait — this page will redirect automatically.
           </div>
         </div>
       </div>
