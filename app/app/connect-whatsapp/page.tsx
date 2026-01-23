@@ -6,119 +6,125 @@ import { useRouter } from "next/navigation";
 
 type LinkCodeRow = {
   code: string;
-  expires_at: string;
+  expires_at: string | null;
 };
 
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [code, setCode] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
 
-  async function ensureLoggedIn() {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      router.replace("/login");
-      return null;
-    }
-    return data.user;
-  }
+  async function loadOrCreateCode() {
+    setLoading(true);
+    setStatus(null);
 
-  async function createCode() {
-    setErr(null);
-    setStatus("Generating your link code…");
-
-    const { data, error } = await supabase.rpc("chiefos_create_link_code");
-
-    if (error) {
-      setErr(error.message);
+    // 1) Ensure logged in
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      router.push("/login");
       return;
     }
 
-    // Supabase RPC returning a table often comes back as array
-    const row = Array.isArray(data) ? (data[0] as LinkCodeRow) : (data as LinkCodeRow);
-
-    setCode(row.code);
-    setExpiresAt(row.expires_at);
-    setStatus("Send this code to ChiefOS on WhatsApp.");
-  }
-
-  async function checkLinked() {
-    setErr(null);
-    setStatus("Checking link status…");
-
-    // We check if your tenant has any WhatsApp mapping
-    const { data: me } = await supabase.auth.getUser();
-    const user = me.user;
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
-
-    // Get your tenant id
+    // 2) Get portal user tenant
     const { data: pu, error: puErr } = await supabase
       .from("chiefos_portal_users")
-      .select("tenant_id")
-      .eq("user_id", user.id)
+      .select("id, tenant_id")
+      .eq("user_id", auth.user.id)
       .maybeSingle();
 
     if (puErr) {
-      setErr(puErr.message);
+      setStatus(`Portal user error: ${puErr.message}`);
+      setLoading(false);
       return;
     }
 
     if (!pu?.tenant_id) {
-      router.replace("/finish-signup");
+      router.push("/finish-signup");
       return;
     }
 
-    // IMPORTANT: adjust table name below if yours differs
-    const { data: mapping, error: mapErr } = await supabase
+    setTenantId(pu.tenant_id);
+
+    // 3) If already linked, go to expenses
+    const { data: mapRows, error: mapErr } = await supabase
       .from("chiefos_identity_map")
-      .select("id, whatsapp_owner_id")
+      .select("id")
       .eq("tenant_id", pu.tenant_id)
+      .eq("kind", "whatsapp")
       .limit(1);
 
     if (mapErr) {
-      setErr(mapErr.message);
+      setStatus(`Identity map error: ${mapErr.message}`);
+      setLoading(false);
       return;
     }
 
-    if (mapping && mapping.length > 0) {
-      router.replace("/app/expenses");
+    if (mapRows && mapRows.length > 0) {
+      router.push("/app/expenses");
       return;
     }
 
-    setStatus("Not linked yet. Send the WhatsApp message, then tap “I sent it”.");
+    // 4) Create a link code (RPC you already installed in Step 1A)
+    const { data: rpcData, error: rpcErr } = await supabase.rpc(
+      "chiefos_create_link_code",
+      { p_tenant_id: pu.tenant_id }
+    );
+
+    if (rpcErr) {
+      setStatus(`Link code error: ${rpcErr.message}`);
+      setLoading(false);
+      return;
+    }
+
+    // Expecting RPC to return { code, expires_at }
+    setCodeRow(rpcData as LinkCodeRow);
+    setLoading(false);
+  }
+
+  async function checkLinked() {
+    setStatus("Checking link…");
+    if (!tenantId) return;
+
+    const { data: mapRows, error: mapErr } = await supabase
+      .from("chiefos_identity_map")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("kind", "whatsapp")
+      .limit(1);
+
+    if (mapErr) {
+      setStatus(`Identity map error: ${mapErr.message}`);
+      return;
+    }
+
+    if (mapRows && mapRows.length > 0) {
+      router.push("/app/expenses");
+      return;
+    }
+
+    setStatus("Not linked yet. Send the LINK code in WhatsApp, then tap “I sent it” again.");
   }
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const user = await ensureLoggedIn();
-      if (!user) return;
-
-      await createCode();
-      setLoading(false);
-    })();
+    loadOrCreateCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const displayExpiry = expiresAt
-    ? new Date(expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  const expiresText = codeRow?.expires_at
+    ? new Date(codeRow.expires_at).toLocaleString()
     : null;
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-2xl mx-auto px-6 py-16">
+      <div className="max-w-xl mx-auto px-6 py-16">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Connect WhatsApp</h1>
+          <h1 className="text-2xl font-bold">Connect WhatsApp</h1>
           <button
             onClick={async () => {
               await supabase.auth.signOut();
-              router.replace("/login");
+              router.push("/login");
             }}
             className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
           >
@@ -126,49 +132,62 @@ export default function ConnectWhatsAppPage() {
           </button>
         </div>
 
-        <p className="mt-3 text-gray-600">
+        <p className="mt-4 text-gray-700">
           This links your portal account to the phone number you use in WhatsApp so expenses flow in automatically.
         </p>
 
         {loading ? (
-          <div className="mt-10 text-gray-600">Loading…</div>
+          <p className="mt-6 text-gray-600">Loading…</p>
         ) : (
-          <div className="mt-10 rounded-xl border p-6">
-            {err && (
-              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {err}
+          <>
+            {status ? <p className="mt-6 text-sm text-gray-700">{status}</p> : null}
+
+            <div className="mt-8 rounded-lg border p-5">
+              <h2 className="text-lg font-semibold">Step 1</h2>
+              <p className="mt-2 text-gray-700">
+                Send this message to ChiefOS on WhatsApp:
+              </p>
+
+              <div className="mt-3 flex items-center justify-between rounded-md bg-gray-50 px-4 py-3 font-mono">
+                <span>LINK {codeRow?.code ?? "------"}</span>
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(`LINK ${codeRow?.code ?? ""}`);
+                    setStatus("Copied.");
+                  }}
+                  className="rounded-md border bg-white px-3 py-1 text-sm hover:bg-gray-50"
+                >
+                  Copy
+                </button>
               </div>
-            )}
 
-            <div className="text-sm text-gray-600">Step 1</div>
-            <div className="mt-1 font-medium">Send this message to ChiefOS on WhatsApp:</div>
+              {expiresText ? (
+                <p className="mt-2 text-sm text-gray-600">
+                  Expires at {expiresText}.
+                </p>
+              ) : null}
 
-            <div className="mt-4 rounded-lg bg-gray-50 border px-4 py-3 font-mono text-lg">
-              LINK {code ?? "------"}
+              <div className="mt-5 flex gap-2">
+                <button
+                  onClick={checkLinked}
+                  className="rounded-md bg-black px-4 py-2 text-sm text-white hover:opacity-90"
+                >
+                  I sent it
+                </button>
+
+                <button
+                  onClick={loadOrCreateCode}
+                  className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  Get a new code
+                </button>
+              </div>
+
+              <p className="mt-4 text-sm text-gray-600">
+                After you send the code in WhatsApp, tap “I sent it”.
+              </p>
             </div>
-
-            {displayExpiry && (
-              <div className="mt-2 text-sm text-gray-600">Expires at {displayExpiry}.</div>
-            )}
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                onClick={createCode}
-                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-              >
-                Get a new code
-              </button>
-
-              <button
-                onClick={checkLinked}
-                className="rounded-md bg-black px-4 py-2 text-sm text-white hover:bg-gray-800"
-              >
-                I sent it
-              </button>
-            </div>
-
-            {status && <div className="mt-4 text-sm text-gray-600">{status}</div>}
-          </div>
+          </>
         )}
       </div>
     </main>
