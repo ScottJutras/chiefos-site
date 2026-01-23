@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +28,10 @@ function fmtTime(ts: string | null) {
   }
 }
 
+function digitsOnly(code: string | null | undefined) {
+  return String(code || "").replace(/\D/g, "");
+}
+
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
 
@@ -41,9 +45,6 @@ export default function ConnectWhatsAppPage() {
   // ✅ Your RPC name (confirmed)
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
-
-  // Polling control
-  const pollRef = useRef<number | null>(null);
 
   async function requireAuth() {
     const { data, error } = await supabase.auth.getUser();
@@ -67,7 +68,7 @@ export default function ConnectWhatsAppPage() {
   }
 
   // IMPORTANT:
-  // chiefos_link_codes.portal_user_id is the auth user id in your current schema/data.
+  // chiefos_link_codes.portal_user_id == auth user id in your schema/data.
   async function fetchLatestUnexpiredUnusedCode(portalUserId: string) {
     const { data, error } = await supabase
       .from("chiefos_link_codes")
@@ -145,7 +146,9 @@ export default function ConnectWhatsAppPage() {
   }
 
   async function checkLinked() {
-    // NOTE: don't flip UI into "Checking..." during background polling
+    setError(null);
+    setChecking(true);
+
     try {
       const user = await requireAuth();
       if (!user) return;
@@ -169,18 +172,8 @@ export default function ConnectWhatsAppPage() {
         router.push("/app/expenses");
         return;
       }
-    } catch (e: any) {
-      // For polling we keep errors quiet; button-driven check will show errors
-    }
-  }
 
-  // Button-driven "I sent it" (shows status)
-  async function checkLinkedWithUI() {
-    setError(null);
-    setChecking(true);
-    try {
-      await checkLinked();
-      // If not linked yet, refresh code view (maybe still valid)
+      // Not linked yet — refresh code display (may still be valid)
       await load();
     } catch (e: any) {
       setError(e?.message ?? "Unknown error checking link status.");
@@ -194,27 +187,23 @@ export default function ConnectWhatsAppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Auto-redirect polling: once a code is on screen, poll until mapping exists
+  // ✅ auto-check every 1.5s once we have a code
   useEffect(() => {
     if (!codeRow?.code) return;
 
-    // clear existing
-    if (pollRef.current) window.clearInterval(pollRef.current);
-
-    pollRef.current = window.setInterval(() => {
+    const t = setInterval(() => {
       checkLinked().catch(() => null);
     }, 1500);
 
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    };
+    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeRow?.code]);
 
   if (loading) {
     return <div className="p-8 text-gray-600">Loading…</div>;
   }
+
+  const codeDigits = digitsOnly(codeRow?.code);
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -247,18 +236,16 @@ export default function ConnectWhatsAppPage() {
         <div className="mt-8 rounded-lg border p-5">
           <div className="text-sm font-semibold">Step 1</div>
           <div className="mt-2 text-gray-700 text-sm">
-            Send this message to ChiefOS on WhatsApp:
+            Send <span className="font-semibold">only this 6-digit code</span> to ChiefOS on WhatsApp:
           </div>
 
-          <div className="mt-4 rounded-md bg-gray-50 border px-4 py-3 font-mono text-lg">
-            {codeRow?.code ? `LINK ${codeRow.code}` : "No code available"}
+          <div className="mt-4 rounded-md bg-gray-50 border px-4 py-3 font-mono text-2xl tracking-widest text-center">
+            {codeDigits ? codeDigits : "No code available"}
           </div>
 
           {codeRow?.expires_at ? (
             <div className="mt-2 text-xs text-gray-500">Expires at {fmtTime(codeRow.expires_at)}.</div>
-          ) : (
-            <div className="mt-2 text-xs text-gray-500">Tip: the page will auto-redirect once linked.</div>
-          )}
+          ) : null}
 
           <div className="mt-4 flex gap-2">
             <button
@@ -270,16 +257,16 @@ export default function ConnectWhatsAppPage() {
             </button>
 
             <button
-              onClick={checkLinkedWithUI}
+              onClick={checkLinked}
               disabled={checking}
               className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
             >
-              {checking ? "Checking Link…" : "I sent it"}
+              {checking ? "Checking…" : "Check now"}
             </button>
           </div>
 
           <div className="mt-4 text-sm text-gray-600">
-            After you send it, you can just wait — this page will redirect automatically.
+            Once you send the code, this page will auto-detect the link and take you to Expenses.
           </div>
         </div>
       </div>
