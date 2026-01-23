@@ -9,72 +9,63 @@ export default function FinishSignupPage() {
   const [status, setStatus] = useState("Finishing signup…");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function run() {
-      // 1) Ensure logged in
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr) {
-        setStatus(`Auth error: ${authErr.message}`);
-        return;
+      try {
+        // 1) Ensure logged in
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr) throw authErr;
+
+        const user = authData.user;
+        if (!user) {
+          router.replace("/login");
+          return;
+        }
+
+        // 2) If they already have a tenant, go to app
+        const { data: existing, error: exErr } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (exErr) throw exErr;
+
+        if (existing?.tenant_id) {
+          router.replace("/app/expenses");
+          return;
+        }
+
+        // 3) Call RPC to create tenant + attach to portal user
+        if (!cancelled) setStatus("Creating your workspace…");
+
+        const companyName =
+          (typeof window !== "undefined"
+            ? localStorage.getItem("chiefos_company_name")
+            : null) || null;
+
+        const { data: tenantId, error: rpcErr } = await supabase.rpc(
+          "chiefos_finish_signup",
+          { company_name: companyName }
+        );
+
+        if (rpcErr) throw rpcErr;
+
+        // 4) Done → go to expenses (guard will send to connect-whatsapp if needed)
+        if (!cancelled) setStatus("Done. Redirecting…");
+        router.replace("/app/expenses");
+      } catch (e: any) {
+        const msg = e?.message || "Unknown error";
+        if (!cancelled) setStatus(`Finish signup error: ${msg}`);
       }
-
-      const user = authData.user;
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      // 2) If they already have a portal row, done
-      const { data: existing, error: exErr } = await supabase
-        .from("chiefos_portal_users")
-        .select("tenant_id, role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (exErr) {
-        setStatus(`Error: ${exErr.message}`);
-        return;
-      }
-
-      if (existing?.tenant_id) {
-        router.push("/app/expenses");
-        return;
-      }
-
-      // 3) Create tenant
-      setStatus("Creating your tenant…");
-      const companyName =
-        (typeof window !== "undefined"
-          ? localStorage.getItem("chiefos_company_name")
-          : null) || "My Business";
-
-      const { data: tenant, error: tErr } = await supabase
-        .from("chiefos_tenants")
-        .insert({ name: companyName })
-        .select("id")
-        .single();
-
-      if (tErr) {
-        setStatus(`Tenant error: ${tErr.message}`);
-        return;
-      }
-
-      // 4) Create portal user mapping as owner
-      setStatus("Creating your owner profile…");
-      const { error: puErr } = await supabase.from("chiefos_portal_users").insert({
-        user_id: user.id,
-        tenant_id: tenant.id,
-        role: "owner",
-      });
-
-      if (puErr) {
-        setStatus(`Portal user error: ${puErr.message}`);
-        return;
-      }
-
-      router.push("/app/expenses");
     }
 
     run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return (
