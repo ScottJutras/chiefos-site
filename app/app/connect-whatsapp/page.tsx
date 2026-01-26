@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -41,10 +41,14 @@ export default function ConnectWhatsAppPage() {
 
   const [error, setError] = useState<string | null>(null);
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // ✅ Your RPC name (confirmed)
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
+
+  const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
+  const has6Digits = codeDigits.length === 6;
 
   async function requireAuth() {
     const { data, error } = await supabase.auth.getUser();
@@ -87,6 +91,7 @@ export default function ConnectWhatsAppPage() {
   async function createNewCode() {
     setError(null);
     setCreating(true);
+    setCopied(false);
 
     try {
       const user = await requireAuth();
@@ -121,6 +126,7 @@ export default function ConnectWhatsAppPage() {
   async function load() {
     setLoading(true);
     setError(null);
+    setCopied(false);
 
     try {
       const user = await requireAuth();
@@ -199,11 +205,16 @@ export default function ConnectWhatsAppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codeRow?.code]);
 
+  // Reset "Copied!" after a moment
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1200);
+    return () => clearTimeout(t);
+  }, [copied]);
+
   if (loading) {
     return <div className="p-8 text-gray-600">Loading…</div>;
   }
-
-  const codeDigits = digitsOnly(codeRow?.code);
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -240,14 +251,14 @@ export default function ConnectWhatsAppPage() {
           </div>
 
           <div className="mt-4 rounded-md bg-gray-50 border px-4 py-3 font-mono text-2xl tracking-widest text-center">
-            {codeDigits ? codeDigits : "No code available"}
+            {has6Digits ? codeDigits : "No code available"}
           </div>
 
           {codeRow?.expires_at ? (
             <div className="mt-2 text-xs text-gray-500">Expires at {fmtTime(codeRow.expires_at)}.</div>
           ) : null}
 
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={createNewCode}
               disabled={creating}
@@ -263,6 +274,31 @@ export default function ConnectWhatsAppPage() {
             >
               {checking ? "Checking…" : "Check now"}
             </button>
+
+            <button
+              onClick={async () => {
+                if (!has6Digits) return;
+                try {
+                  await navigator.clipboard.writeText(codeDigits);
+                  setCopied(true);
+                } catch {
+                  // ignore
+                }
+              }}
+              disabled={!has6Digits}
+              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+            >
+              {copied ? "Copied!" : "Copy code"}
+            </button>
+
+            <a
+              href={has6Digits ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}` : undefined}
+              className={`rounded-md border px-4 py-2 text-sm hover:bg-gray-50 inline-flex items-center ${
+                !has6Digits ? "pointer-events-none opacity-50" : ""
+              }`}
+            >
+              Open WhatsApp
+            </a>
           </div>
 
           <div className="mt-4 text-sm text-gray-600">
