@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -15,33 +18,34 @@ export default function SignupPage() {
     e.preventDefault();
     setErr(null);
     setLoading(true);
-console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+
     try {
+      if (!turnstileToken) throw new Error("Please complete the bot check.");
+
       const origin = window.location.origin;
 
-      // Save company name locally so Finish Signup can use it (optional)
-      if (companyName.trim()) {
-        localStorage.setItem("chiefos_company_name", companyName.trim());
-      } else {
-        localStorage.removeItem("chiefos_company_name");
-      }
+      // Save company name locally so Finish Signup can use it
+      if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
+      else localStorage.removeItem("chiefos_company_name");
 
-      const { error: signUpErr } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          // This is where the confirmation email will send them
+      const r = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          turnstileToken,
           emailRedirectTo: `${origin}/auth/callback`,
-        },
+        }),
       });
 
-      if (signUpErr) throw signUpErr;
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Signup failed.");
 
-      // IMPORTANT:
-      // Do NOT create tenant here. User is not authenticated until they click the email link.
       setSent(true);
     } catch (e: any) {
       setErr(e?.message ?? "Signup failed.");
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -98,6 +102,15 @@ console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 required
+              />
+            </div>
+
+            <div className="pt-2">
+              <Turnstile
+                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken(null)}
+                options={{ appearance: "always" }}
               />
             </div>
 

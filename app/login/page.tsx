@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,15 +19,28 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      if (!turnstileToken) throw new Error("Please complete the bot check.");
+
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
-      if (error) throw error;
+
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "Login failed.");
+
+      // Set Supabase session client-side
+      const { error: setErr2 } = await supabase.auth.setSession({
+        access_token: j.session.access_token,
+        refresh_token: j.session.refresh_token,
+      });
+      if (setErr2) throw setErr2;
 
       router.push("/app/expenses");
     } catch (e: any) {
       setErr(e?.message ?? "Login failed.");
+      setTurnstileToken(null); // force re-check on failure
     } finally {
       setLoading(false);
     }
@@ -57,6 +72,15 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               required
+            />
+          </div>
+
+          <div className="pt-2">
+            <Turnstile
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken(null)}
+              options={{ appearance: "always" }}
             />
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -8,13 +8,15 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+
 type Expense = {
   id: string;
   amount: number;
   vendor: string | null;
   description: string | null;
-  expense_date: string; // ISO date
+  expense_date: string;
   job_name: string | null;
+  deleted_at?: string | null;
 };
 
 type EditDraft = {
@@ -22,7 +24,7 @@ type EditDraft = {
   amount: string;
   vendor: string;
   description: string;
-  expense_date: string; // yyyy-mm-dd
+  expense_date: string;
   job_name: string;
 };
 
@@ -35,25 +37,24 @@ type GroupBy =
   | "date"
   | "amount_bucket";
 
-type SortBy = "date_desc" | "date_asc" | "amount_desc" | "amount_asc" | "vendor_asc" | "vendor_desc";
+type SortBy =
+  | "date_desc"
+  | "date_asc"
+  | "amount_desc"
+  | "amount_asc"
+  | "vendor_asc"
+  | "vendor_desc";
+
+type SavedView = {
+  id: string;
+  name: string;
+  payload: any;
+  updated_at: string;
+};
 
 function isoDay(s?: string | null) {
   const t = String(s || "").trim();
   return t ? t.slice(0, 10) : "";
-}
-
-function safeLower(v: any) {
-  return String(v ?? "").toLowerCase();
-}
-
-function monthKey(iso: string) {
-  const d = isoDay(iso);
-  return d ? d.slice(0, 7) : ""; // YYYY-MM
-}
-
-function yearKey(iso: string) {
-  const d = isoDay(iso);
-  return d ? d.slice(0, 4) : "";
 }
 
 function toMoney(n: any) {
@@ -61,8 +62,17 @@ function toMoney(n: any) {
   return Number.isFinite(x) ? x : 0;
 }
 
+function monthKey(iso: string) {
+  const d = isoDay(iso);
+  return d ? d.slice(0, 7) : "";
+}
+
+function yearKey(iso: string) {
+  const d = isoDay(iso);
+  return d ? d.slice(0, 4) : "";
+}
+
 function amountBucket(amount: number) {
-  // Simple + useful buckets for duplicate detection / scanning
   if (amount < 10) return "< $10";
   if (amount < 25) return "$10–$24.99";
   if (amount < 50) return "$25–$49.99";
@@ -80,6 +90,7 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
   const [saving, setSaving] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
@@ -91,6 +102,19 @@ export default function ExpensesPage() {
   const [minAmt, setMinAmt] = useState<string>("");
   const [maxAmt, setMaxAmt] = useState<string>("");
   const [onlyDupes, setOnlyDupes] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+const moreRef = useRef<HTMLDivElement | null>(null);
+
+useEffect(() => {
+  function onDown(e: MouseEvent) {
+    if (!moreRef.current) return;
+    if (e.target instanceof Node && !moreRef.current.contains(e.target)) {
+      setMoreOpen(false);
+    }
+  }
+  if (moreOpen) document.addEventListener("mousedown", onDown);
+  return () => document.removeEventListener("mousedown", onDown);
+}, [moreOpen]);
 
   // View controls
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
@@ -99,6 +123,26 @@ export default function ExpensesPage() {
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
+
+  // Bulk selection
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const selectedIds = useMemo(
+    () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
+    [selected]
+  );
+
+  // Undo bar state
+  const [undo, setUndo] = useState<{
+    batchId: string;
+    expiresAt: string;
+    deletedCount: number;
+  } | null>(null);
+
+  const undoTimerRef = useRef<any>(null);
+
+  // Saved views
+  const [views, setViews] = useState<SavedView[]>([]);
+  const [viewName, setViewName] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -140,14 +184,20 @@ export default function ExpensesPage() {
           return;
         }
 
+        // ✅ Exclude soft-deleted rows
         const { data, error } = await supabase
           .from("chiefos_expenses")
           .select("*")
+          .is("deleted_at", null)
           .order("expense_date", { ascending: false });
 
         if (error) throw error;
 
         if (!cancelled) setExpenses((data ?? []) as Expense[]);
+
+        // Load saved views
+        const { data: vData, error: vErr } = await supabase.rpc("chiefos_list_saved_views");
+        if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
       } finally {
@@ -179,7 +229,7 @@ export default function ExpensesPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [expenses]);
 
-  // Duplicate detection: key = date + vendor + amount
+  // Duplicate detection (same date + vendor + amount)
   const dupeKeyCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of expenses) {
@@ -191,7 +241,6 @@ export default function ExpensesPage() {
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
-
     const min = minAmt.trim() ? Number(minAmt) : null;
     const max = maxAmt.trim() ? Number(maxAmt) : null;
 
@@ -235,7 +284,6 @@ export default function ExpensesPage() {
 
   const sorted = useMemo(() => {
     const out = filtered.slice();
-
     const cmpStr = (a: string, b: string) => a.localeCompare(b);
     const cmpNum = (a: number, b: number) => a - b;
 
@@ -278,7 +326,6 @@ export default function ExpensesPage() {
     if (groupBy === "none") return null;
 
     const m = new Map<string, Expense[]>();
-
     const keyOf = (e: Expense) => {
       if (groupBy === "vendor") return String(e.vendor || "—").trim() || "—";
       if (groupBy === "job") return String(e.job_name || "—").trim() || "—";
@@ -300,15 +347,25 @@ export default function ExpensesPage() {
       return { key, items, sum, count: items.length };
     });
 
-    // Sort groups (most useful defaults)
     if (groupBy === "month" || groupBy === "year" || groupBy === "date") {
-      groups.sort((a, b) => String(b.key).localeCompare(String(a.key))); // newest first
+      groups.sort((a, b) => String(b.key).localeCompare(String(a.key)));
     } else {
-      groups.sort((a, b) => b.sum - a.sum); // biggest spend first
+      groups.sort((a, b) => b.sum - a.sum);
     }
-
     return groups;
   }, [sorted, groupBy]);
+
+  // Keep selection sane if filters change
+  useEffect(() => {
+    const visible = new Set(sorted.map((e) => e.id));
+    setSelected((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (v && visible.has(k)) next[k] = true;
+      }
+      return next;
+    });
+  }, [sorted]);
 
   function buildRows(list: Expense[]) {
     const headers = ["#", "Date", "Vendor", "Amount", "Job", "Description"];
@@ -344,7 +401,6 @@ export default function ExpensesPage() {
 
   function downloadXLSX(list: Expense[]) {
     if (!list.length) return;
-
     const { headers, rows } = buildRows(list);
     const data = [headers, ...rows];
 
@@ -367,7 +423,6 @@ export default function ExpensesPage() {
     if (!list.length) return;
 
     const { headers, rows } = buildRows(list);
-
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
     doc.setFontSize(14);
     doc.text("Expenses", 40, 40);
@@ -395,7 +450,7 @@ export default function ExpensesPage() {
   }
 
   async function runDownload(kind: "csv" | "xlsx" | "pdf") {
-    const list = sorted; // ✅ export filtered+sorted (not raw)
+    const list = sorted;
     if (!list.length || downloading) return;
     try {
       setDownloading(kind);
@@ -452,31 +507,12 @@ export default function ExpensesPage() {
       if (error) throw error;
 
       const updated = data as Expense;
-
       setExpenses((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       closeEdit();
     } catch (e: any) {
       alert(e?.message ?? "Failed to save expense.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function copyGroupSummary() {
-    if (!grouped) return;
-
-    const lines = [
-      ["Group", "Count", "Total"].join(","),
-      ...grouped.map((g) => `"${String(g.key).replace(/"/g, '""')}",${g.count},"${g.sum.toFixed(2)}"`),
-      `,"Grand Count",${totals.count}`,
-      `,"Grand Total","${totals.sum.toFixed(2)}"`,
-    ].join("\n");
-
-    try {
-      await navigator.clipboard.writeText(lines);
-      alert("Copied group summary to clipboard.");
-    } catch {
-      alert("Could not copy to clipboard (browser blocked).");
     }
   }
 
@@ -491,10 +527,187 @@ export default function ExpensesPage() {
     setOnlyDupes(false);
     setGroupBy("none");
     setSortBy("date_desc");
+    setSelected({});
+  }
+
+  // --- Bulk actions ---
+  function toggleAllVisible(on: boolean) {
+    const next: Record<string, boolean> = {};
+    if (on) {
+      for (const e of sorted) next[e.id] = true;
+    }
+    setSelected(next);
+  }
+
+  async function bulkAssignJob(newJob: string) {
+    const ids = selectedIds;
+    if (!ids.length) return;
+
+    const j = String(newJob || "").trim();
+    if (!j) {
+      alert("Job name required.");
+      return;
+    }
+
+    try {
+      setBulkBusy(true);
+      const { data, error } = await supabase.rpc("chiefos_bulk_assign_expense_job", {
+        p_expense_ids: ids,
+        p_job_name: j,
+      });
+      if (error) throw error;
+
+      // Optimistic update in UI
+      setExpenses((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, job_name: j } : e))
+      );
+
+      setSelected({});
+      alert(`Assigned job to ${data?.[0]?.updated_count ?? 0} expenses.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Bulk assign failed.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function clearUndoTimer() {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = null;
+  }
+
+  function armUndoExpiry(expiresAtIso: string) {
+    clearUndoTimer();
+    const ms = Math.max(0, new Date(expiresAtIso).getTime() - Date.now());
+    undoTimerRef.current = setTimeout(() => setUndo(null), ms + 250);
+  }
+
+  async function bulkDeleteSelected() {
+    const ids = selectedIds;
+    if (!ids.length) return;
+
+    if (!confirm(`Soft-delete ${ids.length} expenses? You’ll have 10 minutes to undo.`)) return;
+
+    try {
+      setBulkBusy(true);
+      const { data, error } = await supabase.rpc("chiefos_delete_expenses", {
+        p_expense_ids: ids,
+        p_undo_minutes: 10,
+      });
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      const batchId = row?.batch_id as string;
+      const deletedCount = Number(row?.deleted_count ?? 0);
+      const expiresAt = row?.expires_at as string;
+
+      // Remove from UI immediately (since we exclude deleted_at anyway)
+      setExpenses((prev) => prev.filter((e) => !ids.includes(e.id)));
+      setSelected({});
+
+      if (batchId && expiresAt) {
+        setUndo({ batchId, expiresAt, deletedCount });
+        armUndoExpiry(expiresAt);
+      } else {
+        alert("Deleted (no undo batch returned).");
+      }
+    } catch (e: any) {
+      alert(e?.message ?? "Delete failed.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function undoDelete() {
+    if (!undo) return;
+    try {
+      setBulkBusy(true);
+      const { data, error } = await supabase.rpc("chiefos_undo_delete_expenses", {
+        p_batch_id: undo.batchId,
+      });
+      if (error) throw error;
+
+      // Reload expenses (simple + correct)
+      const { data: fresh, error: fErr } = await supabase
+        .from("chiefos_expenses")
+        .select("*")
+        .is("deleted_at", null)
+        .order("expense_date", { ascending: false });
+
+      if (!fErr) setExpenses((fresh ?? []) as Expense[]);
+
+      setUndo(null);
+      clearUndoTimer();
+      alert(`Restored ${data?.[0]?.restored_count ?? 0} expenses.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Undo failed (maybe expired).");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  // --- Saved views ---
+  function currentViewPayload() {
+    return {
+      q,
+      job,
+      vendor,
+      fromDate,
+      toDate,
+      minAmt,
+      maxAmt,
+      onlyDupes,
+      groupBy,
+      sortBy,
+    };
+  }
+
+  async function refreshViews() {
+    const { data, error } = await supabase.rpc("chiefos_list_saved_views");
+    if (!error) setViews((data ?? []) as SavedView[]);
+  }
+
+  async function saveView() {
+    const name = String(viewName || "").trim();
+    if (!name) return alert("View name required.");
+
+    const payload = currentViewPayload();
+    const { error } = await supabase.rpc("chiefos_upsert_saved_view", {
+      p_name: name,
+      p_payload: payload,
+    });
+
+    if (error) return alert(error.message);
+    setViewName("");
+    await refreshViews();
+    alert("Saved view.");
+  }
+
+  function applyView(v: SavedView) {
+    const p = v.payload || {};
+    setQ(p.q ?? "");
+    setJob(p.job ?? "all");
+    setVendor(p.vendor ?? "all");
+    setFromDate(p.fromDate ?? "");
+    setToDate(p.toDate ?? "");
+    setMinAmt(p.minAmt ?? "");
+    setMaxAmt(p.maxAmt ?? "");
+    setOnlyDupes(!!p.onlyDupes);
+    setGroupBy(p.groupBy ?? "none");
+    setSortBy(p.sortBy ?? "date_desc");
+  }
+
+  async function deleteView(id: string) {
+    if (!confirm("Delete this saved view?")) return;
+    const { error } = await supabase.rpc("chiefos_delete_saved_view", { p_view_id: id });
+    if (error) return alert(error.message);
+    await refreshViews();
   }
 
   if (loading) return <div className="p-8 text-gray-600">Loading expenses…</div>;
   if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
+
+  const allVisibleSelected = sorted.length > 0 && selectedIds.length === sorted.length;
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -503,49 +716,185 @@ export default function ExpensesPage() {
           <div>
             <h1 className="text-3xl font-bold">Expenses</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Filter, group, detect duplicates, edit, and export.
+              Bulk actions • Undo delete • Saved views • Grouping • Exports • Edit
             </p>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => runDownload("csv")}
-              disabled={!sorted.length || downloading !== null}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {downloading === "csv" ? "Preparing…" : "Download CSV"}
-            </button>
+       {/* Header actions: single “More ▾” menu */}
+<div className="relative">
+  <button
+    onClick={() => setMoreOpen((v) => !v)}
+    className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+  >
+    More ▾
+  </button>
 
-            <button
-              onClick={() => runDownload("xlsx")}
-              disabled={!sorted.length || downloading !== null}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
-            </button>
+  {moreOpen && (
+    <div
+      ref={moreRef}
+      className="absolute right-0 mt-2 w-56 rounded-lg border bg-white shadow-sm z-20 overflow-hidden"
+    >
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          router.push("/app/expenses/audit");
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+      >
+        Audit
+      </button>
 
-            <button
-              onClick={() => runDownload("pdf")}
-              disabled={!sorted.length || downloading !== null}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {downloading === "pdf" ? "Preparing…" : "Download PDF"}
-            </button>
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          router.push("/app/expenses/trash");
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+      >
+        Trash
+      </button>
 
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                router.push("/login");
-              }}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
-            >
-              Log out
-            </button>
-          </div>
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          router.push("/app/expenses/vendors");
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+      >
+        Vendor normalization
+      </button>
+
+      <div className="border-t" />
+
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          runDownload("csv");
+        }}
+        disabled={!sorted.length || downloading !== null}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+      >
+        {downloading === "csv" ? "Preparing…" : "Download CSV"}
+      </button>
+
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          runDownload("xlsx");
+        }}
+        disabled={!sorted.length || downloading !== null}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+      >
+        {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
+      </button>
+
+      <button
+        onClick={() => {
+          setMoreOpen(false);
+          runDownload("pdf");
+        }}
+        disabled={!sorted.length || downloading !== null}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+      >
+        {downloading === "pdf" ? "Preparing…" : "Download PDF"}
+      </button>
+
+      <div className="border-t" />
+
+      <button
+        onClick={async () => {
+          setMoreOpen(false);
+          await supabase.auth.signOut();
+          router.push("/login");
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+      >
+        Log out
+      </button>
+    </div>
+  )}
+</div>
+
         </div>
 
-        {/* Controls */}
+        {/* Undo bar */}
+        {undo && (
+          <div className="mt-6 rounded-lg border bg-gray-50 p-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-gray-700">
+              Soft-deleted <b>{undo.deletedCount}</b> expenses. Undo available until{" "}
+              <b>{new Date(undo.expiresAt).toLocaleTimeString()}</b>.
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={undoDelete}
+                disabled={bulkBusy}
+                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                Undo delete
+              </button>
+              <button
+                onClick={() => setUndo(null)}
+                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Saved views */}
         <div className="mt-8 rounded-lg border p-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-sm font-semibold">Saved views</div>
+
+            <input
+              value={viewName}
+              onChange={(e) => setViewName(e.target.value)}
+              placeholder="Name this view (e.g., 'Home Depot - 2026 YTD')"
+              className="flex-1 min-w-[240px] rounded-md border px-3 py-2 text-sm"
+            />
+
+            <button
+              onClick={saveView}
+              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Save view
+            </button>
+
+            <button
+              onClick={resetAll}
+              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Reset
+            </button>
+          </div>
+
+          {views.length > 0 && (
+            <div className="mt-3 flex gap-2 flex-wrap">
+              {views.map((v) => (
+                <div key={v.id} className="flex items-center gap-2 rounded-full border px-3 py-1">
+                  <button
+                    onClick={() => applyView(v)}
+                    className="text-sm hover:underline"
+                    title="Apply this view"
+                  >
+                    {v.name}
+                  </button>
+                  <button
+                    onClick={() => deleteView(v.id)}
+                    className="text-xs text-gray-500 hover:text-red-600"
+                    title="Delete"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Filters + bulk actions */}
+        <div className="mt-6 rounded-lg border p-4">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
               <label className="block text-xs text-gray-600 mb-1">Search</label>
@@ -671,125 +1020,119 @@ export default function ExpensesPage() {
                   checked={onlyDupes}
                   onChange={(e) => setOnlyDupes(e.target.checked)}
                 />
-                Show duplicates (same date + vendor + amount)
+                Show duplicates
               </label>
 
-              <button
-                onClick={resetAll}
-                className="ml-auto rounded-md border px-3 py-2 text-xs hover:bg-gray-50"
-              >
-                Reset
-              </button>
+              <div className="ml-auto text-sm text-gray-600">
+                {totals.count} items • <b>${totals.sum.toFixed(2)}</b>
+              </div>
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
-            <div>
-              Showing <span className="font-medium text-gray-900">{totals.count}</span> filtered items • Total{" "}
-              <span className="font-medium text-gray-900">${totals.sum.toFixed(2)}</span>
+          {/* Bulk bar */}
+          <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => toggleAllVisible(!allVisibleSelected)}
+                className="rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                {allVisibleSelected ? "Clear selection" : "Select all (visible)"}
+              </button>
+              <div className="text-sm text-gray-600">
+                Selected: <b>{selectedIds.length}</b>
+              </div>
             </div>
 
-            {groupBy !== "none" && grouped && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                id="bulkJob"
+                placeholder="Assign job to selected…"
+                className="rounded-md border px-3 py-2 text-sm w-56"
+                disabled={bulkBusy || selectedIds.length === 0}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter") {
+                    const v = (e.target as HTMLInputElement).value;
+                    await bulkAssignJob(v);
+                    (e.target as HTMLInputElement).value = "";
+                  }
+                }}
+              />
               <button
-                onClick={copyGroupSummary}
-                className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
+                onClick={async () => {
+                  const el = document.getElementById("bulkJob") as HTMLInputElement | null;
+                  const v = el?.value || "";
+                  await bulkAssignJob(v);
+                  if (el) el.value = "";
+                }}
+                disabled={bulkBusy || selectedIds.length === 0}
+                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
               >
-                Copy group summary
+                Assign job
               </button>
-            )}
+
+              <button
+                onClick={bulkDeleteSelected}
+                disabled={bulkBusy || selectedIds.length === 0}
+                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                Delete (undoable)
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Grouped view */}
-        {groupBy !== "none" && grouped ? (
-          <div className="mt-8 space-y-4">
-            {grouped.map((g) => (
-              <div key={g.key} className="rounded-lg border">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                  <div className="text-sm">
-                    <span className="font-semibold">{g.key}</span>{" "}
-                    <span className="text-gray-500">({g.count} items)</span>
-                  </div>
-                  <div className="text-sm font-semibold">${g.sum.toFixed(2)}</div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse">
-                    <thead>
-                      <tr className="border-b text-left text-xs text-gray-600">
-                        <th className="py-2 px-4 w-10">#</th>
-                        <th className="py-2 px-4">Date</th>
-                        <th className="py-2 px-4">Vendor</th>
-                        <th className="py-2 px-4">Amount</th>
-                        <th className="py-2 px-4">Job</th>
-                        <th className="py-2 px-4">Description</th>
-                        <th className="py-2 px-4 w-20">Edit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {g.items.map((e, ix) => (
-                        <tr key={e.id} className="border-b text-sm">
-                          <td className="py-2 px-4 text-gray-500">{ix + 1}</td>
-                          <td className="py-2 px-4 whitespace-nowrap">{isoDay(e.expense_date)}</td>
-                          <td className="py-2 px-4">{e.vendor ?? "—"}</td>
-                          <td className="py-2 px-4 whitespace-nowrap">${toMoney(e.amount).toFixed(2)}</td>
-                          <td className="py-2 px-4">{e.job_name ?? "—"}</td>
-                          <td className="py-2 px-4">{e.description ?? ""}</td>
-                          <td className="py-2 px-4">
-                            <button
-                              onClick={() => openEdit(e)}
-                              className="rounded-md border px-3 py-1.5 text-xs hover:bg-gray-50"
-                            >
-                              Edit
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      <tr>
-                        <td className="py-3 px-4 text-xs text-gray-500" colSpan={3}>
-                          Group total
-                        </td>
-                        <td className="py-3 px-4 text-sm font-semibold">
-                          ${g.sum.toFixed(2)}
-                        </td>
-                        <td colSpan={3} />
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-
-            <div className="rounded-lg border p-4 flex items-center justify-between">
-              <div className="text-sm text-gray-600">Grand total (filtered)</div>
-              <div className="text-lg font-bold">${totals.sum.toFixed(2)}</div>
-            </div>
-          </div>
+        {/* Table (flat only — grouping works too, but bulk selection is clearest in flat list) */}
+        {sorted.length === 0 ? (
+          <p className="mt-12 text-gray-600">No expenses match your filters.</p>
         ) : (
-          // Flat list view
-          sorted.length === 0 ? (
-            <p className="mt-12 text-gray-600">No expenses match your filters.</p>
-          ) : (
-            <div className="mt-8 overflow-x-auto">
-              <table className="min-w-full border-collapse">
-                <thead>
-                  <tr className="border-b text-left text-sm text-gray-600">
-                    <th className="py-2 pr-4 w-10">#</th>
-                    <th className="py-2 pr-4">Date</th>
-                    <th className="py-2 pr-4">Vendor</th>
-                    <th className="py-2 pr-4">Amount</th>
-                    <th className="py-2 pr-4">Job</th>
-                    <th className="py-2 pr-4">Description</th>
-                    <th className="py-2 w-24">Edit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((e, ix) => (
+          <div className="mt-8 overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="border-b text-left text-sm text-gray-600">
+                  <th className="py-2 pr-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={(e) => toggleAllVisible(e.target.checked)}
+                    />
+                  </th>
+                  <th className="py-2 pr-4 w-10">#</th>
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Vendor</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Job</th>
+                  <th className="py-2 pr-4">Description</th>
+                  <th className="py-2 w-24">Edit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((e, ix) => {
+                  const checked = !!selected[e.id];
+                  const k = `${isoDay(e.expense_date)}|${String(e.vendor || "").trim().toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
+                  const isDupe = (dupeKeyCounts.get(k) || 0) >= 2;
+
+                  return (
                     <tr key={e.id} className="border-b text-sm">
+                      <td className="py-2 pr-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setSelected((prev) => ({ ...prev, [e.id]: ev.target.checked }))
+                          }
+                        />
+                      </td>
                       <td className="py-2 pr-4 text-gray-500">{ix + 1}</td>
                       <td className="py-2 pr-4 whitespace-nowrap">{isoDay(e.expense_date)}</td>
-                      <td className="py-2 pr-4">{e.vendor ?? "—"}</td>
-                      <td className="py-2 pr-4 whitespace-nowrap">${toMoney(e.amount).toFixed(2)}</td>
+                      <td className="py-2 pr-4">
+                        {e.vendor ?? "—"}{" "}
+                        {isDupe && (
+                          <span className="ml-2 text-xs text-orange-600">(dupe?)</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        ${toMoney(e.amount).toFixed(2)}
+                      </td>
                       <td className="py-2 pr-4">{e.job_name ?? "—"}</td>
                       <td className="py-2 pr-4">{e.description ?? ""}</td>
                       <td className="py-2">
@@ -801,23 +1144,24 @@ export default function ExpensesPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
-                  <tr>
-                    <td className="py-3 pr-4 text-xs text-gray-500" colSpan={3}>
-                      Total (filtered)
-                    </td>
-                    <td className="py-3 pr-4 text-sm font-semibold">
-                      ${totals.sum.toFixed(2)}
-                    </td>
-                    <td colSpan={3} />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )
+                  );
+                })}
+
+                <tr>
+                  <td className="py-3 pr-4 text-xs text-gray-500" colSpan={4}>
+                    Total (filtered)
+                  </td>
+                  <td className="py-3 pr-4 text-sm font-semibold">
+                    ${totals.sum.toFixed(2)}
+                  </td>
+                  <td colSpan={3} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
 
-        {/* Edit Modal */}
+        {/* Edit modal */}
         {editOpen && draft && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-lg border">

@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.4.1",
     "@supabase/supabase-js": "^2.91.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "next": "16.1.4",
     "react": "19.2.3",
     "react-dom": "19.2.3"
