@@ -37,7 +37,7 @@ export default function LoginPage() {
       });
       if (setErr2) throw setErr2;
 
-      router.push("/app/expenses");
+      router.push("/app");
     } catch (e: any) {
       setErr(e?.message ?? "Login failed.");
       setTurnstileToken(null); // force re-check on failure
