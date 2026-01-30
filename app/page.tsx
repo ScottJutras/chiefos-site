@@ -3,9 +3,7 @@ export default function Home() {
     <main className="min-h-screen bg-white text-gray-900">
       <div className="max-w-4xl mx-auto px-6 py-24">
         {/* Hero */}
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-          ChiefOS
-        </h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">ChiefOS</h1>
 
         <p className="mt-6 text-xl text-gray-700">
           Talk to your business.
@@ -15,20 +13,16 @@ export default function Home() {
 
         {/* Value */}
         <div className="mt-12 space-y-6 text-lg text-gray-700">
+          <p>ChiefOS is an AI-native operating system for contractors and service businesses.</p>
+
           <p>
-            ChiefOS is an AI-native operating system for contractors and service
-            businesses.
+            It captures real business activity — receipts, expenses, time, revenue, and job data —
+            and turns it into a living, auditable model of the business.
           </p>
 
           <p>
-            It captures real business activity — receipts, expenses, time,
-            revenue, and job data — and turns it into a living, auditable model
-            of the business.
-          </p>
-
-          <p>
-            So owners can ask real questions and get explainable answers grounded
-            only in their data.
+            So owners can ask real questions and get explainable answers grounded only in their
+            data.
           </p>
         </div>
 
@@ -41,12 +35,19 @@ export default function Home() {
         </ul>
 
         {/* CTA */}
-        <div className="mt-16">
+        <div className="mt-16 flex flex-col sm:flex-row gap-3">
           <a
-            href="mailto:hello@usechiefos.com"
-            className="inline-block rounded-md bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition"
+            href="/early-access"
+            className="inline-block rounded-md bg-black px-6 py-3 text-white font-medium hover:bg-gray-800 transition text-center"
           >
             Request early access
+          </a>
+
+          <a
+            href="/login"
+            className="inline-block rounded-md border px-6 py-3 text-gray-900 font-medium hover:bg-gray-50 transition text-center"
+          >
+            Log in
           </a>
         </div>
 
