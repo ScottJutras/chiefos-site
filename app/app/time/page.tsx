@@ -90,6 +90,10 @@ export default function TimePage() {
     dtLocal: string; // datetime-local value
   } | null>(null);
 
+ useEffect(() => {
+    document.title = "Time Clock · ChiefOS";
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 

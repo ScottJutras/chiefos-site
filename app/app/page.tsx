@@ -4,12 +4,17 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTenantGate } from "@/lib/useTenantGate";
 
+
 export default function AppIndexPage() {
   const router = useRouter();
 
   // Choose whether /app requires WhatsApp.
   // If you want to allow portal-only usage, set false.
   const { loading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
+  
+  useEffect(() => {
+    document.title = "Home- Request Early Access · ChiefOS";
+  }, []);
 
   useEffect(() => {
     if (loading) return;

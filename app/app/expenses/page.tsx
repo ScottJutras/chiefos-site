@@ -10,6 +10,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 
+
+
 type Expense = {
   id: string;
   amount: number;
@@ -106,6 +108,10 @@ export default function ExpensesPage() {
   const [onlyDupes, setOnlyDupes] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 const moreRef = useRef<HTMLDivElement | null>(null);
+
+ useEffect(() => {
+    document.title = "Expenses · ChiefOS";
+  }, []);
 
 useEffect(() => {
   function onDown(e: MouseEvent) {

@@ -1,6 +1,9 @@
 "use client";
 
 import { useTenantGate } from "@/lib/useTenantGate";
+export const metadata = {
+  title: "Tasks",
+};
 
 export default function TasksPage() {
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });

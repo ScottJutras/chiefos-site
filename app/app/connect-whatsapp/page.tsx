@@ -46,6 +46,10 @@ export default function ConnectWhatsAppPage() {
   const [error, setError] = useState<string | null>(null);
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
   const [copied, setCopied] = useState(false);
+ 
+  useEffect(() => {
+    document.title = "Connect WhatsApp · ChiefOS";
+  }, []);
 
   if (gateLoading) {
     return <div className="p-8 text-gray-600">Loading…</div>;

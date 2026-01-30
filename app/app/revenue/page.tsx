@@ -1,9 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { useTenantGate } from "@/lib/useTenantGate";
 
 export default function RevenuePage() {
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  // Portal should work without WhatsApp
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
+
+  useEffect(() => {
+    document.title = "Revenue · ChiefOS";
+  }, []);
 
   if (gateLoading) return <div className="p-8 text-gray-600">Loading revenue…</div>;
 

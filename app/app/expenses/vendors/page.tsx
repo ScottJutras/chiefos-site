@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useTenantGate } from "@/lib/useTenantGate";
 
+
 type VendorRow = {
   vendor: string;
   count: number;
@@ -37,6 +38,10 @@ export default function VendorsPage() {
         router.push("/login");
         return;
       }
+
+       useEffect(() => {
+    document.title = "Vendors · ChiefOS";
+  }, []);
 
       const { data: pu } = await supabase
         .from("chiefos_portal_users")
