@@ -5,10 +5,10 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useTenantGate } from "@/lib/useTenantGate";
 
-export const metadata = {
-  title: "Audit",
-};
-
+    useEffect(() => {
+    document.title = "Audit · ChiefOS";
+  }, []);
+  
 type AuditRow = {
   id: string;
   expense_id: string;
@@ -68,9 +68,7 @@ export default function ExpensesAuditPage() {
   // ✅ NEW: keep current viewer id so we can label “You”
   const [viewerUserId, setViewerUserId] = useState<string>("");
 
-     useEffect(() => {
-    document.title = "Audit · ChiefOS";
-  }, []);
+ 
 
   useEffect(() => {
     let cancelled = false;
