@@ -7,6 +7,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import { useToast } from "@/app/components/Toast";
 
 
+
 type Expense = {
   id: string;
   amount: number;
@@ -37,9 +38,7 @@ export default function TrashPage() {
   // ✅ NEW: selection state
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
- useEffect(() => {
-    document.title = "Trash · ChiefOS";
-  }, []);
+ 
 
   useEffect(() => {
     let cancelled = false;

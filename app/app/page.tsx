@@ -12,9 +12,6 @@ export default function AppIndexPage() {
   // If you want to allow portal-only usage, set false.
   const { loading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
   
-  useEffect(() => {
-    document.title = "Home- Request Early Access · ChiefOS";
-  }, []);
 
   useEffect(() => {
     if (loading) return;

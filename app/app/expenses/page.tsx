@@ -9,10 +9,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
- useEffect(() => {
-    document.title = "Expenses · ChiefOS";
-  }, []);
-
+ 
 
 type Expense = {
   id: string;

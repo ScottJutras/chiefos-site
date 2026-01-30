@@ -5,10 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useTenantGate } from "@/lib/useTenantGate";
 
-    useEffect(() => {
-    document.title = "Audit · ChiefOS";
-  }, []);
-  
+   
+
 type AuditRow = {
   id: string;
   expense_id: string;
