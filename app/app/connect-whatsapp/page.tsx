@@ -1,5 +1,5 @@
 "use client";
-
+import { useTenantGate } from "@/lib/useTenantGate";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -35,13 +35,22 @@ function digitsOnly(code: string | null | undefined) {
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
+  // 1) Gate (auth + tenant)
+  const { loading: gateLoading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
+
+  // 2) Page state (only for link-code operations)
+  const [pageLoading, setPageLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
   const [copied, setCopied] = useState(false);
+
+  if (gateLoading) {
+    return <div className="p-8 text-gray-600">Loading…</div>;
+  }
+
 
   // ✅ Your RPC name (confirmed)
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
@@ -94,21 +103,15 @@ export default function ConnectWhatsAppPage() {
     setCopied(false);
 
     try {
-      const user = await requireAuth();
-      if (!user) return;
+     if (!userId || !tenantId) return; // gate should guarantee these, but stay safe
 
-      const pu = await getPortalUserRow(user.id);
-      if (!pu?.tenant_id) {
-        router.push("/finish-signup");
-        return;
-      }
 
       // 1) Create code via RPC (SECURITY DEFINER)
       const { error: rpcErr } = await supabase.rpc(LINK_CODE_RPC_NAME, LINK_CODE_RPC_ARGS);
       if (rpcErr) throw rpcErr;
 
       // 2) Fetch latest code for THIS user_id (portal_user_id == auth user id)
-      const latest = await fetchLatestUnexpiredUnusedCode(user.id);
+      const latest = await fetchLatestUnexpiredUnusedCode(userId);
       setCodeRow(latest);
 
       if (!latest) {
@@ -124,21 +127,15 @@ export default function ConnectWhatsAppPage() {
   }
 
   async function load() {
-    setLoading(true);
+    setPageLoading(true);
     setError(null);
     setCopied(false);
 
-    try {
-      const user = await requireAuth();
-      if (!user) return;
+try {
+  if (!userId || !tenantId) return;
 
-      const pu = await getPortalUserRow(user.id);
-      if (!pu?.tenant_id) {
-        router.push("/finish-signup");
-        return;
-      }
+  const latest = await fetchLatestUnexpiredUnusedCode(userId);
 
-      const latest = await fetchLatestUnexpiredUnusedCode(user.id);
       setCodeRow(latest);
 
       if (!latest) {
@@ -147,7 +144,7 @@ export default function ConnectWhatsAppPage() {
     } catch (e: any) {
       setError(e?.message ?? "Unknown error loading connect page.");
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   }
 
@@ -156,19 +153,12 @@ export default function ConnectWhatsAppPage() {
     setChecking(true);
 
     try {
-      const user = await requireAuth();
-      if (!user) return;
-
-      const pu = await getPortalUserRow(user.id);
-      if (!pu?.tenant_id) {
-        router.push("/finish-signup");
-        return;
-      }
+      if (!userId || !tenantId) return;
 
       const { data, error } = await supabase
         .from("chiefos_identity_map")
         .select("id")
-        .eq("tenant_id", pu.tenant_id)
+        .eq("tenant_id", tenantId)
         .eq("kind", "whatsapp")
         .limit(1);
 
@@ -212,9 +202,10 @@ export default function ConnectWhatsAppPage() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  if (loading) {
-    return <div className="p-8 text-gray-600">Loading…</div>;
-  }
+  if (pageLoading) {
+  return <div className="p-8 text-gray-600">Loading…</div>;
+}
+
 
   return (
     <main className="min-h-screen bg-white text-gray-900">

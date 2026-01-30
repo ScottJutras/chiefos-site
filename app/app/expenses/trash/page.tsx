@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useTenantGate } from "@/lib/useTenantGate";
+import { useToast } from "@/app/components/Toast";
 
 type Expense = {
   id: string;
@@ -21,6 +23,9 @@ function isoDay(s?: string | null) {
 
 export default function TrashPage() {
   const router = useRouter();
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  const toast = useToast();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const [rows, setRows] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,38 +40,22 @@ export default function TrashPage() {
     let cancelled = false;
 
     async function load() {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user) {
-        router.push("/login");
-        return;
-      }
-
-      const { data: pu } = await supabase
-        .from("chiefos_portal_users")
-        .select("tenant_id")
-        .eq("user_id", auth.user.id)
-        .maybeSingle();
-
-      if (!pu?.tenant_id) {
-        router.push("/finish-signup");
-        return;
-      }
-
       const { data, error } = await supabase
-        .from("chiefos_expenses")
-        .select("*")
-        .not("deleted_at", "is", null)
-        .order("deleted_at", { ascending: false });
+  .from("chiefos_expenses")
+  .select("*")
+  .not("deleted_at", "is", null)
+  .order("deleted_at", { ascending: false });
 
-      if (!cancelled) {
-        if (error) {
-          console.warn(error.message);
-          setRows([]);
-        } else {
-          setRows((data ?? []) as Expense[]);
-        }
-        setLoading(false);
-      }
+if (!cancelled) {
+  if (error) {
+    console.warn(error.message);
+    setRows([]);
+  } else {
+    setRows((data ?? []) as Expense[]);
+  }
+  setLoading(false);
+}
+
     }
 
     load();
@@ -109,54 +98,60 @@ export default function TrashPage() {
   }
 
   async function restoreOne(id: string) {
-    try {
-      setBusyId(id);
-      const { data, error } = await supabase.rpc("chiefos_restore_expense", {
-        p_expense_id: id,
-      });
-      if (error) throw error;
-      if (data !== true) throw new Error("Restore failed.");
+  try {
+    setBusyId(id);
+    const { data, error } = await supabase.rpc("chiefos_restore_expense", {
+      p_expense_id: id,
+    });
+    if (error) throw error;
+    if (data !== true) throw new Error("Restore failed.");
 
-      setRows((prev) => prev.filter((x) => x.id !== id));
-      setSelected((prev) => {
-        const n = { ...prev };
-        delete n[id];
-        return n;
-      });
-    } catch (e: any) {
-      alert(e?.message ?? "Restore failed.");
-    } finally {
-      setBusyId(null);
-    }
+    setRows((prev) => prev.filter((x) => x.id !== id));
+    setSelected((prev) => {
+      const n = { ...prev };
+      delete n[id];
+      return n;
+    });
+
+    toast.push({ kind: "success", message: "Expense restored." });
+  } catch (e: any) {
+    toast.push({ kind: "error", message: e?.message ?? "Restore failed." });
+  } finally {
+    setBusyId(null);
   }
+}
 
-  async function restoreSelected() {
-    if (selectedIds.length === 0) return;
-    if (!confirm(`Restore ${selectedIds.length} expenses?`)) return;
 
-    try {
-      setBulkBusy(true);
-      const { data, error } = await supabase.rpc("chiefos_restore_expenses_bulk", {
-        p_expense_ids: selectedIds,
-      });
-      if (error) throw error;
+  function onRestoreSelectedClick() {
+  if (selectedIds.length === 0) return;
+  setConfirmOpen(true);
+}
 
-      // Remove restored from list
-      setRows((prev) => prev.filter((x) => !selectedIds.includes(x.id)));
-      setSelected({});
-      // Optional: you can show data if it returns a count
-      if (typeof data === "number") {
-        // eslint-disable-next-line no-alert
-        alert(`Restored ${data} expenses.`);
-      }
-    } catch (e: any) {
-      alert(e?.message ?? "Bulk restore failed.");
-    } finally {
-      setBulkBusy(false);
-    }
+async function doRestoreSelected() {
+  if (selectedIds.length === 0) return;
+
+  try {
+    setBulkBusy(true);
+
+    const { data, error } = await supabase.rpc("chiefos_restore_expenses_bulk", {
+      p_expense_ids: selectedIds,
+    });
+    if (error) throw error;
+
+    setRows((prev) => prev.filter((x) => !selectedIds.includes(x.id)));
+    setSelected({});
+
+    const restoredCount = typeof data === "number" ? data : selectedIds.length;
+    toast.push({ kind: "success", message: `Restored ${restoredCount} expenses.` });
+  } catch (e: any) {
+    toast.push({ kind: "error", message: e?.message ?? "Bulk restore failed." });
+  } finally {
+    setBulkBusy(false);
   }
+}
 
-  if (loading) return <div className="p-8 text-gray-600">Loading trash…</div>;
+
+    if (gateLoading || loading) return <div className="p-8 text-gray-600">Loading trash…</div>;
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -213,7 +208,7 @@ export default function TrashPage() {
               </button>
 
               <button
-                onClick={restoreSelected}
+                onClick={onRestoreSelectedClick}
                 className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
                 disabled={selectedIds.length === 0 || bulkBusy}
               >
@@ -279,7 +274,38 @@ export default function TrashPage() {
             </table>
           </div>
         )}
+
+        {confirmOpen && (
+          <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-lg bg-white border p-4">
+              <div className="text-sm font-semibold">Confirm</div>
+              <div className="mt-2 text-sm text-gray-700">
+                Restore {selectedIds.length} expenses?
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  className="rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
+                  onClick={() => setConfirmOpen(false)}
+                  disabled={bulkBusy}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="rounded-md bg-black text-white px-3 py-2 text-sm hover:bg-gray-800 disabled:opacity-50"
+                  onClick={async () => {
+                    setConfirmOpen(false);
+                    await doRestoreSelected();
+                  }}
+                  disabled={bulkBusy}
+                >
+                  Restore
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
+

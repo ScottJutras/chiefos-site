@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useTenantGate } from "@/lib/useTenantGate";
 
 type AuditRow = {
   id: string;
@@ -49,6 +50,7 @@ function diffKeys(before: any, after: any) {
 
 export default function ExpensesAuditPage() {
   const router = useRouter();
+  const { loading: gateLoading, userId } = useTenantGate({ requireWhatsApp: true });
 
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,47 +68,30 @@ export default function ExpensesAuditPage() {
     let cancelled = false;
 
     async function gateAndLoad() {
-      try {
-        const { data: auth, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
+  try {
+    // Gate already handled by useTenantGate
+    if (!userId) return;
 
-        if (!auth.user) {
-          router.push("/login");
-          return;
-        }
+    if (!cancelled) setViewerUserId(userId);
 
-        if (!cancelled) setViewerUserId(auth.user.id);
+    const { data, error } = await supabase.rpc("chiefos_list_expense_audit", {
+      p_limit: 500,
+      p_offset: 0,
+      p_action: action === "all" ? null : action,
+      p_expense_id: null,
+      p_from: fromTs ? new Date(fromTs).toISOString() : null,
+      p_to: toTs ? new Date(toTs).toISOString() : null,
+    });
 
-        const { data: pu, error: puErr } = await supabase
-          .from("chiefos_portal_users")
-          .select("tenant_id")
-          .eq("user_id", auth.user.id)
-          .maybeSingle();
+    if (error) throw error;
+    if (!cancelled) setRows((data ?? []) as AuditRow[]);
+  } catch (e: any) {
+    if (!cancelled) setError(e?.message ?? "Failed to load audit.");
+  } finally {
+    if (!cancelled) setLoading(false);
+  }
+}
 
-        if (puErr) throw puErr;
-        if (!pu?.tenant_id) {
-          router.push("/finish-signup");
-          return;
-        }
-
-        // Load audit rows via RPC (tenant-scoped in DB)
-        const { data, error } = await supabase.rpc("chiefos_list_expense_audit", {
-          p_limit: 500,
-          p_offset: 0,
-          p_action: action === "all" ? null : action,
-          p_expense_id: null,
-          p_from: fromTs ? new Date(fromTs).toISOString() : null,
-          p_to: toTs ? new Date(toTs).toISOString() : null,
-        });
-
-        if (error) throw error;
-        if (!cancelled) setRows((data ?? []) as AuditRow[]);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "Failed to load audit.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
 
     setLoading(true);
     gateAndLoad();
@@ -134,8 +119,9 @@ export default function ExpensesAuditPage() {
     });
   }, [rows, q]);
 
-  if (loading) return <div className="p-8 text-gray-600">Loading audit…</div>;
-  if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
+  if (gateLoading || loading) return <div className="p-8 text-gray-600">Loading audit…</div>;
+if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
+
 
   return (
     <main className="min-h-screen bg-white text-gray-900">

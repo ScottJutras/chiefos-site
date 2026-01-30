@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useTenantGate } from "@/lib/useTenantGate";
 
 type VendorRow = {
   vendor: string;
@@ -17,6 +18,7 @@ function money(n: any) {
 
 export default function VendorsPage() {
   const router = useRouter();
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
 
   const [rows, setRows] = useState<VendorRow[]>([]);
   const [loading, setLoading] = useState(true);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useTenantGate } from "@/lib/useTenantGate";
 
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -85,6 +86,7 @@ function amountBucket(amount: number) {
 
 export default function ExpensesPage() {
   const router = useRouter();
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,7 @@ useEffect(() => {
       setMoreOpen(false);
     }
   }
+
   if (moreOpen) document.addEventListener("mousedown", onDown);
   return () => document.removeEventListener("mousedown", onDown);
 }, [moreOpen]);
@@ -145,71 +148,33 @@ useEffect(() => {
   const [viewName, setViewName] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
+  let cancelled = false;
 
-    async function load() {
-      try {
-        const { data: auth, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
+  async function load() {
+    try {
+      // Gate already handled by useTenantGate
+      const { data, error } = await supabase
+        .from("chiefos_expenses")
+        .select("*")
+        .is("deleted_at", null)
+        .order("expense_date", { ascending: false });
 
-        if (!auth.user) {
-          router.push("/login");
-          return;
-        }
+      if (error) throw error;
+      if (!cancelled) setExpenses((data ?? []) as Expense[]);
 
-        const { data: pu, error: puErr } = await supabase
-          .from("chiefos_portal_users")
-          .select("tenant_id")
-          .eq("user_id", auth.user.id)
-          .maybeSingle();
-
-        if (puErr) throw puErr;
-
-        if (!pu?.tenant_id) {
-          router.push("/finish-signup");
-          return;
-        }
-
-        const { data: mapRows, error: mapErr } = await supabase
-          .from("chiefos_identity_map")
-          .select("id")
-          .eq("tenant_id", pu.tenant_id)
-          .eq("kind", "whatsapp")
-          .limit(1);
-
-        if (mapErr) throw mapErr;
-
-        if (!mapRows || mapRows.length === 0) {
-          router.push("/app/connect-whatsapp");
-          return;
-        }
-
-        // ✅ Exclude soft-deleted rows
-        const { data, error } = await supabase
-          .from("chiefos_expenses")
-          .select("*")
-          .is("deleted_at", null)
-          .order("expense_date", { ascending: false });
-
-        if (error) throw error;
-
-        if (!cancelled) setExpenses((data ?? []) as Expense[]);
-
-        // Load saved views
-        const { data: vData, error: vErr } = await supabase.rpc("chiefos_list_saved_views");
-        if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const { data: vData, error: vErr } = await supabase.rpc("chiefos_list_saved_views");
+      if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
+    } catch (e: any) {
+      if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
+    } finally {
+      if (!cancelled) setLoading(false);
     }
+  }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  load();
+  return () => { cancelled = true; };
+}, []);
+
 
   const jobs = useMemo(() => {
     const set = new Set<string>();
@@ -707,8 +672,15 @@ useEffect(() => {
   if (loading) return <div className="p-8 text-gray-600">Loading expenses…</div>;
   if (error) return <div className="p-8 text-red-600">Error: {error}</div>;
 
-  const allVisibleSelected = sorted.length > 0 && selectedIds.length === sorted.length;
+  
+if (gateLoading || loading) {
+  return <div className="p-8 text-gray-600">Loading expenses…</div>;
+}
 
+if (error) {
+  return <div className="p-8 text-red-600">Error: {error}</div>;
+}
+const allVisibleSelected = sorted.length > 0 && selectedIds.length === sorted.length;
   return (
     <main className="min-h-screen bg-white text-gray-900">
       <div className="max-w-6xl mx-auto px-6 py-16">
