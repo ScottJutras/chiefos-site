@@ -27,7 +27,7 @@ async function tenantToOwnerId(tenantId: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const r = await fetch(
-    `${url}/rest/v1/chiefos_tenants?select=owner_id&tenant_id=eq.${tenantId}&limit=1`,
+    `${url}/rest/v1/chiefos_tenants?select=owner_id&id=eq.${tenantId}&limit=1`,
     { headers: { apikey: service, Authorization: `Bearer ${service}` } }
   );
   if (!r.ok) return null;

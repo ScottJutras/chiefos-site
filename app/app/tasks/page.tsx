@@ -14,6 +14,7 @@ export default function TasksPage() {
     document.title = "Tasks · ChiefOS";
   }, []);
 
+  
   useEffect(() => {
     (async () => {
       if (gateLoading) return;
