@@ -9,7 +9,9 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-
+ useEffect(() => {
+    document.title = "Expenses · ChiefOS";
+  }, []);
 
 
 type Expense = {
@@ -109,9 +111,7 @@ export default function ExpensesPage() {
   const [moreOpen, setMoreOpen] = useState(false);
 const moreRef = useRef<HTMLDivElement | null>(null);
 
- useEffect(() => {
-    document.title = "Expenses · ChiefOS";
-  }, []);
+
 
 useEffect(() => {
   function onDown(e: MouseEvent) {
