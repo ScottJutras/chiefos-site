@@ -232,7 +232,7 @@ export default function HomePage() {
             <h2 className="text-xl font-semibold text-white">See what your business actually knows.</h2>
             <a
               href={CTA_HREF}
-              className="block w-full rounded-xl bg-white text-black py-3 text-sm font-medium text-center"
+              className="inline-flex items-center justify-center w-full rounded-xl bg-white text-black py-3 text-sm font-medium text-center shadow-md active:scale-[0.98] transition"
             >
               Request early access
             </a>
@@ -254,11 +254,11 @@ export default function HomePage() {
           <div className="rounded-2xl bg-white/90 backdrop-blur border border-black/10 shadow-lg">
             <div className="p-3">
               <a
-                href={CTA_HREF}
-                className="block w-full rounded-xl bg-black text-white py-3 text-sm font-medium text-center"
-              >
-                Request early access
-              </a>
+              href={CTA_HREF}
+              className="inline-flex items-center justify-center w-full rounded-xl bg-white text-black py-3 text-sm font-medium text-center shadow-md active:scale-[0.98] transition"
+            >
+              Request early access
+            </a>
               <p className="mt-2 text-xs text-black/50 text-center">{SCARCITY_LINE}</p>
             </div>
           </div>
