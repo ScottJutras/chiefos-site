@@ -2,6 +2,7 @@
 // Video-first homepage (placeholders)
 // Adds:
 //  - smooth background transitions
+//  - fixed header (ChiefOS / Early Access Login)
 //  - mobile sticky bottom CTA bar
 //  - sticky CTA hides when bottom CTA section is visible
 //  - pulse CTA button once on first visibility
@@ -31,6 +32,7 @@ const bgToColor: Record<Bg, string> = {
 const isDarkBg = (bg: Bg) => bg === "green";
 
 const CTA_HREF = "/early-access";
+const LOGIN_HREF = "/login";
 const SCARCITY_LINE = "Limited early access — spots open in batches.";
 
 function Section({ id, title, body, imageSrc, bg }: SectionProps) {
@@ -78,9 +80,10 @@ export default function HomePage() {
 
   const rafRef = useRef<number | null>(null);
 
+  // Map your sections for background switching
   const sections = useMemo(
     () => [
-      { id: "hero", bg: "white" as const },
+      { id: "hero", bg: "green" as const }, // ✅ HERO is green now
       { id: "s1", bg: "white" as const },
       { id: "s2", bg: "green" as const },
       { id: "s3", bg: "green" as const },
@@ -132,7 +135,6 @@ export default function HomePage() {
     let pulseObs: IntersectionObserver | null = null;
 
     if (ctaEl) {
-      // Hide sticky CTA when CTA section is visible
       ctaObs = new IntersectionObserver(
         (entries) => {
           const ent = entries[0];
@@ -143,7 +145,6 @@ export default function HomePage() {
       );
       ctaObs.observe(ctaEl);
 
-      // Pulse CTA button ONCE when CTA section first becomes visible
       pulseObs = new IntersectionObserver(
         (entries) => {
           const ent = entries[0];
@@ -169,70 +170,95 @@ export default function HomePage() {
     };
   }, [sections]);
 
+  const headerDark = isDarkBg(activeBg);
+
   return (
     <main className="relative w-full">
+      {/* Smooth, full-page background layer */}
       <div
         aria-hidden
         className="fixed inset-0 -z-10 transition-[background-color] duration-700 ease-out"
         style={{ backgroundColor: bgToColor[activeBg] }}
       />
 
-      <div className="w-full">
-        {/* HERO */}
-        <section id="hero" data-bg="white" className="w-full flex justify-center">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 right-0 z-50">
+        <div className="mx-auto max-w-5xl px-4">
+          <div className="mt-3 rounded-2xl border border-black/10 bg-white/60 backdrop-blur">
+            <div className="flex items-center justify-between px-4 py-3">
+              <a
+                href="/"
+                className={`text-sm font-semibold tracking-tight ${
+                  headerDark ? "text-black" : "text-black"
+                }`}
+              >
+                ChiefOS
+              </a>
+
+              <a
+                href={LOGIN_HREF}
+                className="text-sm font-medium underline underline-offset-4 decoration-black/30 hover:decoration-black/60"
+              >
+                Early Access Login
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="w-full pt-20">
+        {/* HERO (Green from top through chat) */}
+        <section id="hero" data-bg="green" className="w-full flex justify-center">
           <div className="max-w-lg w-full px-4 py-20 space-y-5">
-            <h1 className="text-3xl font-semibold leading-tight text-black space-y-1">
+            <h1 className="text-3xl font-semibold leading-tight text-white space-y-1">
               <span className="block">Know your numbers.</span>
               <span className="block">Win more jobs.</span>
               <span className="block">Keep more profit.</span>
-              <span className="block text-black/80 mt-2 whitespace-nowrap">
+              <span className="block text-white/90 mt-2 whitespace-nowrap">
                 Without living in spreadsheets.
               </span>
             </h1>
 
-            <p className="text-base text-black/70 text-balance">
-              <span className="font-medium text-black">
+            <p className="text-base text-white/85 text-balance">
+              <span className="font-semibold text-white">
                 ChiefOS is the operating system for contractor businesses.
               </span>
             </p>
 
-            <ul className="mt-1 space-y-2 text-base text-black/80 text-balance">
+            {/* Bullets (move WhatsApp messaging here) */}
+            <ul className="mt-1 space-y-2 text-base text-white/90 text-balance">
               <li>• Snap receipts</li>
               <li>• Log crew hours</li>
               <li>• Track jobs</li>
-              <li>• Ask Chief for real answers — based on what you logged</li>
+              <li>• Ask Chief for real answers</li>
+              <li>• Chief lives in WhatsApp — add Chief as a contact to start</li>
             </ul>
 
-            <div className="mt-5 rounded-xl border border-black/10 bg-white/70 p-4">
-              <p className="text-sm text-black/80 leading-relaxed text-balance">
-                <span className="font-medium text-black">You:</span> “Did we make money on Job 15 Main St?”
+            {/* Centered chat box */}
+            <div className="mt-5 rounded-xl border border-white/15 bg-white/10 p-4 max-w-md mx-auto">
+              <p className="text-sm text-white/90 leading-relaxed text-balance text-center">
+                <span className="font-semibold text-white">You:</span> “Did we make money on Job 15 Main St?”
                 <br />
                 <br />
-                <span className="font-medium text-black">Chief:</span> On Job 15 Main St, your profit margin
-                came in at <span className="font-medium">15%</span>. You quoted materials at{" "}
-                <span className="font-medium">$15,542</span>, but actual spend was{" "}
-                <span className="font-medium">$19,456.89</span>.
+                <span className="font-semibold text-white">Chief:</span> On Job 15 Main St, your profit margin
+                came in at <span className="font-semibold">15%</span>. You quoted materials at{" "}
+                <span className="font-semibold">$15,542</span>, but actual spend was{" "}
+                <span className="font-semibold">$19,456.89</span>.
                 <br />
                 <br />
-                You planned for <span className="font-medium">212 labour hours</span>, but logged{" "}
-                <span className="font-medium">262.9 hours</span> — about{" "}
-                <span className="font-medium">24% higher</span> than expected.
+                You planned for <span className="font-semibold">212 labour hours</span>, but logged{" "}
+                <span className="font-semibold">262.9 hours</span> — about{" "}
+                <span className="font-semibold">24% higher</span> than expected.
                 <br />
                 <br />
                 You did make money — but on the next renovation job, adjusting labour + material pricing
-                could increase profit by ~<span className="font-medium">10%</span>, helping you move toward a
-                year-end goal of <span className="font-medium">30%</span> margin.
+                could increase profit by ~<span className="font-semibold">10%</span>, helping you move toward a
+                year-end goal of <span className="font-semibold">30%</span> margin.
               </p>
             </div>
 
-            <div className="rounded-xl border border-black/10 bg-white/70 p-4">
-              <p className="text-sm text-black/80 text-balance">
-                <span className="font-medium">Works where you already communicate:</span> add Chief on WhatsApp
-                and log in seconds.
-              </p>
-            </div>
-
-            <p className="text-sm text-black/60">{SCARCITY_LINE}</p>
+            {/* ✅ Deleted the first “Limited early access…” under hero (per your request) */}
           </div>
         </section>
 
@@ -242,7 +268,10 @@ export default function HomePage() {
           bg="white"
           title="Log your business in real life. Not after hours."
           body={
-            <>Receipts, payments, crew hours, quick notes — send it to Chief in WhatsApp while you’re on site. No app-hopping. No “I’ll do it later.”</>
+            <>
+              Receipts, payments, crew hours, quick notes — send it to Chief in WhatsApp while you’re on site.
+              No app-hopping. No “I’ll do it later.”
+            </>
           }
           imageSrc="/placeholders/receipt-capture.png"
         />
@@ -279,7 +308,8 @@ export default function HomePage() {
               Clock-ins, breaks, lunch, drive time — live or as a once-a-day/week dump.
               <br />
               <br />
-              Chief helps you spot labour leakage like: “This job is running 18% over labour vs your average — here’s where the extra time is coming from.”
+              Chief helps you spot labour leakage like: “This job is running 18% over labour vs your average —
+              here’s where the extra time is coming from.”
             </>
           }
           imageSrc="/placeholders/job-time.png"
@@ -292,7 +322,8 @@ export default function HomePage() {
           title="Every log ties to a job — so you know EXACTLY where you’re profitable (and where you aren’t)."
           body={
             <>
-              Track each job’s real costs: receipts + labour + revenue. Compare jobs, see what’s slipping, and price the next quote with confidence.
+              Track each job’s real costs: receipts + labour + revenue. Compare jobs, see what’s slipping, and
+              price the next quote with confidence.
               <span className="block mt-2 font-medium text-black">No guessing.</span>
             </>
           }

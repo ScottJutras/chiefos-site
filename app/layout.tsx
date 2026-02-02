@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/app/components/Toast";
+import EarlyAccessTopBar from "@/app/components/EarlyAccessTopBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +39,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ToastProvider>{children}</ToastProvider>
-      </body>
+  <EarlyAccessTopBar />
+  <ToastProvider>{children}</ToastProvider>
+</body>
     </html>
   );
 }

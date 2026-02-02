@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
+import SiteHeader from "@/app/components/SiteHeader";
 
 export default function EarlyAccessPage() {
   const [name, setName] = useState("");
@@ -45,7 +46,9 @@ export default function EarlyAccessPage() {
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-md mx-auto px-6 py-20">
+      <SiteHeader rightLabel="Early Access Login" rightHref="/login" />
+
+      <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <h1 className="text-3xl font-bold">Request early access</h1>
         <p className="mt-2 text-gray-600">
           Leave your details and I’ll reach out when your spot is ready.

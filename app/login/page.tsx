@@ -4,6 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
+import SiteHeader from "@/app/components/SiteHeader";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +31,6 @@ export default function LoginPage() {
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Login failed.");
 
-      // Set Supabase session client-side
       const { error: setErr2 } = await supabase.auth.setSession({
         access_token: j.session.access_token,
         refresh_token: j.session.refresh_token,
@@ -40,7 +40,7 @@ export default function LoginPage() {
       router.push("/app");
     } catch (e: any) {
       setErr(e?.message ?? "Login failed.");
-      setTurnstileToken(null); // force re-check on failure
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,9 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-md mx-auto px-6 py-20">
+      <SiteHeader rightLabel="Create account" rightHref="/signup" />
+
+      <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <h1 className="text-3xl font-bold">Log in</h1>
         <p className="mt-2 text-gray-600">Early access portal.</p>
 

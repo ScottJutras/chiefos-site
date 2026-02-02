@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
+import SiteHeader from "@/app/components/SiteHeader";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -24,7 +25,6 @@ export default function SignupPage() {
 
       const origin = window.location.origin;
 
-      // Save company name locally so Finish Signup can use it
       if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
       else localStorage.removeItem("chiefos_company_name");
 
@@ -53,7 +53,9 @@ export default function SignupPage() {
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-md mx-auto px-6 py-20">
+      <SiteHeader rightLabel="Log in" rightHref="/login" />
+
+      <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <h1 className="text-3xl font-bold">Create your account</h1>
         <p className="mt-2 text-gray-600">Early access portal (owner).</p>
 
