@@ -378,7 +378,7 @@ export default function HomePage() {
         {/* CTA SECTION (Green) */}
         <section id="cta" data-bg="green" className="w-full flex justify-center">
           <div className="max-w-lg w-full px-4 py-16 space-y-4">
-            <h2 className="text-xl font-semibold text-white text-balance">
+            <h2 className="text-xl font-semibold text-black text-balance">
               Get early access to the fastest way to run a profitable contracting business.
             </h2>
 
@@ -389,7 +389,7 @@ export default function HomePage() {
               Request early access
             </a>
 
-            <p className="text-xs text-white/85">{SCARCITY_LINE}</p>
+            <p className="text-xs text-black/85">{SCARCITY_LINE}</p>
           </div>
         </section>
 
