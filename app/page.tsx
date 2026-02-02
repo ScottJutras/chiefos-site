@@ -28,7 +28,7 @@ const bgToColor: Record<Bg, string> = {
 const isDarkBg = (bg: Bg) => bg === "blue";
 
 const CTA_HREF = "/early-access";
-const SCARCITY_LINE = "Limited early access — spots open in batches.";
+const SCARCITY_LINE = "Limited early access. Spots open in batches and are limited.";
 
 const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
   const dark = isDarkBg(bg);
@@ -155,76 +155,105 @@ export default function HomePage() {
 
       {/* Content */}
       <div className="w-full">
-        {/* HERO */}
-        <section id="hero" data-bg="white" className="w-full flex justify-center">
-          <div className="max-w-md w-full px-4 py-20 space-y-6">
-            <h1 className="text-3xl font-semibold leading-tight text-black">
-              Talk to your business.<br />Get answers you can trust.
-            </h1>
-            <p className="text-base text-black/70">
-              ChiefOS turns real-world activity into explainable business understanding.
-            </p>
-            <p className="text-sm text-black/50">One business. One mind. Many senses.</p>
-            <p className="text-sm text-black/60">{SCARCITY_LINE}</p>
-          </div>
-        </section>
+       {/* HERO */}
+<section id="hero" data-bg="white" className="w-full flex justify-center">
+  <div className="max-w-md w-full px-4 py-20 space-y-5">
+    <p className="text-xs font-medium tracking-wide text-black/60">
+      Now available on WhatsApp
+    </p>
+
+    <h1 className="text-3xl font-semibold leading-tight text-black">
+      Know your numbers. Win more jobs. Keep more profit.
+      <br />
+      <span className="text-black/80">Without living in spreadsheets.</span>
+    </h1>
+
+    <p className="text-base text-black/70">
+      ChiefOS is the operating system for contractor businesses. Snap receipts, log crew hours, track jobs,
+      and ask Chief questions like <span className="text-black">“Are we actually profitable?”</span>
+    </p>
+
+    <div className="rounded-xl border border-black/10 bg-white/70 p-4">
+      <p className="text-sm text-black/80">
+        <span className="font-medium">Works where you already communicate:</span> add Chief as a contact on WhatsApp and start logging in seconds.
+      </p>
+    </div>
+
+    <p className="text-sm text-black/60">{SCARCITY_LINE}</p>
+  </div>
+</section>
 
         {/* SECTION 1 (White) */}
         <Section
-          id="s1"
-          bg="white"
-          title="Capture work as it happens"
-          body="Send receipts, messages, and time logs — just like you already do."
-          imageSrc="/placeholders/receipt-capture.png"
+        id="s2"
+        bg="blue"
+        title="Expenses, handled. Just snap → confirm → done."
+        body="Send a receipt photo, voice note, or text. Chief pulls out the vendor, amount, date, and job. You tap confirm, and it’s logged. Year-end? Download a spreadsheet and send it to your accountant — then go enjoy your life."
+        imageSrc="/placeholders/expense-record.png"
         />
+
 
         {/* SECTION 2 (Blue) */}
         <Section
-          id="s2"
-          bg="blue"
-          title="ChiefOS turns activity into records"
-          body="Every action becomes a structured, auditable entry — tied to the right job."
-          imageSrc="/placeholders/expense-record.png"
+        id="s2"
+        bg="blue"
+        title="Expenses, handled. Just snap → confirm → done."
+        body="Send a receipt photo, voice note, or text. Chief pulls out the vendor, amount, date, and job. You tap confirm, and it’s logged. Year-end? Download a spreadsheet and send it to your accountant — then go enjoy your life."
+        imageSrc="/placeholders/expense-record.png"
         />
+
 
         {/* SECTION 3 (Blue) */}
         <Section
-          id="s3"
-          bg="blue"
-          title="Everything attaches to real jobs"
-          body="Time, expenses, and revenue stay connected — so answers stay honest."
-          imageSrc="/placeholders/job-time.png"
+        id="s3"
+        bg="blue"
+        title="Crew hours that don’t get lost (or “rounded”)"
+        body="Clock-ins, breaks, lunch, drive time — live or as a once-a-day/week dump. Chief helps you spot labour leakage like: “This job is running 18% over labour vs your average — here’s where the extra time is coming from.”"
+        imageSrc="/placeholders/job-time.png"
         />
+
 
         {/* SECTION 4 (White) */}
         <Section
-          id="s4"
-          bg="white"
-          title="What you log stays visible"
-          body="No hidden automation. No silent changes. Every entry has a trail."
-          imageSrc="/placeholders/task-list.png"
+        id="s4"
+        bg="white"
+        title="Every log ties to a job — so profit isn’t a guess"
+        body="Track each job’s real costs: receipts + labour + revenue. Compare jobs, see what’s slipping, and price the next quote with confidence instead of gut feel."
+        imageSrc="/placeholders/task-list.png"
         />
 
-        {/* SECTION 5 (White) */}
+
+        {/* SECTION 5 (Blue) */}
         <Section
-          id="s5"
-          bg="white"
-          title="Ask real questions. Get grounded answers."
-          body="Chief answers using only what’s been logged — and tells you what’s missing."
-          imageSrc="/placeholders/ask-chief.png"
-        />
+       id="s5"
+       bg="white"
+       title="Ask Chief. Get answers grounded in your real data."
+       body="Most apps just store info. ChiefOS understands it. Ask: “Are we profitable?”, “What did that rework cost?”, “What should I charge next time?” Chief answers based on what you’ve logged — and tells you what’s missing."
+       imageSrc="/placeholders/ask-chief.png"
+      />
+
+
+       {/* SECTION 5 (White) */}
+       <Section
+       id="s6"
+       bg="blue"
+       title="Coming next: quotes → contracts → invoices (Spring 2026)"
+       body="We’re rolling out quoting and job paperwork so you can go from ‘quote sent’ to ‘paid’ without duct-taping multiple tools together. Early access gets you in the loop as we release each module."
+       imageSrc="/placeholders/roadmap.png"
+       />
+
 
         {/* TRUST SECTION (White) */}
         <section id="trust" data-bg="white" className="w-full flex justify-center">
-          <div className="max-w-md w-full px-4 py-16 space-y-4 text-sm text-black">
-            <ul className="space-y-2 text-black/70">
-              <li>• One reasoning seat per business</li>
-              <li>• Facts in, understanding out</li>
-              <li>• No guesses or silent automation</li>
-              <li>• Your data only — always</li>
-            </ul>
-          </div>
-        </section>
+         <div className="max-w-md w-full px-4 py-16 space-y-4 text-sm text-black">
+          <ul className="space-y-2 text-black/70">
+           <li>• Built for contractors who want to run lean and stay profitable</li>
+           <li>• Log in seconds from WhatsApp — no desktop admin nights</li>
+           <li>• Job-level visibility so you price smarter and stop profit leaks</li>
+           <li>• Year-end export in one click — send to your accountant and move on</li>
+          </ul>
+         </div>
+       </section>
 
         {/* CTA SECTION (Blue) */}
         <section id="cta" data-bg="blue" className="w-full flex justify-center">
