@@ -4,6 +4,7 @@
 //  - smooth background transitions
 //  - mobile sticky bottom CTA bar
 //  - sticky CTA hides when bottom CTA section is visible
+//  - pulse CTA button once on first visibility
 //  - richer typography (multi-line titles/bodies + bold keywords)
 
 "use client";
@@ -58,7 +59,6 @@ function Section({ id, title, body, imageSrc, bg }: SectionProps) {
             {title}
           </h2>
 
-          {/* Render body as rich content */}
           <div className={`text-sm leading-relaxed ${dark ? "text-white/85" : "text-black/70"}`}>
             {body}
           </div>
@@ -71,9 +71,13 @@ function Section({ id, title, body, imageSrc, bg }: SectionProps) {
 export default function HomePage() {
   const [activeBg, setActiveBg] = useState<Bg>("white");
   const [hideStickyCta, setHideStickyCta] = useState(false);
+
+  // Pulse state (INSIDE component ✅)
+  const [ctaPulseOnce, setCtaPulseOnce] = useState(false);
+  const ctaPulsedRef = useRef(false);
+
   const rafRef = useRef<number | null>(null);
 
-  // Background transitions map (NO "blue" anywhere — only white/green)
   const sections = useMemo(
     () => [
       { id: "hero", bg: "white" as const },
@@ -94,7 +98,7 @@ export default function HomePage() {
     // --- Background driver: pick the section under the viewport center ---
     const pickBgFromViewport = () => {
       const x = Math.round(window.innerWidth / 2);
-      const y = Math.round(window.innerHeight * 0.52); // slightly below center feels better on mobile
+      const y = Math.round(window.innerHeight * 0.52);
 
       const el = document.elementFromPoint(x, y) as HTMLElement | null;
       if (!el) return;
@@ -122,44 +126,61 @@ export default function HomePage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
 
-    // --- Hide sticky CTA when bottom CTA section is visible ---
+    // --- CTA observers (hide sticky + pulse once) ---
     const ctaEl = document.getElementById("cta");
-    const ctaObs = ctaEl
-      ? new IntersectionObserver(
-          (entries) => {
-            const ent = entries[0];
-            if (!ent) return;
-            setHideStickyCta(ent.isIntersecting && ent.intersectionRatio >= 0.25);
-          },
-          { root: null, threshold: [0, 0.1, 0.25, 0.4, 0.6, 0.8] }
-        )
-      : null;
+    let ctaObs: IntersectionObserver | null = null;
+    let pulseObs: IntersectionObserver | null = null;
 
-    if (ctaEl && ctaObs) ctaObs.observe(ctaEl);
+    if (ctaEl) {
+      // Hide sticky CTA when CTA section is visible
+      ctaObs = new IntersectionObserver(
+        (entries) => {
+          const ent = entries[0];
+          if (!ent) return;
+          setHideStickyCta(ent.isIntersecting && ent.intersectionRatio >= 0.25);
+        },
+        { root: null, threshold: [0, 0.1, 0.25, 0.4, 0.6, 0.8] }
+      );
+      ctaObs.observe(ctaEl);
+
+      // Pulse CTA button ONCE when CTA section first becomes visible
+      pulseObs = new IntersectionObserver(
+        (entries) => {
+          const ent = entries[0];
+          if (!ent) return;
+
+          if (ent.isIntersecting && ent.intersectionRatio >= 0.25 && !ctaPulsedRef.current) {
+            ctaPulsedRef.current = true;
+            setCtaPulseOnce(true);
+            window.setTimeout(() => setCtaPulseOnce(false), 950);
+          }
+        },
+        { root: null, threshold: [0.25] }
+      );
+      pulseObs.observe(ctaEl);
+    }
 
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
       if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
       if (ctaObs) ctaObs.disconnect();
+      if (pulseObs) pulseObs.disconnect();
     };
-  }, []);
+  }, [sections]);
 
   return (
     <main className="relative w-full">
-      {/* Smooth, full-page background layer */}
       <div
         aria-hidden
         className="fixed inset-0 -z-10 transition-[background-color] duration-700 ease-out"
         style={{ backgroundColor: bgToColor[activeBg] }}
       />
 
-      {/* Content */}
       <div className="w-full">
         {/* HERO */}
         <section id="hero" data-bg="white" className="w-full flex justify-center">
           <div className="max-w-lg w-full px-4 py-20 space-y-5">
-            {/* 2) Force the last line to stay on one line */}
             <h1 className="text-3xl font-semibold leading-tight text-black space-y-1">
               <span className="block">Know your numbers.</span>
               <span className="block">Win more jobs.</span>
@@ -170,10 +191,11 @@ export default function HomePage() {
             </h1>
 
             <p className="text-base text-black/70 text-balance">
-              <span className="font-medium text-black">ChiefOS is the operating system for contractor businesses.</span>
+              <span className="font-medium text-black">
+                ChiefOS is the operating system for contractor businesses.
+              </span>
             </p>
 
-            {/* 3) Move the example question into the bordered “Chief response” box */}
             <ul className="mt-1 space-y-2 text-base text-black/80 text-balance">
               <li>• Snap receipts</li>
               <li>• Log crew hours</li>
@@ -183,13 +205,11 @@ export default function HomePage() {
 
             <div className="mt-5 rounded-xl border border-black/10 bg-white/70 p-4">
               <p className="text-sm text-black/80 leading-relaxed text-balance">
-                <span className="font-medium text-black">You:</span>{" "}
-                “Did we make money on Job 15 Main St?”
+                <span className="font-medium text-black">You:</span> “Did we make money on Job 15 Main St?”
                 <br />
                 <br />
-                <span className="font-medium text-black">Chief:</span>{" "}
-                On Job 15 Main St, your profit margin came in at{" "}
-                <span className="font-medium">15%</span>. You quoted materials at{" "}
+                <span className="font-medium text-black">Chief:</span> On Job 15 Main St, your profit margin
+                came in at <span className="font-medium">15%</span>. You quoted materials at{" "}
                 <span className="font-medium">$15,542</span>, but actual spend was{" "}
                 <span className="font-medium">$19,456.89</span>.
                 <br />
@@ -200,14 +220,15 @@ export default function HomePage() {
                 <br />
                 <br />
                 You did make money — but on the next renovation job, adjusting labour + material pricing
-                could increase profit by ~<span className="font-medium">10%</span>, helping you move toward
-                a year-end goal of <span className="font-medium">30%</span> margin.
+                could increase profit by ~<span className="font-medium">10%</span>, helping you move toward a
+                year-end goal of <span className="font-medium">30%</span> margin.
               </p>
             </div>
 
             <div className="rounded-xl border border-black/10 bg-white/70 p-4">
               <p className="text-sm text-black/80 text-balance">
-                <span className="font-medium">Works where you already communicate:</span> add Chief on WhatsApp and log in seconds.
+                <span className="font-medium">Works where you already communicate:</span> add Chief on WhatsApp
+                and log in seconds.
               </p>
             </div>
 
@@ -215,7 +236,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* SECTION 1 (White) */}
+        {/* SECTION 1 */}
         <Section
           id="s1"
           bg="white"
@@ -226,7 +247,7 @@ export default function HomePage() {
           imageSrc="/placeholders/receipt-capture.png"
         />
 
-        {/* 4) SECTION 2 title: force two lines */}
+        {/* SECTION 2 */}
         <Section
           id="s2"
           bg="green"
@@ -248,7 +269,7 @@ export default function HomePage() {
           imageSrc="/placeholders/expense-record.png"
         />
 
-        {/* 5) Background switching fixed by “viewport center” method above */}
+        {/* SECTION 3 */}
         <Section
           id="s3"
           bg="green"
@@ -264,7 +285,7 @@ export default function HomePage() {
           imageSrc="/placeholders/job-time.png"
         />
 
-        {/* 6) SECTION 4 copy with its own line */}
+        {/* SECTION 4 */}
         <Section
           id="s4"
           bg="white"
@@ -278,7 +299,7 @@ export default function HomePage() {
           imageSrc="/placeholders/task-list.png"
         />
 
-        {/* 7) SECTION 5 body as stacked lines + questions */}
+        {/* SECTION 5 */}
         <Section
           id="s5"
           bg="white"
@@ -311,7 +332,7 @@ export default function HomePage() {
           imageSrc="/placeholders/ask-chief.png"
         />
 
-        {/* 8) SECTION 6: bold keywords + conversational examples */}
+        {/* SECTION 6 */}
         <Section
           id="s6"
           bg="green"
@@ -328,45 +349,32 @@ export default function HomePage() {
           }
           body={
             <div className="space-y-3">
-              <p>
-                We’re rolling out a feature that lets you create and control your job flow conversationally:
-              </p>
-
+              <p>We’re rolling out a feature that lets you create and control your job flow conversationally:</p>
               <div className="space-y-2">
-                <p>
-                  <span className="font-semibold">Quote:</span> “Chief, send a renovation quote for $45,000 to John &amp; Mary for 100 Main St.”
-                </p>
-                <p>
-                  <span className="font-semibold">Contract:</span> “Chief, they accepted — send a contract to 100 Main St for signature.”
-                </p>
-                <p>
-                  <span className="font-semibold">Change Order:</span> “Chief, send a change order to 100 Main St for kitchen reframing — $1,500 — for approval.”
-                </p>
-                <p>
-                  <span className="font-semibold">Invoice:</span> “Chief, 100 Main St is done — send the final invoice.”
-                </p>
-                <p>
-                  <span className="font-semibold">Receipt:</span> “Chief, we got paid — send the receipt and ask for a review.”
-                </p>
+                <p><span className="font-semibold">Quote:</span> “Chief, send a renovation quote for $45,000 to John &amp; Mary for 100 Main St.”</p>
+                <p><span className="font-semibold">Contract:</span> “Chief, they accepted — send a contract to 100 Main St for signature.”</p>
+                <p><span className="font-semibold">Change Order:</span> “Chief, send a change order to 100 Main St for kitchen reframing — $1,500 — for approval.”</p>
+                <p><span className="font-semibold">Invoice:</span> “Chief, 100 Main St is done — send the final invoice.”</p>
+                <p><span className="font-semibold">Receipt:</span> “Chief, we got paid — send the receipt and ask for a review.”</p>
               </div>
             </div>
           }
           imageSrc="/placeholders/roadmap.png"
         />
 
-        {/* TRUST SECTION (White) */}
+        {/* TRUST */}
         <section id="trust" data-bg="white" className="w-full flex justify-center">
           <div className="max-w-lg w-full px-4 py-16 space-y-4 text-sm text-black text-center">
             <ul className="space-y-3 text-black/70 text-balance">
               <li>Built for contractors who want to run lean and stay profitable</li>
               <li>Log in seconds from WhatsApp — no desktop, no office days, no late admin nights</li>
               <li>Job-level visibility so you price smarter and stop throwing away money</li>
-              <li>Year-end export in one click — send to your accountant and move on</li>
+              <li>Year-end export in one click. Send to your accountant and move on</li>
             </ul>
           </div>
         </section>
 
-        {/* 1) Move “Now available on WhatsApp” here, in black */}
+        {/* Availability */}
         <section id="availability" data-bg="white" className="w-full flex justify-center">
           <div className="max-w-lg w-full px-4 pb-8">
             <p className="text-xs font-medium tracking-wide text-black text-center">
@@ -375,25 +383,27 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA SECTION (Green) */}
+        {/* CTA */}
         <section id="cta" data-bg="green" className="w-full flex justify-center">
-          <div className="max-w-lg w-full px-4 py-16 space-y-4">
+          <div className="max-w-lg w-full px-4 py-16 space-y-3 text-center">
             <h2 className="text-xl font-semibold text-black text-balance">
               Get early access to the fastest way to run a profitable contracting business.
             </h2>
 
             <a
               href={CTA_HREF}
-              className="inline-flex items-center justify-center w-full rounded-xl bg-white text-black py-3 text-sm font-medium text-center shadow-md active:scale-[0.98] transition"
+              className={[
+                "inline-flex items-center justify-center w-full rounded-xl bg-white text-black py-3 text-sm font-medium shadow-md active:scale-[0.98] transition",
+                ctaPulseOnce ? "animate-chiefos-pulse-once" : "",
+              ].join(" ")}
             >
               Request early access
             </a>
 
-            <p className="text-xs text-black/85">{SCARCITY_LINE}</p>
+            <p className="text-xs text-black/70 -mt-1">{SCARCITY_LINE}</p>
           </div>
         </section>
 
-        {/* Spacer so the sticky bar doesn’t cover bottom content on mobile */}
         <div className="h-20 md:hidden" />
       </div>
 
