@@ -9,71 +9,78 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
+type Bg = "white" | "blue";
+
 type SectionProps = {
   id: string;
   title: string;
   body: string;
   imageSrc: string;
-  dark?: boolean;
   // background token used for smooth cross-fade
-  bg: "white" | "black" | "neutral";
+  bg: Bg;
 };
 
-const bgToClass: Record<SectionProps["bg"], string> = {
-  white: "bg-white",
-  black: "bg-black",
-  neutral: "bg-neutral-50",
+const bgToColor: Record<Bg, string> = {
+  white: "#ffffff",
+  blue: "#000080", // navy
 };
 
-const Section = ({ id, title, body, imageSrc, dark = false, bg }: SectionProps) => (
-  <section
-    id={id}
-    data-bg={bg}
-    className="w-full flex justify-center"
-  >
-    <div className="max-w-md w-full px-4 py-14 space-y-6">
-      <div
-        className={`rounded-2xl overflow-hidden shadow-lg ${
-          dark ? "border border-neutral-800" : "border border-neutral-200"
-        }`}
-      >
-        <Image
-          src={imageSrc}
-          alt={title}
-          width={390}
-          height={780}
-          className="w-full h-auto"
-          priority
-        />
+const isDarkBg = (bg: Bg) => bg === "blue";
+
+const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
+  const dark = isDarkBg(bg);
+
+  return (
+    <section id={id} data-bg={bg} className="w-full flex justify-center">
+      <div className="max-w-md w-full px-4 py-14 space-y-6">
+        <div
+          className={`rounded-2xl overflow-hidden shadow-lg ${
+            dark ? "border border-white/15" : "border border-black/10"
+          }`}
+        >
+          <Image
+            src={imageSrc}
+            alt={title}
+            width={390}
+            height={780}
+            className="w-full h-auto"
+            priority
+          />
+        </div>
+
+        <div className="space-y-2">
+          <h2 className={`text-xl font-semibold leading-tight ${dark ? "text-white" : "text-black"}`}>{title}</h2>
+          <p className={`text-sm ${dark ? "text-white/80" : "text-black/70"}`}>{body}</p>
+        </div>
       </div>
-      <div className="space-y-2">
-        <h2 className={`text-xl font-semibold leading-tight ${dark ? "text-white" : "text-black"}`}>{title}</h2>
-        <p className={`text-sm ${dark ? "text-white/80" : "text-black/70"}`}>{body}</p>
-      </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 export default function HomePage() {
-  // This drives the smooth background color cross-fade.
-  const [activeBg, setActiveBg] = useState<SectionProps["bg"]>("white");
+  // Drives the smooth background color cross-fade.
+  const [activeBg, setActiveBg] = useState<Bg>("white");
 
+  // Requested transitions:
+  // - Sections 2 and 3: Blue
+  // - Sections 4 and 5: White
+  // - Bottom section: Blue
   const sections = useMemo(
     () => [
       { id: "hero", bg: "white" as const },
       { id: "s1", bg: "white" as const },
-      { id: "s2", bg: "white" as const },
-      { id: "s3", bg: "black" as const },
+      { id: "s2", bg: "blue" as const },
+      { id: "s3", bg: "blue" as const },
       { id: "s4", bg: "white" as const },
-      { id: "s5", bg: "black" as const },
+      { id: "s5", bg: "white" as const },
       { id: "trust", bg: "white" as const },
-      { id: "cta", bg: "neutral" as const },
+      { id: "cta", bg: "blue" as const },
     ],
     []
   );
 
   useEffect(() => {
-    // Observe sections and set the active background based on what's near the middle of the viewport.
+    // Observe sections and set active background based on what's near the middle of the viewport.
     const els = sections
       .map((s) => document.getElementById(s.id))
       .filter(Boolean) as HTMLElement[];
@@ -88,20 +95,22 @@ export default function HomePage() {
           .sort((a, b) => (b.intersectionRatio ?? 0) - (a.intersectionRatio ?? 0))[0];
 
         if (!visible) return;
-        const bg = (visible.target as HTMLElement).dataset.bg as SectionProps["bg"] | undefined;
-        if (bg && bg !== activeBg) setActiveBg(bg);
+        const bg = (visible.target as HTMLElement).dataset.bg as Bg | undefined;
+        if (!bg) return;
+
+        // IMPORTANT: use functional update so scrolling back up reliably restores prior backgrounds.
+        setActiveBg((prev) => (bg !== prev ? bg : prev));
       },
       {
-        // This makes the “active section” feel like it changes as you scroll past the midline.
+        // Makes the “active section” change around the viewport midline.
         root: null,
-        threshold: [0.15, 0.25, 0.35, 0.5, 0.65],
+        threshold: [0.12, 0.25, 0.35, 0.5, 0.65],
         rootMargin: "-45% 0px -45% 0px",
       }
     );
 
     els.forEach((el) => obs.observe(el));
     return () => obs.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections]);
 
   return (
@@ -109,7 +118,8 @@ export default function HomePage() {
       {/* Smooth, full-page background layer */}
       <div
         aria-hidden
-        className={`fixed inset-0 -z-10 transition-colors duration-700 ease-out ${bgToClass[activeBg]}`}
+        className="fixed inset-0 -z-10 transition-[background-color] duration-700 ease-out"
+        style={{ backgroundColor: bgToColor[activeBg] }}
       />
 
       {/* Content */}
@@ -127,7 +137,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* SECTION 1 */}
+        {/* SECTION 1 (White) */}
         <Section
           id="s1"
           bg="white"
@@ -136,26 +146,25 @@ export default function HomePage() {
           imageSrc="/placeholders/receipt-capture.png"
         />
 
-        {/* SECTION 2 */}
+        {/* SECTION 2 (Blue) */}
         <Section
           id="s2"
-          bg="white"
+          bg="blue"
           title="ChiefOS turns activity into records"
           body="Every action becomes a structured, auditable entry — tied to the right job."
           imageSrc="/placeholders/expense-record.png"
         />
 
-        {/* SECTION 3 */}
+        {/* SECTION 3 (Blue) */}
         <Section
           id="s3"
-          bg="black"
-          dark
+          bg="blue"
           title="Everything attaches to real jobs"
           body="Time, expenses, and revenue stay connected — so answers stay honest."
           imageSrc="/placeholders/job-time.png"
         />
 
-        {/* SECTION 4 */}
+        {/* SECTION 4 (White) */}
         <Section
           id="s4"
           bg="white"
@@ -164,17 +173,16 @@ export default function HomePage() {
           imageSrc="/placeholders/task-list.png"
         />
 
-        {/* SECTION 5 */}
+        {/* SECTION 5 (White) */}
         <Section
           id="s5"
-          bg="black"
-          dark
+          bg="white"
           title="Ask real questions. Get grounded answers."
           body="Chief answers using only what’s been logged — and tells you what’s missing."
           imageSrc="/placeholders/ask-chief.png"
         />
 
-        {/* TRUST SECTION */}
+        {/* TRUST SECTION (White) */}
         <section id="trust" data-bg="white" className="w-full flex justify-center">
           <div className="max-w-md w-full px-4 py-16 space-y-4 text-sm text-black">
             <ul className="space-y-2 text-black/70">
@@ -186,17 +194,17 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CTA (non-sticky section, still useful for desktop) */}
-        <section id="cta" data-bg="neutral" className="w-full flex justify-center border-t border-black/10">
+        {/* CTA SECTION (Blue) */}
+        <section id="cta" data-bg="blue" className="w-full flex justify-center">
           <div className="max-w-md w-full px-4 py-16 space-y-4">
-            <h2 className="text-xl font-semibold text-black">See what your business actually knows.</h2>
-            <button className="w-full rounded-xl bg-black text-white py-3 text-sm font-medium">
+            <h2 className="text-xl font-semibold text-white">See what your business actually knows.</h2>
+            <button className="w-full rounded-xl bg-white text-black py-3 text-sm font-medium">
               Join the beta
             </button>
           </div>
         </section>
 
-        {/* spacer so the sticky bar doesn’t cover bottom content on mobile */}
+        {/* Spacer so the sticky bar doesn’t cover bottom content on mobile */}
         <div className="h-20 md:hidden" />
       </div>
 
