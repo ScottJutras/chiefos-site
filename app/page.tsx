@@ -3,6 +3,7 @@
 // Adds:
 //  - smooth background color transitions between sections (Cash App feel)
 //  - mobile sticky bottom CTA bar
+//  - working CTAs (links)
 
 "use client";
 
@@ -16,7 +17,6 @@ type SectionProps = {
   title: string;
   body: string;
   imageSrc: string;
-  // background token used for smooth cross-fade
   bg: Bg;
 };
 
@@ -26,6 +26,30 @@ const bgToColor: Record<Bg, string> = {
 };
 
 const isDarkBg = (bg: Bg) => bg === "blue";
+
+// Change this once and both CTAs follow.
+const CTA_HREF = "/waitlist";
+
+function JoinBetaLink({
+  inverse = false,
+  className = "",
+}: {
+  inverse?: boolean;
+  className?: string;
+}) {
+  return (
+    <a
+      href={CTA_HREF}
+      className={[
+        "block w-full rounded-xl py-3 text-sm font-medium text-center",
+        inverse ? "bg-white text-black" : "bg-black text-white",
+        className,
+      ].join(" ")}
+    >
+      Join the beta
+    </a>
+  );
+}
 
 const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
   const dark = isDarkBg(bg);
@@ -49,8 +73,16 @@ const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
         </div>
 
         <div className="space-y-2">
-          <h2 className={`text-xl font-semibold leading-tight ${dark ? "text-white" : "text-black"}`}>{title}</h2>
-          <p className={`text-sm ${dark ? "text-white/80" : "text-black/70"}`}>{body}</p>
+          <h2
+            className={`text-xl font-semibold leading-tight ${
+              dark ? "text-white" : "text-black"
+            }`}
+          >
+            {title}
+          </h2>
+          <p className={`text-sm ${dark ? "text-white/80" : "text-black/70"}`}>
+            {body}
+          </p>
         </div>
       </div>
     </section>
@@ -58,7 +90,6 @@ const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
 };
 
 export default function HomePage() {
-  // Drives the smooth background color cross-fade.
   const [activeBg, setActiveBg] = useState<Bg>("white");
 
   // Requested transitions:
@@ -80,7 +111,6 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    // Observe sections and set active background based on what's near the middle of the viewport.
     const els = sections
       .map((s) => document.getElementById(s.id))
       .filter(Boolean) as HTMLElement[];
@@ -89,20 +119,19 @@ export default function HomePage() {
 
     const obs = new IntersectionObserver(
       (entries) => {
-        // Pick the most visible intersecting section.
         const visible = entries
           .filter((e) => e.isIntersecting)
-          .sort((a, b) => (b.intersectionRatio ?? 0) - (a.intersectionRatio ?? 0))[0];
+          .sort(
+            (a, b) => (b.intersectionRatio ?? 0) - (a.intersectionRatio ?? 0)
+          )[0];
 
         if (!visible) return;
         const bg = (visible.target as HTMLElement).dataset.bg as Bg | undefined;
         if (!bg) return;
 
-        // IMPORTANT: use functional update so scrolling back up reliably restores prior backgrounds.
         setActiveBg((prev) => (bg !== prev ? bg : prev));
       },
       {
-        // Makes the “active section” change around the viewport midline.
         root: null,
         threshold: [0.12, 0.25, 0.35, 0.5, 0.65],
         rootMargin: "-45% 0px -45% 0px",
@@ -125,15 +154,24 @@ export default function HomePage() {
       {/* Content */}
       <div className="w-full">
         {/* HERO */}
-        <section id="hero" data-bg="white" className="w-full flex justify-center">
+        <section
+          id="hero"
+          data-bg="white"
+          className="w-full flex justify-center"
+        >
           <div className="max-w-md w-full px-4 py-20 space-y-6">
             <h1 className="text-3xl font-semibold leading-tight text-black">
-              Talk to your business.<br />Get answers you can trust.
+              Talk to your business.
+              <br />
+              Get answers you can trust.
             </h1>
             <p className="text-base text-black/70">
-              ChiefOS turns real-world activity into explainable business understanding.
+              ChiefOS turns real-world activity into explainable business
+              understanding.
             </p>
-            <p className="text-sm text-black/50">One business. One mind. Many senses.</p>
+            <p className="text-sm text-black/50">
+              One business. One mind. Many senses.
+            </p>
           </div>
         </section>
 
@@ -183,7 +221,11 @@ export default function HomePage() {
         />
 
         {/* TRUST SECTION (White) */}
-        <section id="trust" data-bg="white" className="w-full flex justify-center">
+        <section
+          id="trust"
+          data-bg="white"
+          className="w-full flex justify-center"
+        >
           <div className="max-w-md w-full px-4 py-16 space-y-4 text-sm text-black">
             <ul className="space-y-2 text-black/70">
               <li>• One reasoning seat per business</li>
@@ -197,10 +239,12 @@ export default function HomePage() {
         {/* CTA SECTION (Blue) */}
         <section id="cta" data-bg="blue" className="w-full flex justify-center">
           <div className="max-w-md w-full px-4 py-16 space-y-4">
-            <h2 className="text-xl font-semibold text-white">See what your business actually knows.</h2>
-            <button className="w-full rounded-xl bg-white text-black py-3 text-sm font-medium">
-              Join the beta
-            </button>
+            <h2 className="text-xl font-semibold text-white">
+              See what your business actually knows.
+            </h2>
+
+            {/* Works now */}
+            <JoinBetaLink inverse />
           </div>
         </section>
 
@@ -213,9 +257,8 @@ export default function HomePage() {
         <div className="mx-auto max-w-md px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
           <div className="rounded-2xl bg-white/90 backdrop-blur border border-black/10 shadow-lg">
             <div className="p-3">
-              <button className="w-full rounded-xl bg-black text-white py-3 text-sm font-medium">
-                Join the beta
-              </button>
+              {/* Works now */}
+              <JoinBetaLink />
             </div>
           </div>
         </div>
