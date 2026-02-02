@@ -10,7 +10,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
-type Bg = "white" | "blue";
+type Bg = "white" | "green";
 
 type SectionProps = {
   id: string;
@@ -22,10 +22,10 @@ type SectionProps = {
 
 const bgToColor: Record<Bg, string> = {
   white: "#ffffff",
-  blue: "#000080", // navy
+  green: "#2E6F40", // green
 };
 
-const isDarkBg = (bg: Bg) => bg === "blue";
+const isDarkBg = (bg: Bg) => bg === "green";
 
 const CTA_HREF = "/early-access";
 const SCARCITY_LINE = "Limited early access. Spots open in batches and are limited.";
@@ -35,7 +35,7 @@ const Section = ({ id, title, body, imageSrc, bg }: SectionProps) => {
 
   return (
     <section id={id} data-bg={bg} className="w-full flex justify-center">
-      <div className="max-w-md w-full px-4 py-14 space-y-6">
+      <div className="max-w-lg w-full px-4 py-14 space-y-6">
         <div
           className={`rounded-2xl overflow-hidden shadow-lg ${
             dark ? "border border-white/15" : "border border-black/10"
@@ -157,16 +157,20 @@ export default function HomePage() {
       <div className="w-full">
        {/* HERO */}
 <section id="hero" data-bg="white" className="w-full flex justify-center">
-  <div className="max-w-md w-full px-4 py-20 space-y-5">
+  <div className="max-w-lg w-full px-4 py-20 space-y-5">
     <p className="text-xs font-medium tracking-wide text-black/60">
       Now available on WhatsApp
     </p>
 
-    <h1 className="text-3xl font-semibold leading-tight text-black">
-      Know your numbers. Win more jobs. Keep more profit.
-      <br />
-      <span className="text-black/80">Without living in spreadsheets.</span>
-    </h1>
+    <h1 className="text-3xl font-semibold leading-tight text-black space-y-1">
+  <span className="block">Know your numbers.</span>
+  <span className="block">Win more jobs.</span>
+  <span className="block">Keep more profit.</span>
+  <span className="block text-black/80 mt-2">
+    Without living in spreadsheets.
+  </span>
+</h1>
+
 
     <p className="text-base text-black/70">
       ChiefOS is the operating system for contractor businesses. Snap receipts, log crew hours, track jobs,
@@ -185,18 +189,19 @@ export default function HomePage() {
 
         {/* SECTION 1 (White) */}
         <Section
-        id="s2"
-        bg="blue"
-        title="Expenses, handled. Just snap → confirm → done."
-        body="Send a receipt photo, voice note, or text. Chief pulls out the vendor, amount, date, and job. You tap confirm, and it’s logged. Year-end? Download a spreadsheet and send it to your accountant — then go enjoy your life."
-        imageSrc="/placeholders/expense-record.png"
+        id="s1"
+        bg="white"
+        title="Log your business in real life. Not after hours"
+        body="Receipts, payments, crew hours, quick notes. Send it to Chief in WhatsApp while you’re on site. No app-hopping. No ‘I’ll do it later.’"
+        imageSrc="/placeholders/receipt-capture.png"
         />
+
 
 
         {/* SECTION 2 (Blue) */}
         <Section
         id="s2"
-        bg="blue"
+        bg="green"
         title="Expenses, handled. Just snap → confirm → done."
         body="Send a receipt photo, voice note, or text. Chief pulls out the vendor, amount, date, and job. You tap confirm, and it’s logged. Year-end? Download a spreadsheet and send it to your accountant — then go enjoy your life."
         imageSrc="/placeholders/expense-record.png"
@@ -206,7 +211,7 @@ export default function HomePage() {
         {/* SECTION 3 (Blue) */}
         <Section
         id="s3"
-        bg="blue"
+        bg="green"
         title="Crew hours that don’t get lost (or “rounded”)"
         body="Clock-ins, breaks, lunch, drive time — live or as a once-a-day/week dump. Chief helps you spot labour leakage like: “This job is running 18% over labour vs your average — here’s where the extra time is coming from.”"
         imageSrc="/placeholders/job-time.png"
@@ -236,7 +241,7 @@ export default function HomePage() {
        {/* SECTION 5 (White) */}
        <Section
        id="s6"
-       bg="blue"
+       bg="green"
        title="Coming next: quotes → contracts → invoices (Spring 2026)"
        body="We’re rolling out quoting and job paperwork so you can go from ‘quote sent’ to ‘paid’ without duct-taping multiple tools together. Early access gets you in the loop as we release each module."
        imageSrc="/placeholders/roadmap.png"
@@ -245,19 +250,19 @@ export default function HomePage() {
 
         {/* TRUST SECTION (White) */}
         <section id="trust" data-bg="white" className="w-full flex justify-center">
-         <div className="max-w-md w-full px-4 py-16 space-y-4 text-sm text-black">
+         <div className="max-w-lg w-full px-4 py-16 space-y-4 text-sm text-black">
           <ul className="space-y-2 text-black/70">
            <li>• Built for contractors who want to run lean and stay profitable</li>
-           <li>• Log in seconds from WhatsApp — no desktop admin nights</li>
-           <li>• Job-level visibility so you price smarter and stop profit leaks</li>
-           <li>• Year-end export in one click — send to your accountant and move on</li>
+           <li>• Log in seconds from WhatsApp. No desktop. No office days. No late admin nights</li>
+           <li>• Job-level visibility so you price smarter and stop throwing away money</li>
+           <li>• Year-end export in one click. Send to your accountant and move on</li>
           </ul>
          </div>
        </section>
 
         {/* CTA SECTION (Blue) */}
         <section id="cta" data-bg="blue" className="w-full flex justify-center">
-          <div className="max-w-md w-full px-4 py-16 space-y-4">
+          <div className="max-w-lg w-full px-4 py-16 space-y-4">
             <h2 className="text-xl font-semibold text-white">See what your business actually knows.</h2>
             <a
               href={CTA_HREF}
@@ -279,7 +284,7 @@ export default function HomePage() {
           hideStickyCta ? "opacity-0 pointer-events-none translate-y-3" : "opacity-100 translate-y-0"
         }`}
       >
-        <div className="mx-auto max-w-md px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto max-w-lg px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
           <div className="rounded-2xl bg-white/90 backdrop-blur border border-black/10 shadow-lg">
             <div className="p-3">
               <a
