@@ -1,463 +1,348 @@
-// app/page.tsx (Next.js App Router)
-// Video-first homepage (placeholders)
-// Adds:
-//  - smooth background transitions
-//  - fixed header (ChiefOS / Early Access Login)
-//  - mobile sticky bottom CTA bar
-//  - sticky CTA hides when bottom CTA section is visible
-//  - pulse CTA button once on first visibility
-//  - richer typography (multi-line titles/bodies + bold keywords)
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\page.tsx
+// ChiefOS marketing homepage (Cash App / Apple scroll-story vibe)
+// Drop-in + uses small components under app/components/marketing/*
 
-"use client";
+import SiteHeader from "@/app/components/marketing/SiteHeader";
+import Section from "@/app/components/marketing/Section";
+import MediaFrame from "@/app/components/marketing/MediaFrame";
+import FAQ from "@/app/components/marketing/FAQ";
+import SiteFooter from "@/app/components/marketing/SiteFooter";
 
-import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
-
-type Bg = "white" | "green";
-
-type SectionProps = {
-  id: string;
-  title: ReactNode;
-  body: ReactNode;
-  imageSrc: string;
-  bg: Bg;
+export const metadata = {
+  title: "ChiefOS",
+  description:
+    "ChiefOS is an AI-native operating system for contractors and service businesses. Capture reality in real time. Understand job profitability. Get answers you can trust.",
 };
 
-const bgToColor: Record<Bg, string> = {
-  white: "#ffffff",
-  green: "#2E6F40",
-};
-
-const isDarkBg = (bg: Bg) => bg === "green";
-
-const CTA_HREF = "/early-access";
-const LOGIN_HREF = "/login";
-const SCARCITY_LINE = "Limited early access — spots open in batches.";
-
-function Section({ id, title, body, imageSrc, bg }: SectionProps) {
-  const dark = isDarkBg(bg);
-
+export default function Home() {
   return (
-    <section id={id} data-bg={bg} className="w-full flex justify-center">
-      <div className="max-w-lg w-full px-4 py-14 space-y-6">
-        <div
-          className={`rounded-2xl overflow-hidden shadow-lg ${
-            dark ? "border border-white/15" : "border border-black/10"
-          }`}
-        >
-          <Image
-            src={imageSrc}
-            alt={typeof title === "string" ? title : "Section image"}
-            width={390}
-            height={780}
-            className="w-full h-auto"
-            priority
-          />
-        </div>
+    <main className="min-h-screen bg-black text-white">
+      <SiteHeader />
 
-        <div className="space-y-3">
-          <h2 className={`text-xl font-semibold leading-tight ${dark ? "text-white" : "text-black"}`}>
-            {title}
-          </h2>
-
-          <div className={`text-sm leading-relaxed ${dark ? "text-white/85" : "text-black/70"}`}>
-            {body}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export default function HomePage() {
-  const [activeBg, setActiveBg] = useState<Bg>("white");
-  const [hideStickyCta, setHideStickyCta] = useState(false);
-
-  // Pulse state (INSIDE component ✅)
-  const [ctaPulseOnce, setCtaPulseOnce] = useState(false);
-  const ctaPulsedRef = useRef(false);
-
-  const rafRef = useRef<number | null>(null);
-
-  // Map your sections for background switching
-  const sections = useMemo(
-    () => [
-      { id: "hero", bg: "green" as const }, // ✅ HERO is green now
-      { id: "s1", bg: "white" as const },
-      { id: "s2", bg: "green" as const },
-      { id: "s3", bg: "green" as const },
-      { id: "s4", bg: "white" as const },
-      { id: "s5", bg: "white" as const },
-      { id: "s6", bg: "green" as const },
-      { id: "trust", bg: "white" as const },
-      { id: "availability", bg: "white" as const },
-      { id: "cta", bg: "green" as const },
-    ],
-    []
-  );
-
-  useEffect(() => {
-    // --- Background driver: pick the section under the viewport center ---
-    const pickBgFromViewport = () => {
-      const x = Math.round(window.innerWidth / 2);
-      const y = Math.round(window.innerHeight * 0.52);
-
-      const el = document.elementFromPoint(x, y) as HTMLElement | null;
-      if (!el) return;
-
-      let node: HTMLElement | null = el;
-      while (node && node !== document.body) {
-        const bg = node.dataset?.bg as Bg | undefined;
-        if (bg) {
-          setActiveBg((prev) => (prev !== bg ? bg : prev));
-          return;
-        }
-        node = node.parentElement;
-      }
-    };
-
-    const onScroll = () => {
-      if (rafRef.current) return;
-      rafRef.current = window.requestAnimationFrame(() => {
-        rafRef.current = null;
-        pickBgFromViewport();
-      });
-    };
-
-    pickBgFromViewport();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-
-    // --- CTA observers (hide sticky + pulse once) ---
-    const ctaEl = document.getElementById("cta");
-    let ctaObs: IntersectionObserver | null = null;
-    let pulseObs: IntersectionObserver | null = null;
-
-    if (ctaEl) {
-      ctaObs = new IntersectionObserver(
-        (entries) => {
-          const ent = entries[0];
-          if (!ent) return;
-          setHideStickyCta(ent.isIntersecting && ent.intersectionRatio >= 0.25);
-        },
-        { root: null, threshold: [0, 0.1, 0.25, 0.4, 0.6, 0.8] }
-      );
-      ctaObs.observe(ctaEl);
-
-      pulseObs = new IntersectionObserver(
-        (entries) => {
-          const ent = entries[0];
-          if (!ent) return;
-
-          if (ent.isIntersecting && ent.intersectionRatio >= 0.25 && !ctaPulsedRef.current) {
-            ctaPulsedRef.current = true;
-            setCtaPulseOnce(true);
-            window.setTimeout(() => setCtaPulseOnce(false), 950);
-          }
-        },
-        { root: null, threshold: [0.25] }
-      );
-      pulseObs.observe(ctaEl);
-    }
-
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
-      if (ctaObs) ctaObs.disconnect();
-      if (pulseObs) pulseObs.disconnect();
-    };
-  }, [sections]);
-
-  const headerDark = isDarkBg(activeBg);
-
-  return (
-    <main className="relative w-full">
-      {/* Smooth, full-page background layer */}
-      <div
-        aria-hidden
-        className="fixed inset-0 -z-10 transition-[background-color] duration-700 ease-out"
-        style={{ backgroundColor: bgToColor[activeBg] }}
-      />
-
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 z-50">
-        <div className="mx-auto max-w-5xl px-4">
-          <div className="mt-3 rounded-2xl border border-black/10 bg-white/60 backdrop-blur">
-            <div className="flex items-center justify-between px-4 py-3">
-              <a
-                href="/"
-                className={`text-sm font-semibold tracking-tight ${
-                  headerDark ? "text-black" : "text-black"
-                }`}
-              >
-                ChiefOS
-              </a>
-
-              <a
-                href={LOGIN_HREF}
-                className="text-sm font-medium underline underline-offset-4 decoration-black/30 hover:decoration-black/60"
-              >
-                Early Access Login
-              </a>
+      {/* HERO */}
+      <Section id="top" className="pt-28 md:pt-32 pb-14 md:pb-20">
+        <div className="grid gap-10 md:gap-12 md:grid-cols-12 items-center">
+          <div className="md:col-span-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+              <span className="h-2 w-2 rounded-full bg-white/60" />
+              Built for contractors. Privacy-first by design.
             </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Content */}
-      <div className="w-full pt-20">
-        {/* HERO (Green from top through chat) */}
-        <section id="hero" data-bg="green" className="w-full flex justify-center">
-          <div className="max-w-lg w-full px-4 py-20 space-y-5">
-            <h1 className="text-3xl font-semibold leading-tight text-white space-y-1">
-              <span className="block">Know your numbers.</span>
-              <span className="block">Win more jobs.</span>
-              <span className="block">Keep more profit.</span>
-              <span className="block text-white/90 mt-2 whitespace-nowrap">
-                Without living in spreadsheets.
-              </span>
+            <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
+              Run your business
+              <br />
+              by texting it.
             </h1>
 
-            <p className="text-base text-white/85 text-balance">
-              <span className="font-semibold text-white">
-                ChiefOS is the operating system for contractor businesses.
-              </span>
+            {/* ✅ NEW: “puts reality into the equation” placement #1 */}
+            <p className="mt-4 text-lg md:text-xl text-white/80 leading-relaxed">
+              ChiefOS puts reality into the equation.
             </p>
 
-            {/* Bullets (move WhatsApp messaging here) */}
-            <ul className="mt-1 space-y-2 text-base text-white/90 text-balance">
-              <li>• Snap receipts</li>
-              <li>• Log crew hours</li>
-              <li>• Track jobs</li>
-              <li>• Ask Chief for real answers</li>
-              <li>• Chief lives in WhatsApp — add Chief as a contact to start</li>
-            </ul>
-
-            {/* Centered chat box */}
-            <div className="mt-5 rounded-xl border border-white/15 bg-white/10 p-4 max-w-md mx-auto">
-              <p className="text-sm text-white/90 leading-relaxed text-balance text-center">
-                <span className="font-semibold text-white">You:</span> “Did we make money on Job 15 Main St?”
-                <br />
-                <br />
-                <span className="font-semibold text-white">Chief:</span> On Job 15 Main St, your profit margin
-                came in at <span className="font-semibold">15%</span>. You quoted materials at{" "}
-                <span className="font-semibold">$15,542</span>, but actual spend was{" "}
-                <span className="font-semibold">$19,456.89</span>.
-                <br />
-                <br />
-                You planned for <span className="font-semibold">212 labour hours</span>, but logged{" "}
-                <span className="font-semibold">262.9 hours</span> — about{" "}
-                <span className="font-semibold">24% higher</span> than expected.
-                <br />
-                <br />
-                You did make money — but on the next renovation job, adjusting labour + material pricing
-                could increase profit by ~<span className="font-semibold">10%</span>, helping you move toward a
-                year-end goal of <span className="font-semibold">30%</span> margin.
-              </p>
-            </div>
-
-            {/* ✅ Deleted the first “Limited early access…” under hero (per your request) */}
-          </div>
-        </section>
-
-        {/* SECTION 1 */}
-        <Section
-          id="s1"
-          bg="white"
-          title="Log your business in real life. Not after hours."
-          body={
-            <>
-              Receipts, payments, crew hours, quick notes — send it to Chief in WhatsApp while you’re on site.
-              No app-hopping. No “I’ll do it later.”
-            </>
-          }
-          imageSrc="/placeholders/receipt-capture.png"
-        />
-
-        {/* SECTION 2 */}
-        <Section
-          id="s2"
-          bg="green"
-          title={
-            <>
-              <span className="block">Expenses, handled.</span>
-              <span className="block">Just Snap → Confirm → Done.</span>
-            </>
-          }
-          body={
-            <>
-              Send a receipt photo, voice note, or text. Chief pulls out the vendor, amount, date, and job.
-              You tap confirm, and it’s logged.
-              <br />
-              <br />
-              Year-end? Download a spreadsheet, send it to your accountant — then go enjoy your life.
-            </>
-          }
-          imageSrc="/placeholders/expense-record.png"
-        />
-
-        {/* SECTION 3 */}
-        <Section
-          id="s3"
-          bg="green"
-          title="Crew hours that don’t get lost (or “rounded”)."
-          body={
-            <>
-              Clock-ins, breaks, lunch, drive time — live or as a once-a-day/week dump.
-              <br />
-              <br />
-              Chief helps you spot labour leakage like: “This job is running 18% over labour vs your average —
-              here’s where the extra time is coming from.”
-            </>
-          }
-          imageSrc="/placeholders/job-time.png"
-        />
-
-        {/* SECTION 4 */}
-        <Section
-          id="s4"
-          bg="white"
-          title="Every log ties to a job — so you know EXACTLY where you’re profitable (and where you aren’t)."
-          body={
-            <>
-              Track each job’s real costs: receipts + labour + revenue. Compare jobs, see what’s slipping, and
-              price the next quote with confidence.
-              <span className="block mt-2 font-medium text-black">No guessing.</span>
-            </>
-          }
-          imageSrc="/placeholders/task-list.png"
-        />
-
-        {/* SECTION 5 */}
-        <Section
-          id="s5"
-          bg="white"
-          title="Ask Chief. Get answers grounded in your real data."
-          body={
-            <div className="space-y-2">
-              <p className="text-black/70">Most apps just store data.</p>
-              <p className="text-black/70">
-                <span className="font-medium text-black">ChiefOS understands your data.</span>
-              </p>
-
-              <div className="mt-2 space-y-1">
-                <p className="text-black/70">
-                  You ask: <span className="font-medium text-black">Are we profitable?</span>
-                </p>
-                <p className="text-black/70">
-                  <span className="font-medium text-black">What did that rework cost?</span>
-                </p>
-                <p className="text-black/70">
-                  <span className="font-medium text-black">What should I charge on this quote?</span>
-                </p>
-              </div>
-
-              <p className="text-black/70">
-                Chief answers based on what you’ve logged.
-                <span className="font-medium text-black"> No guessing. Only truth from your data.</span>
-              </p>
-            </div>
-          }
-          imageSrc="/placeholders/ask-chief.png"
-        />
-
-        {/* SECTION 6 */}
-        <Section
-          id="s6"
-          bg="green"
-          title={
-            <>
-              <span className="block">Coming next:</span>
-              <span className="block">
-                Job Flow: <span className="font-semibold">Quote</span> → <span className="font-semibold">Sign</span> →{" "}
-                <span className="font-semibold">Contract</span> → <span className="font-semibold">Change Order</span> →{" "}
-                <span className="font-semibold">Invoice</span> → <span className="font-semibold">Receipt</span>{" "}
-                <span className="text-white/80">(Spring ’26)</span>
-              </span>
-            </>
-          }
-          body={
-            <div className="space-y-3">
-              <p>We’re rolling out a feature that lets you create and control your job flow conversationally:</p>
-              <div className="space-y-2">
-                <p><span className="font-semibold">Quote:</span> “Chief, send a renovation quote for $45,000 to John &amp; Mary for 100 Main St.”</p>
-                <p><span className="font-semibold">Contract:</span> “Chief, they accepted — send a contract to 100 Main St for signature.”</p>
-                <p><span className="font-semibold">Change Order:</span> “Chief, send a change order to 100 Main St for kitchen reframing — $1,500 — for approval.”</p>
-                <p><span className="font-semibold">Invoice:</span> “Chief, 100 Main St is done — send the final invoice.”</p>
-                <p><span className="font-semibold">Receipt:</span> “Chief, we got paid — send the receipt and ask for a review.”</p>
-              </div>
-            </div>
-          }
-          imageSrc="/placeholders/roadmap.png"
-        />
-
-        {/* TRUST */}
-        <section id="trust" data-bg="white" className="w-full flex justify-center">
-          <div className="max-w-lg w-full px-4 py-16 space-y-4 text-sm text-black text-center">
-            <ul className="space-y-3 text-black/70 text-balance">
-              <li>Built for contractors who want to run lean and stay profitable</li>
-              <li>Log in seconds from WhatsApp — no desktop, no office days, no late admin nights</li>
-              <li>Job-level visibility so you price smarter and stop throwing away money</li>
-              <li>Year-end export in one click. Send to your accountant and move on</li>
-            </ul>
-          </div>
-        </section>
-
-        {/* Availability */}
-        <section id="availability" data-bg="white" className="w-full flex justify-center">
-          <div className="max-w-lg w-full px-4 pb-8">
-            <p className="text-xs font-medium tracking-wide text-black text-center">
-              Now available on WhatsApp
+            <p className="mt-3 text-lg md:text-xl text-white/70 leading-relaxed">
+              Snap receipts. Log hours. Track jobs. Ask Chief for real answers — grounded in your own data.
             </p>
-          </div>
-        </section>
 
-        {/* CTA */}
-        <section id="cta" data-bg="green" className="w-full flex justify-center">
-          <div className="max-w-lg w-full px-4 py-16 space-y-3 text-center">
-            <h2 className="text-xl font-semibold text-black text-balance">
-              Get early access to the fastest way to run a profitable contracting business.
-            </h2>
-
-            <a
-              href={CTA_HREF}
-              className={[
-                "inline-flex items-center justify-center w-full rounded-xl bg-white text-black py-3 text-sm font-medium shadow-md active:scale-[0.98] transition",
-                ctaPulseOnce ? "animate-chiefos-pulse-once" : "",
-              ].join(" ")}
-            >
-              Request early access
-            </a>
-
-            <p className="text-xs text-black/70 -mt-1">{SCARCITY_LINE}</p>
-          </div>
-        </section>
-
-        <div className="h-20 md:hidden" />
-      </div>
-
-      {/* Sticky Bottom CTA (mobile only) */}
-      <div
-        className={`fixed bottom-0 left-0 right-0 z-50 md:hidden transition-all duration-300 ease-out ${
-          hideStickyCta ? "opacity-0 pointer-events-none translate-y-3" : "opacity-100 translate-y-0"
-        }`}
-      >
-        <div className="mx-auto max-w-lg px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
-          <div className="rounded-2xl bg-white/90 backdrop-blur border border-black/10 shadow-lg">
-            <div className="p-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <a
-                href={CTA_HREF}
-                className="inline-flex items-center justify-center w-full rounded-xl bg-black text-white py-3 text-sm font-medium text-center shadow-md active:scale-[0.98] transition"
+                href="/early-access"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
               >
-                Request early access
+                Get early access
               </a>
-              <p className="mt-2 text-xs text-black/60 text-center">{SCARCITY_LINE}</p>
+
+              <a
+                href="/login"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+              >
+                Sign in
+              </a>
+
+              {/* ✅ Optional: WhatsApp CTA (marketing-safe framing) */}
+              <a
+                href="https://wa.me/1XXXXXXXXXX?text=I%20want%20to%20try%20ChiefOS"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+              >
+                Add Chief on WhatsApp
+              </a>
             </div>
+
+            {/* ✅ marketing-safe guardrail copy */}
+            <p className="mt-3 text-xs text-white/50">
+              Owners can ask questions. Crew can only log what you allow.
+            </p>
+
+            <div className="mt-8 grid grid-cols-2 gap-3 text-xs text-white/60">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="font-semibold text-white/80">Reality first</div>
+                <div className="mt-1">No fabricated answers. Everything is auditable.</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="font-semibold text-white/80">Jobs are the spine</div>
+                <div className="mt-1">Time + expenses + revenue anchored to the job.</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-7">
+            {/* ✅ Updated: now uses videoSrc/posterSrc */}
+            <MediaFrame
+              label="Hero loop"
+              title="Old way vs ChiefOS"
+              subtitle="Nightly cleanup → generic totals • On-site capture → explainable answers"
+              videoSrc="/loops/hero-split.mp4"
+              posterSrc="/loops/hero-split.jpg"
+            />
           </div>
         </div>
-      </div>
+      </Section>
+
+      {/* ONE OS */}
+      <Section id="product" className="py-14 md:py-20">
+        <div className="grid md:grid-cols-12 gap-10 items-center">
+          <div className="md:col-span-5">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              One OS replaces the patchwork.
+            </h2>
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              Most contractors stitch together time apps, receipt scanners, accounting, notes, and spreadsheets.
+              That creates gaps. Gaps create surprises.
+            </p>
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              ChiefOS captures what happened, when it happened, and what job it belongs to — so you get
+              understanding, not just totals.
+            </p>
+          </div>
+
+          <div className="md:col-span-7">
+            {/* keep as placeholder until you have a loop for it */}
+            <MediaFrame label="Comparison (placeholder)" title="Traditional stack → ChiefOS">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs text-white/70">
+                  {["Time Clock App", "Receipt Scanner", "Accounting", "Calendar/Notes", "Spreadsheets"].map((x) => (
+                    <div key={x} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                      {x}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-center">
+                  <div className="rounded-full border border-white/15 bg-black/40 px-4 py-2 text-xs text-white/70">
+                    ↓ replaced by
+                  </div>
+                </div>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-5">
+                  <div className="text-sm font-semibold">ChiefOS</div>
+                  <div className="mt-1 text-xs text-white/60">
+                    Receipts • Time • Revenue • Tasks • Job spine • Explainable answers
+                  </div>
+                </div>
+              </div>
+            </MediaFrame>
+          </div>
+        </div>
+      </Section>
+
+      {/* HOW IT WORKS */}
+      <Section id="how" className="py-14 md:py-20">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Log your business in real life — not after hours.
+          </h2>
+          <p className="mt-4 text-white/70 text-lg leading-relaxed">
+            Short, repeatable loops. Capture → confirm → anchored to the job. That’s how understanding compounds.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-xs text-white/60">STEP 1</div>
+            <div className="mt-2 text-lg font-semibold">Snap & confirm</div>
+            <p className="mt-2 text-sm text-white/70">
+              Receipt photo → parsed fields → quick confirm/edit → saved with evidence.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-xs text-white/60">STEP 2</div>
+            <div className="mt-2 text-lg font-semibold">Time by voice</div>
+            <p className="mt-2 text-sm text-white/70">
+              “Clock in crew.” “Break.” “Drive.” “Clock out.” Undo mistakes instantly.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-xs text-white/60">STEP 3</div>
+            <div className="mt-2 text-lg font-semibold">Ask Chief</div>
+            <p className="mt-2 text-sm text-white/70">
+              “How much am I making on 18 Main St?” Answers grounded in your own logs.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* SIGNATURE DIFFERENTIATOR */}
+      <Section id="why" className="py-14 md:py-20">
+        <div className="grid md:grid-cols-12 gap-10 items-center">
+          <div className="md:col-span-5">
+            {/* ✅ NEW: “puts reality into the equation” placement #2 */}
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Totals aren’t guidance.
+              <br />
+              ChiefOS puts reality into the equation.
+            </h2>
+
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              Most tools only see your business after you clean it up. ChiefOS captures reality first — timing, evidence,
+              intent — then builds explainable job-level truth.
+            </p>
+
+            <div className="mt-6 space-y-3 text-sm text-white/70">
+              <div className="flex items-start gap-3">
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                <div>
+                  <span className="text-white/85 font-semibold">Jobs are the backbone of truth.</span>{" "}
+                  Receipts, time, revenue, tasks — attached to the job that caused them.
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                <div>
+                  <span className="text-white/85 font-semibold">Auditable answers.</span>{" "}
+                  Every number ties back to the underlying evidence.
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/60" />
+                <div>
+                  <span className="text-white/85 font-semibold">Reality captured once.</span>{" "}
+                  No end-of-month rebuild.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-7">
+            {/* ✅ Updated: now uses videoSrc/posterSrc */}
+            <MediaFrame
+              label="Reality capture"
+              title="Job spine timeline"
+              subtitle="Receipts + time + revenue + tasks → job truth → explainable answers"
+              videoSrc="/loops/job-spine.mp4"
+              posterSrc="/loops/job-spine.jpg"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* USE CASES */}
+      <Section id="use-cases" className="py-14 md:py-20">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Built for the trades. Built to be trusted.</h2>
+          <p className="mt-4 text-white/70 text-lg leading-relaxed">
+            ChiefOS is not “another dashboard.” It’s an operating system that understands your business because it
+            captured reality first.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          {[
+            {
+              h: "Job profitability",
+              p: "Know which jobs are winners, which are leaking, and why — with evidence, not guesses.",
+            },
+            {
+              h: "Fast capture",
+              p: "Log on-site while it’s happening. No admin nights. No missing receipts.",
+            },
+            {
+              h: "Instant recall",
+              p: "Find receipts, time, revenue, and notes without digging through folders.",
+            },
+          ].map((x) => (
+            <div key={x.h} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="text-lg font-semibold">{x.h}</div>
+              <p className="mt-2 text-sm text-white/70">{x.p}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* EMOTIONAL PAYOFF */}
+      <Section className="py-14 md:py-20">
+        <div className="grid md:grid-cols-12 gap-10 items-center">
+          <div className="md:col-span-5">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Get your evenings back.</h2>
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              Contractors shouldn’t rebuild the business at 10 PM. Capture it once, in real time — and use that time where
+              it actually matters.
+            </p>
+            <div className="mt-8 flex gap-3">
+              <a
+                href="/early-access"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+              >
+                Get early access
+              </a>
+              <a
+                href="/login"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+              >
+                Sign in
+              </a>
+            </div>
+          </div>
+
+          <div className="md:col-span-7">
+            {/* ✅ Updated: now uses videoSrc/posterSrc */}
+            <MediaFrame
+              label="Lifestyle loop"
+              title="Homecoming moment"
+              videoSrc="/loops/homecoming.mp4"
+              posterSrc="/loops/homecoming.jpg"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* FAQ */}
+      <Section id="faq" className="py-14 md:py-20">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">FAQ</h2>
+          <p className="mt-4 text-white/70 text-lg leading-relaxed">
+            Short answers. No fluff. Trust over cleverness.
+          </p>
+        </div>
+
+        <div className="mt-10">
+          <FAQ
+            items={[
+              {
+                q: "Is this accounting software?",
+                a: "It’s an operating system for capturing business reality and understanding jobs. You can export what you need for bookkeeping, but ChiefOS is built for day-to-day operational truth.",
+              },
+              {
+                q: "Do my workers need an app?",
+                a: "No. The goal is to meet crews where they already are. Ingestion happens through simple channels. The ‘Chief’ reasoning interface stays with the owner/operator.",
+              },
+              {
+                q: "Why not just use QuickBooks?",
+                a: "QuickBooks is great for accounting records. ChiefOS focuses on capturing reality as it happens, job-by-job, so you can understand causes — not just totals after the fact.",
+              },
+              {
+                q: "What if I make a mistake?",
+                a: "ChiefOS is built to be repairable: confirm steps, allow undo, and keep an audit trail so corrections don’t destroy trust.",
+              },
+              {
+                q: "Does it keep receipt images?",
+                a: "Yes — receipts are stored as evidence and are searchable later, so you can always trace numbers back to what actually happened.",
+              },
+            ]}
+          />
+        </div>
+      </Section>
+
+      <SiteFooter
+        brandLine="ChiefOS puts reality into the equation."
+        subLine="Capture real work. Understand real jobs."
+      />
     </main>
   );
 }
