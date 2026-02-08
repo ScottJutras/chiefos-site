@@ -4,8 +4,6 @@
 import { useEffect, useState } from "react";
 import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
-import { whatsappHref } from "@/app/components/marketing/constants";
-
 
 const links = [
   { label: "Product", href: "#product" },
@@ -13,8 +11,6 @@ const links = [
   { label: "Why ChiefOS", href: "#why" },
   { label: "FAQ", href: "#faq" },
 ];
-
-
 
 export default function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
@@ -32,9 +28,7 @@ export default function SiteHeader() {
       className={[
         "fixed top-0 left-0 right-0 z-50",
         "transition-all duration-300",
-        scrolled
-          ? "bg-black/70 backdrop-blur-xl border-b border-white/10"
-          : "bg-transparent",
+        scrolled ? "bg-black/70 backdrop-blur-xl border-b border-white/10" : "bg-transparent",
       ].join(" ")}
     >
       <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
@@ -42,38 +36,24 @@ export default function SiteHeader() {
           <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center font-bold transition group-hover:-translate-y-[1px]">
             C
           </div>
-          <div className="font-semibold tracking-tight group-hover:text-white transition">
-            ChiefOS
-          </div>
+          <div className="font-semibold tracking-tight group-hover:text-white transition">ChiefOS</div>
         </a>
 
         <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
           {links.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="hover:text-white transition"
-            >
+            <a key={l.href} href={l.href} className="hover:text-white transition">
               {l.label}
             </a>
           ))}
         </nav>
 
-        {/* ✅ Desktop actions */}
+        {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="/login"
-            className="text-sm text-white/70 hover:text-white transition"
-          >
+          <a href="/login" className="text-sm text-white/70 hover:text-white transition">
             Sign in
           </a>
 
-          {/* ✅ Secondary CTA: WhatsApp (premium + conversion) */}
-          <TooltipChip
-            tip="No app download. Works inside WhatsApp."
-            show={scrolled}
-            className="inline-flex"
-          >
+          <TooltipChip tip="No app download. Works inside WhatsApp." show={scrolled} className="inline-flex">
             <a
               href="/wa?t=header"
               target="_blank"
@@ -82,22 +62,20 @@ export default function SiteHeader() {
                 "inline-flex items-center justify-center gap-2 rounded-2xl",
                 "border border-white/15 bg-white/5 px-4 py-2",
                 "text-sm font-semibold text-white",
-                "hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0",
-                // ✅ subtle WhatsApp glow on hover (premium)
+                "hover:bg-white/10 transition",
                 "hover:shadow-[0_18px_50px_rgba(37,211,102,0.14)]",
               ].join(" ")}
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#25D366]/25 bg-[#25D366]/15">
+              <span className="inline-grid h-7 w-7 place-items-center rounded-xl border border-white/10 bg-black/30">
                 <WhatsAppIcon className="h-[18px] w-[18px] text-white translate-y-[0.5px]" />
               </span>
               Try on WhatsApp
             </a>
           </TooltipChip>
 
-          {/* Primary CTA */}
           <a
             href="/early-access"
-            className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/10 hover:ring-white/25 hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+            className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
           >
             Get early access
           </a>
@@ -113,7 +91,7 @@ export default function SiteHeader() {
         </button>
       </div>
 
-      {/* ✅ Mobile menu */}
+      {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-white/10 bg-black/90 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col gap-3">
@@ -128,9 +106,8 @@ export default function SiteHeader() {
               </a>
             ))}
 
-            {/* ✅ Mobile WhatsApp CTA (high conversion, still clean) */}
             <a
-              href="/wa?t=header"
+              href="/wa?t=mobile"
               target="_blank"
               rel="noopener noreferrer"
               className={[
@@ -145,7 +122,6 @@ export default function SiteHeader() {
               <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
                 <WhatsAppIcon className="h-[18px] w-[18px] text-white translate-y-[0.5px]" />
               </span>
-
               Try on WhatsApp
             </a>
 
@@ -166,9 +142,7 @@ export default function SiteHeader() {
               </a>
             </div>
 
-            <div className="text-xs text-white/45">
-              No app download. Works inside WhatsApp.
-            </div>
+            <div className="text-xs text-white/45">No app download. Works inside WhatsApp.</div>
           </div>
         </div>
       )}
