@@ -56,9 +56,10 @@ export default function Home() {
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/30">
-                <WhatsAppIcon className="h-5 w-5 text-white/90" />
+              <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
+                <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
               </span>
+
               Add Chief on WhatsApp
             </a>
         </TooltipChip>

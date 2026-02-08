@@ -142,9 +142,10 @@ export default function SiteHeader() {
               ].join(" ")}
               onClick={() => setOpen(false)}
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#25D366]/25 bg-[#25D366]/15">
-                <WhatsAppIcon className="h-5 w-5 text-white" />
+              <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
+                <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
               </span>
+
               Try on WhatsApp
             </a>
 
