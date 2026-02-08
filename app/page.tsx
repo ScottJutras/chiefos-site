@@ -7,6 +7,11 @@ import Section from "@/app/components/marketing/Section";
 import MediaFrame from "@/app/components/marketing/MediaFrame";
 import FAQ from "@/app/components/marketing/FAQ";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
+import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
+import TooltipChip from "@/app/components/marketing/TooltipChip";
+
+
+
 
 export const metadata = {
   title: "ChiefOS",
@@ -34,7 +39,6 @@ export default function Home() {
               by texting it.
             </h1>
 
-            {/* ✅ NEW: “puts reality into the equation” placement #1 */}
             <p className="mt-4 text-lg md:text-xl text-white/80 leading-relaxed">
               ChiefOS puts reality into the equation.
             </p>
@@ -43,31 +47,42 @@ export default function Home() {
               Snap receipts. Log hours. Track jobs. Ask Chief for real answers — grounded in your own data.
             </p>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            {/* ✅ overflow-visible prevents tooltip clipping */}
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 overflow-visible">
+        <TooltipChip tip="No app download. Works inside WhatsApp.">
+            <a
+              href="/wa?t=hero"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/30">
+                <WhatsAppIcon className="h-5 w-5 text-white/90" />
+              </span>
+              Add Chief on WhatsApp
+            </a>
+        </TooltipChip>
+
+
               <a
                 href="/early-access"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
               >
                 Get early access
               </a>
 
               <a
                 href="/login"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
               >
                 Sign in
               </a>
-
-              {/* ✅ Optional: WhatsApp CTA (marketing-safe framing) */}
-              <a
-                href="https://wa.me/1XXXXXXXXXX?text=I%20want%20to%20try%20ChiefOS"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
-              >
-                Add Chief on WhatsApp
-              </a>
             </div>
 
-            {/* ✅ marketing-safe guardrail copy */}
+            <p className="mt-2 text-xs text-white/45">
+              No app download. Works inside WhatsApp.
+            </p>
+
             <p className="mt-3 text-xs text-white/50">
               Owners can ask questions. Crew can only log what you allow.
             </p>
@@ -85,7 +100,6 @@ export default function Home() {
           </div>
 
           <div className="md:col-span-7">
-            {/* ✅ Updated: now uses videoSrc/posterSrc */}
             <MediaFrame
               label="Hero loop"
               title="Old way vs ChiefOS"
@@ -115,7 +129,6 @@ export default function Home() {
           </div>
 
           <div className="md:col-span-7">
-            {/* keep as placeholder until you have a loop for it */}
             <MediaFrame label="Comparison (placeholder)" title="Traditional stack → ChiefOS">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs text-white/70">
@@ -182,7 +195,6 @@ export default function Home() {
       <Section id="why" className="py-14 md:py-20">
         <div className="grid md:grid-cols-12 gap-10 items-center">
           <div className="md:col-span-5">
-            {/* ✅ NEW: “puts reality into the equation” placement #2 */}
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
               Totals aren’t guidance.
               <br />
@@ -220,7 +232,6 @@ export default function Home() {
           </div>
 
           <div className="md:col-span-7">
-            {/* ✅ Updated: now uses videoSrc/posterSrc */}
             <MediaFrame
               label="Reality capture"
               title="Job spine timeline"
@@ -235,7 +246,9 @@ export default function Home() {
       {/* USE CASES */}
       <Section id="use-cases" className="py-14 md:py-20">
         <div className="max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Built for the trades. Built to be trusted.</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Built for the trades. Built to be trusted.
+          </h2>
           <p className="mt-4 text-white/70 text-lg leading-relaxed">
             ChiefOS is not “another dashboard.” It’s an operating system that understands your business because it
             captured reality first.
@@ -269,7 +282,9 @@ export default function Home() {
       <Section className="py-14 md:py-20">
         <div className="grid md:grid-cols-12 gap-10 items-center">
           <div className="md:col-span-5">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Get your evenings back.</h2>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Get your evenings back.
+            </h2>
             <p className="mt-4 text-white/70 text-lg leading-relaxed">
               Contractors shouldn’t rebuild the business at 10 PM. Capture it once, in real time — and use that time where
               it actually matters.
@@ -291,7 +306,6 @@ export default function Home() {
           </div>
 
           <div className="md:col-span-7">
-            {/* ✅ Updated: now uses videoSrc/posterSrc */}
             <MediaFrame
               label="Lifestyle loop"
               title="Homecoming moment"
@@ -305,7 +319,9 @@ export default function Home() {
       {/* FAQ */}
       <Section id="faq" className="py-14 md:py-20">
         <div className="max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">FAQ</h2>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            FAQ
+          </h2>
           <p className="mt-4 text-white/70 text-lg leading-relaxed">
             Short answers. No fluff. Trust over cleverness.
           </p>
