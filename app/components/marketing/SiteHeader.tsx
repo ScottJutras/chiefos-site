@@ -88,7 +88,7 @@ export default function SiteHeader() {
               ].join(" ")}
             >
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-[#25D366]/25 bg-[#25D366]/15">
-                <WhatsAppIcon className="h-4 w-4 text-white" />
+                <WhatsAppIcon className="h-[18px] w-[18px] text-white translate-y-[0.5px]" />
               </span>
               Try on WhatsApp
             </a>
@@ -97,7 +97,7 @@ export default function SiteHeader() {
           {/* Primary CTA */}
           <a
             href="/early-access"
-            className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+            className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/10 transition"
           >
             Get early access
           </a>
