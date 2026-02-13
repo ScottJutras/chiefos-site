@@ -12,7 +12,7 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [showTurnstile, setShowTurnstile] = useState(false);
+  const [showTurnstile, setShowTurnstile] = useState(true);
   const [turnstileKey, setTurnstileKey] = useState(0);
 
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");

@@ -7,11 +7,11 @@ import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 
 const links = [
-  { label: "How it works", href: "#how" },
-  { label: "Scoreboard", href: "#scoreboard" },
-  { label: "Time truth", href: "#time" },
-  { label: "Plans", href: "#pricing-preview" },
-  { label: "FAQ", href: "#faq" },
+  { label: "How it works", href: "/#how" },
+  { label: "Scoreboard", href: "/#scoreboard" },
+  { label: "Time truth", href: "/#time" },
+  { label: "Plans", href: "/#pricing-preview" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export default function SiteHeader() {
@@ -34,30 +34,27 @@ export default function SiteHeader() {
       ].join(" ")}
     >
       <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-        {/* Brand (hash link is fine as <a>) */}
-        <a href="#top" className="flex items-center gap-2 group">
+        {/* Logo always goes home */}
+        <Link href="/#top" className="flex items-center gap-2 group" onClick={() => setOpen(false)}>
           <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center font-bold transition group-hover:-translate-y-[1px]">
             C
           </div>
           <div className="font-semibold tracking-tight group-hover:text-white transition">ChiefOS</div>
-        </a>
+        </Link>
 
-        {/* Hash-nav stays <a> */}
         <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="hover:text-white transition">
+            <Link key={l.href} href={l.href} className="hover:text-white transition">
               {l.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          {/* INTERNAL route -> Link */}
           <Link href="/login" className="text-sm text-white/70 hover:text-white transition">
             Sign in
           </Link>
 
-          {/* external-ish route (opens new tab), keep <a> */}
           <TooltipChip tip="No app download. Works inside WhatsApp." show={scrolled} className="inline-flex">
             <a
               href="/wa?t=header"
@@ -78,7 +75,6 @@ export default function SiteHeader() {
             </a>
           </TooltipChip>
 
-          {/* INTERNAL route -> Link */}
           <Link
             href="/early-access?plan=starter"
             className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
@@ -88,7 +84,6 @@ export default function SiteHeader() {
         </div>
 
         <button
-          type="button"
           className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
@@ -101,14 +96,14 @@ export default function SiteHeader() {
         <div className="md:hidden border-t border-white/10 bg-black/90 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col gap-3">
             {links.map((l) => (
-              <a
+              <Link
                 key={l.href}
                 href={l.href}
                 className="text-sm text-white/80 hover:text-white transition"
                 onClick={() => setOpen(false)}
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
 
             <a
@@ -131,7 +126,6 @@ export default function SiteHeader() {
             </a>
 
             <div className="pt-2 flex gap-3">
-              {/* INTERNAL route -> Link */}
               <Link
                 href="/login"
                 className="flex-1 inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
@@ -139,8 +133,6 @@ export default function SiteHeader() {
               >
                 Sign in
               </Link>
-
-              {/* INTERNAL route -> Link */}
               <Link
                 href="/early-access?plan=starter"
                 className="flex-1 inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
