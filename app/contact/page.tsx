@@ -6,26 +6,46 @@ import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/marketing/SiteHeader";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
 
-
 export default function ContactPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [showTurnstile, setShowTurnstile] = useState(false);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [err, setErr] = useState<string | null>(null);
+
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+  // IMPORTANT: keep options stable (no new object each render)
   const turnstileOptions = useMemo(() => {
-  return { appearance: "always" as const };
-}, []);
+    return {
+      appearance: "interaction-only" as const, // ✅ avoids constant rendering + overlay issues
+    };
+  }, []);
+
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    setTurnstileKey((k) => k + 1);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
-    setStatus("sending");
 
     try {
-      if (!turnstileToken) throw new Error("Please complete the bot check.");
+      if (!siteKey) throw new Error("Bot check misconfigured (missing site key).");
+
+      // Don’t submit until token exists
+      if (!turnstileToken) {
+        setShowTurnstile(true);
+        throw new Error("Please complete the bot check.");
+      }
+
+      setStatus("sending");
 
       const r = await fetch("/api/contact", {
         method: "POST",
@@ -33,18 +53,21 @@ export default function ContactPage() {
         body: JSON.stringify({ name, email, message, turnstileToken }),
       });
 
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Message failed.");
 
       setStatus("sent");
       setName("");
       setEmail("");
       setMessage("");
-      setTurnstileToken(null);
+      setShowTurnstile(false);
+      resetTurnstile();
     } catch (e: any) {
       setStatus("error");
       setErr(e?.message ?? "Message failed.");
-      setTurnstileToken(null);
+
+      // Only reset after a real failure — avoids “infinite reload” vibes
+      resetTurnstile();
     }
   }
 
@@ -65,9 +88,7 @@ export default function ContactPage() {
         {status === "sent" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="text-sm font-semibold text-white/90">Message received.</div>
-            <p className="mt-2 text-sm text-white/70">
-              We’ll get back to you soon.
-            </p>
+            <p className="mt-2 text-sm text-white/70">We’ll get back to you soon.</p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <a
@@ -124,22 +145,65 @@ export default function ContactPage() {
               />
             </div>
 
+            {/* Bot check */}
             <div className="pt-2">
-  {siteKey ? (
-    <Turnstile
-      siteKey={siteKey}
-      onSuccess={(token) => setTurnstileToken(token)}
-      onExpire={() => setTurnstileToken(null)}
-      onError={() => setTurnstileToken(null)}
-      options={turnstileOptions}
-    />
-  ) : (
-    <div className="text-xs text-red-200">
-      Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
-    </div>
-  )}
-</div>
+              {!siteKey ? (
+                <div className="text-xs text-red-200">
+                  Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="text-sm text-white/80">
+                      {turnstileToken ? (
+                        <span className="text-white/90 font-semibold">✅ Verified</span>
+                      ) : (
+                        <span>Verify you’re human (one click)</span>
+                      )}
+                    </div>
 
+                    {!turnstileToken && !showTurnstile && (
+                      <button
+                        type="button"
+                        onClick={() => setShowTurnstile(true)}
+                        className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+                      >
+                        Verify
+                      </button>
+                    )}
+
+                    {turnstileToken && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTurnstile(true);
+                          resetTurnstile();
+                        }}
+                        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
+                      >
+                        Re-verify
+                      </button>
+                    )}
+                  </div>
+
+                  {showTurnstile && !turnstileToken && (
+                    <div className="mt-3 relative z-0">
+                      <Turnstile
+                        key={turnstileKey}
+                        siteKey={siteKey}
+                        options={turnstileOptions}
+                        onSuccess={(token) => {
+                          setTurnstileToken(token);
+                          setShowTurnstile(false);
+                        }}
+                        onExpire={() => resetTurnstile()}
+                        onError={() => resetTurnstile()}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {err && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
@@ -166,9 +230,7 @@ export default function ContactPage() {
               </a>
             </div>
 
-            <p className="text-xs text-white/45">
-              We’ll only use your email to respond.
-            </p>
+            <p className="text-xs text-white/45">We’ll only use your email to respond.</p>
           </form>
         )}
       </div>
