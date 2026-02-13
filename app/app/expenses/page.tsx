@@ -11,8 +11,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Slideover from "@/app/app/components/Slideover";
 
-
-
 type Expense = {
   id: string;
   amount: number;
@@ -32,7 +30,14 @@ type EditDraft = {
   job_name: string;
 };
 
-type GroupBy = "none" | "vendor" | "job" | "year" | "month" | "date" | "amount_bucket";
+type GroupBy =
+  | "none"
+  | "vendor"
+  | "job"
+  | "year"
+  | "month"
+  | "date"
+  | "amount_bucket";
 
 type SortBy =
   | "date_desc"
@@ -40,7 +45,11 @@ type SortBy =
   | "amount_desc"
   | "amount_asc"
   | "vendor_asc"
-  | "vendor_desc";
+  | "vendor_desc"
+  | "job_asc"
+  | "job_desc"
+  | "desc_asc"
+  | "desc_desc";
 
 type SavedView = {
   id: string;
@@ -93,7 +102,9 @@ export default function ExpensesPage() {
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
+  const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(
+    null
+  );
   const [saving, setSaving] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,10 +150,49 @@ export default function ExpensesPage() {
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
 
+  // ✅ Sorting helpers MUST live inside the component (so they can use setSortBy)
+  function sortArrow(active: boolean, dir: "asc" | "desc") {
+    if (!active) return <span className="ml-1 text-white/30">↕</span>;
+    return (
+      <span className="ml-1 text-white/80">{dir === "asc" ? "▲" : "▼"}</span>
+    );
+  }
+
+  function toggleSort(field: "date" | "vendor" | "amount" | "job" | "desc") {
+    setSortBy((prev) => {
+      const asc: SortBy =
+        field === "date"
+          ? "date_asc"
+          : field === "vendor"
+          ? "vendor_asc"
+          : field === "amount"
+          ? "amount_asc"
+          : field === "job"
+          ? "job_asc"
+          : "desc_asc";
+
+      const desc: SortBy =
+        field === "date"
+          ? "date_desc"
+          : field === "vendor"
+          ? "vendor_desc"
+          : field === "amount"
+          ? "amount_desc"
+          : field === "job"
+          ? "job_desc"
+          : "desc_desc";
+
+      // Cycle: desc -> asc -> desc ...
+      if (prev === desc) return asc;
+      return desc;
+    });
+  }
+
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!moreRef.current) return;
-      if (e.target instanceof Node && !moreRef.current.contains(e.target)) setMoreOpen(false);
+      if (e.target instanceof Node && !moreRef.current.contains(e.target))
+        setMoreOpen(false);
     }
     if (moreOpen) document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -162,7 +212,9 @@ export default function ExpensesPage() {
         if (error) throw error;
         if (!cancelled) setExpenses((data ?? []) as Expense[]);
 
-        const { data: vData, error: vErr } = await supabase.rpc("chiefos_list_saved_views");
+        const { data: vData, error: vErr } = await supabase.rpc(
+          "chiefos_list_saved_views"
+        );
         if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
@@ -199,9 +251,9 @@ export default function ExpensesPage() {
   const dupeKeyCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of expenses) {
-      const k = `${isoDay(e.expense_date)}|${String(e.vendor || "").trim().toLowerCase()}|${toMoney(
-        e.amount
-      ).toFixed(2)}`;
+      const k = `${isoDay(e.expense_date)}|${String(e.vendor || "")
+        .trim()
+        .toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
       m.set(k, (m.get(k) || 0) + 1);
     }
     return m;
@@ -260,24 +312,45 @@ export default function ExpensesPage() {
     out.sort((A, B) => {
       const aDate = isoDay(A.expense_date);
       const bDate = isoDay(B.expense_date);
+
       const aAmt = toMoney(A.amount);
       const bAmt = toMoney(B.amount);
+
       const aVend = String(A.vendor || "").trim();
       const bVend = String(B.vendor || "").trim();
+
+      const aJob = String(A.job_name || "").trim();
+      const bJob = String(B.job_name || "").trim();
+
+      const aDesc = String(A.description || "").trim();
+      const bDesc = String(B.description || "").trim();
 
       switch (sortBy) {
         case "date_asc":
           return cmpStr(aDate, bDate);
         case "date_desc":
           return cmpStr(bDate, aDate);
+
         case "amount_asc":
           return cmpNum(aAmt, bAmt);
         case "amount_desc":
           return cmpNum(bAmt, aAmt);
+
         case "vendor_asc":
           return cmpStr(aVend, bVend);
         case "vendor_desc":
           return cmpStr(bVend, aVend);
+
+        case "job_asc":
+          return cmpStr(aJob, bJob);
+        case "job_desc":
+          return cmpStr(bJob, aJob);
+
+        case "desc_asc":
+          return cmpStr(aDesc, bDesc);
+        case "desc_desc":
+          return cmpStr(bDesc, aDesc);
+
         default:
           return 0;
       }
@@ -894,22 +967,6 @@ export default function ExpensesPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs text-white/60 mb-1">Sort</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-              >
-                <option value="date_desc">Date (newest)</option>
-                <option value="date_asc">Date (oldest)</option>
-                <option value="amount_desc">Amount (high → low)</option>
-                <option value="amount_asc">Amount (low → high)</option>
-                <option value="vendor_asc">Vendor (A → Z)</option>
-                <option value="vendor_desc">Vendor (Z → A)</option>
-              </select>
-            </div>
-
             <div className="md:col-span-2 flex gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-white/60 mb-1">From</label>
@@ -1036,14 +1093,101 @@ export default function ExpensesPage() {
                     />
                   </th>
                   <th className="py-3 pr-4 w-10">#</th>
-                  <th className="py-3 pr-4">Date</th>
-                  <th className="py-3 pr-4">Vendor</th>
-                  <th className="py-3 pr-4">Amount</th>
-                  <th className="py-3 pr-4">Job</th>
-                  <th className="py-3 pr-4">Description</th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("date")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("date_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by date"
+                    >
+                      Date
+                      {sortArrow(
+                        sortBy.startsWith("date_"),
+                        sortBy === "date_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("vendor")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("vendor_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by vendor"
+                    >
+                      Vendor
+                      {sortArrow(
+                        sortBy.startsWith("vendor_"),
+                        sortBy === "vendor_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("amount")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("amount_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by amount"
+                    >
+                      Amount
+                      {sortArrow(
+                        sortBy.startsWith("amount_"),
+                        sortBy === "amount_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("job")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("job_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by job"
+                    >
+                      Job
+                      {sortArrow(
+                        sortBy.startsWith("job_"),
+                        sortBy === "job_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("desc")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by description"
+                    >
+                      Description
+                      {sortArrow(
+                        sortBy.startsWith("desc_"),
+                        sortBy === "desc_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
                   <th className="py-3 pr-4 w-24">Edit</th>
                 </tr>
               </thead>
+
               <tbody>
                 {sorted.map((e, ix) => {
                   const checked = !!selected[e.id];
@@ -1059,7 +1203,10 @@ export default function ExpensesPage() {
                           type="checkbox"
                           checked={checked}
                           onChange={(ev) =>
-                            setSelected((prev) => ({ ...prev, [e.id]: ev.target.checked }))
+                            setSelected((prev) => ({
+                              ...prev,
+                              [e.id]: ev.target.checked,
+                            }))
                           }
                         />
                       </td>
@@ -1069,7 +1216,9 @@ export default function ExpensesPage() {
                       </td>
                       <td className="py-3 pr-4 text-white/85">
                         {e.vendor ?? "—"}{" "}
-                        {isDupe && <span className="ml-2 text-xs text-orange-300">(dupe?)</span>}
+                        {isDupe && (
+                          <span className="ml-2 text-xs text-orange-300">(dupe?)</span>
+                        )}
                       </td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white">
                         ${toMoney(e.amount).toFixed(2)}
@@ -1102,96 +1251,83 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* Edit modal */}
+        {/* Edit slideover */}
         <Slideover
-  open={editOpen && !!draft}
-  onClose={closeEdit}
-  title="Edit expense"
-  subtitle="Tenant-scoped update via RPC"
-  footer={
-    <div className="flex justify-end gap-2">
-      <button
-        onClick={closeEdit}
-        disabled={saving}
-        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-      >
-        Cancel
-      </button>
-      <button
-        onClick={saveEdit}
-        disabled={saving}
-        className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
-      >
-        {saving ? "Saving…" : "Save changes"}
-      </button>
-    </div>
-  }
->
-  {draft && (
-    <div className="grid grid-cols-1 gap-4">
-      <div>
-        <label className="block text-xs text-white/60 mb-1">Date</label>
-        <input
-          type="date"
-          value={draft.expense_date}
-          onChange={(e) =>
-            setDraft({ ...draft, expense_date: e.target.value })
+          open={editOpen && !!draft}
+          onClose={closeEdit}
+          title="Edit expense"
+          subtitle="Tenant-scoped update via RPC"
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={closeEdit}
+                disabled={saving}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={saving}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
           }
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-        />
-      </div>
+        >
+          {draft && (
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={draft.expense_date}
+                  onChange={(e) => setDraft({ ...draft, expense_date: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                />
+              </div>
 
-      <div>
-        <label className="block text-xs text-white/60 mb-1">Amount</label>
-        <input
-          value={draft.amount}
-          onChange={(e) =>
-            setDraft({ ...draft, amount: e.target.value })
-          }
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-          placeholder="18.50"
-        />
-      </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Amount</label>
+                <input
+                  value={draft.amount}
+                  onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                  placeholder="18.50"
+                />
+              </div>
 
-      <div>
-        <label className="block text-xs text-white/60 mb-1">Vendor</label>
-        <input
-          value={draft.vendor}
-          onChange={(e) =>
-            setDraft({ ...draft, vendor: e.target.value })
-          }
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-        />
-      </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Vendor</label>
+                <input
+                  value={draft.vendor}
+                  onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                />
+              </div>
 
-      <div>
-        <label className="block text-xs text-white/60 mb-1">Job</label>
-        <input
-          value={draft.job_name}
-          onChange={(e) =>
-            setDraft({ ...draft, job_name: e.target.value })
-          }
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-        />
-      </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Job</label>
+                <input
+                  value={draft.job_name}
+                  onChange={(e) => setDraft({ ...draft, job_name: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                />
+              </div>
 
-      <div>
-        <label className="block text-xs text-white/60 mb-1">
-          Description
-        </label>
-        <textarea
-          value={draft.description}
-          onChange={(e) =>
-            setDraft({ ...draft, description: e.target.value })
-          }
-          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-          rows={3}
-        />
-      </div>
-    </div>
-  )}
-</Slideover>
-
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Description</label>
+                <textarea
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+        </Slideover>
 
         {/* Note on grouping (kept) */}
         {grouped && (

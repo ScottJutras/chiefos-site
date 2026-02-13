@@ -49,7 +49,15 @@ function chip(cls: string) {
   ].join(" ");
 }
 
-type SortBy = "created_desc" | "created_asc" | "status_asc" | "status_desc";
+type SortBy =
+  | "created_desc"
+  | "created_asc"
+  | "status_asc"
+  | "status_desc"
+  | "title_asc"
+  | "title_desc"
+  | "assignee_asc"
+  | "assignee_desc";
 
 export default function TasksPage() {
   const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
@@ -59,6 +67,37 @@ export default function TasksPage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [sortBy, setSortBy] = useState<SortBy>("created_desc");
+
+  // Header sort helpers (inside component)
+  function sortArrow(active: boolean, dir: "asc" | "desc") {
+    if (!active) return <span className="ml-1 text-white/30">↕</span>;
+    return <span className="ml-1 text-white/80">{dir === "asc" ? "▲" : "▼"}</span>;
+  }
+
+  function toggleSort(field: "created" | "status" | "title" | "assignee") {
+    setSortBy((prev) => {
+      const asc: SortBy =
+        field === "created"
+          ? "created_asc"
+          : field === "status"
+          ? "status_asc"
+          : field === "title"
+          ? "title_asc"
+          : "assignee_asc";
+
+      const desc: SortBy =
+        field === "created"
+          ? "created_desc"
+          : field === "status"
+          ? "status_desc"
+          : field === "title"
+          ? "title_desc"
+          : "assignee_desc";
+
+      if (prev === desc) return asc;
+      return desc;
+    });
+  }
 
   useEffect(() => {
     document.title = "Tasks · ChiefOS";
@@ -94,24 +133,39 @@ export default function TasksPage() {
 
   const sorted = useMemo(() => {
     const out = (rows || []).slice();
-
-    const cmpStr = (a: string, b: string) => a.localeCompare(b);
+    const cmpStr = (a: string, b: string) => String(a).localeCompare(String(b));
 
     out.sort((A, B) => {
       const aC = pickCreated(A);
       const bC = pickCreated(B);
       const aS = pickStatus(A);
       const bS = pickStatus(B);
+      const aT = pickTitle(A);
+      const bT = pickTitle(B);
+      const aA = pickAssignee(A);
+      const bA = pickAssignee(B);
 
       switch (sortBy) {
         case "created_asc":
           return cmpStr(aC, bC);
         case "created_desc":
           return cmpStr(bC, aC);
+
         case "status_asc":
           return cmpStr(aS, bS);
         case "status_desc":
           return cmpStr(bS, aS);
+
+        case "title_asc":
+          return cmpStr(aT, bT);
+        case "title_desc":
+          return cmpStr(bT, aT);
+
+        case "assignee_asc":
+          return cmpStr(aA, bA);
+        case "assignee_desc":
+          return cmpStr(bA, aA);
+
         default:
           return 0;
       }
@@ -141,17 +195,6 @@ export default function TasksPage() {
               <span className="text-white/45">Items</span>
               <span className="text-white">{totals.count}</span>
             </div>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-            >
-              <option value="created_desc">Created (newest)</option>
-              <option value="created_asc">Created (oldest)</option>
-              <option value="status_asc">Status (A → Z)</option>
-              <option value="status_desc">Status (Z → A)</option>
-            </select>
           </div>
         </div>
 
@@ -165,12 +208,80 @@ export default function TasksPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-white/60">
-                  <th className="py-3 pl-4 pr-4">Status</th>
-                  <th className="py-3 pr-4">Title</th>
-                  <th className="py-3 pr-4">Assignee</th>
-                  <th className="py-3 pr-4">Created</th>
+                  <th className="py-3 pl-4 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("status")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("status_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by status"
+                    >
+                      Status
+                      {sortArrow(
+                        sortBy.startsWith("status_"),
+                        sortBy === "status_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("title")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("title_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by title"
+                    >
+                      Title
+                      {sortArrow(
+                        sortBy.startsWith("title_"),
+                        sortBy === "title_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("assignee")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("assignee_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by assignee"
+                    >
+                      Assignee
+                      {sortArrow(
+                        sortBy.startsWith("assignee_"),
+                        sortBy === "assignee_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("created")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("created_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by created time"
+                    >
+                      Created
+                      {sortArrow(
+                        sortBy.startsWith("created_"),
+                        sortBy === "created_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
                 </tr>
               </thead>
+
               <tbody>
                 {sorted.map((x, ix) => (
                   <tr key={stableKey(x, ix)} className="border-b border-white/5">

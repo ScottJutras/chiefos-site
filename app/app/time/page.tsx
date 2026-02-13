@@ -77,7 +77,15 @@ function chip(cls: string) {
   ].join(" ");
 }
 
-type SortBy = "time_desc" | "time_asc" | "employee_asc" | "employee_desc";
+type SortBy =
+  | "time_desc"
+  | "time_asc"
+  | "employee_asc"
+  | "employee_desc"
+  | "type_asc"
+  | "type_desc"
+  | "job_asc"
+  | "job_desc";
 
 export default function TimePage() {
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
@@ -107,6 +115,37 @@ export default function TimePage() {
     tz: string;
     dtLocal: string; // datetime-local value
   } | null>(null);
+
+  // Header sort helpers (inside component)
+  function sortArrow(active: boolean, dir: "asc" | "desc") {
+    if (!active) return <span className="ml-1 text-white/30">↕</span>;
+    return <span className="ml-1 text-white/80">{dir === "asc" ? "▲" : "▼"}</span>;
+  }
+
+  function toggleSort(field: "time" | "employee" | "type" | "job") {
+    setSortBy((prev) => {
+      const asc: SortBy =
+        field === "time"
+          ? "time_asc"
+          : field === "employee"
+          ? "employee_asc"
+          : field === "type"
+          ? "type_asc"
+          : "job_asc";
+
+      const desc: SortBy =
+        field === "time"
+          ? "time_desc"
+          : field === "employee"
+          ? "employee_desc"
+          : field === "type"
+          ? "type_desc"
+          : "job_desc";
+
+      if (prev === desc) return asc;
+      return desc;
+    });
+  }
 
   useEffect(() => {
     document.title = "Time · ChiefOS";
@@ -168,7 +207,6 @@ export default function TimePage() {
 
   const sorted = useMemo(() => {
     const out = filtered.slice();
-
     const cmpStr = (a: string, b: string) => a.localeCompare(b);
 
     out.sort((A, B) => {
@@ -180,15 +218,33 @@ export default function TimePage() {
       const aEmp = String(A.employee_name || "—").trim();
       const bEmp = String(B.employee_name || "—").trim();
 
+      const aType = String(A.type || "—").trim();
+      const bType = String(B.type || "—").trim();
+
+      const aJob = String(A.job_name || "—").trim();
+      const bJob = String(B.job_name || "—").trim();
+
       switch (sortBy) {
         case "time_asc":
           return cmpStr(aT, bT);
         case "time_desc":
           return cmpStr(bT, aT);
+
         case "employee_asc":
           return cmpStr(aEmp, bEmp);
         case "employee_desc":
           return cmpStr(bEmp, aEmp);
+
+        case "type_asc":
+          return cmpStr(aType, bType);
+        case "type_desc":
+          return cmpStr(bType, aType);
+
+        case "job_asc":
+          return cmpStr(aJob, bJob);
+        case "job_desc":
+          return cmpStr(bJob, aJob);
+
         default:
           return 0;
       }
@@ -197,9 +253,7 @@ export default function TimePage() {
     return out;
   }, [filtered, sortBy]);
 
-  const totals = useMemo(() => {
-    return { count: sorted.length };
-  }, [sorted]);
+  const totals = useMemo(() => ({ count: sorted.length }), [sorted]);
 
   function openEdit(r: TimeEntry) {
     const base = r.local_time || r.timestamp || "";
@@ -294,17 +348,6 @@ export default function TimePage() {
               <span className="text-white/45">Items</span>
               <span className="text-white">{totals.count}</span>
             </div>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-            >
-              <option value="time_desc">Time (newest)</option>
-              <option value="time_asc">Time (oldest)</option>
-              <option value="employee_asc">Employee (A → Z)</option>
-              <option value="employee_desc">Employee (Z → A)</option>
-            </select>
           </div>
         </div>
 
@@ -349,15 +392,75 @@ export default function TimePage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-white/60">
-                  <th className="py-3 pl-4 pr-4">When</th>
-                  <th className="py-3 pr-4">Employee</th>
-                  <th className="py-3 pr-4">Type</th>
-                  <th className="py-3 pr-4">Job</th>
+                  <th className="py-3 pl-4 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("time")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("time_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by time"
+                    >
+                      When
+                      {sortArrow(sortBy.startsWith("time_"), sortBy === "time_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("employee")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("employee_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by employee"
+                    >
+                      Employee
+                      {sortArrow(
+                        sortBy.startsWith("employee_"),
+                        sortBy === "employee_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("type")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("type_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by type"
+                    >
+                      Type
+                      {sortArrow(sortBy.startsWith("type_"), sortBy === "type_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("job")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("job_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by job"
+                    >
+                      Job
+                      {sortArrow(sortBy.startsWith("job_"), sortBy === "job_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
+
                   <th className="py-3 pr-4">TZ</th>
                   <th className="py-3 pr-4">Source</th>
                   <th className="py-3 pr-4">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {sorted.map((r) => {
                   const base = r.local_time || r.timestamp || "";
@@ -444,9 +547,7 @@ export default function TimePage() {
                         {t}
                       </option>
                     ))}
-                    {!TYPE_OPTIONS.includes(draft.type) && (
-                      <option value={draft.type}>{draft.type}</option>
-                    )}
+                    {!TYPE_OPTIONS.includes(draft.type) && <option value={draft.type}>{draft.type}</option>}
                   </select>
                 </div>
 

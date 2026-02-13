@@ -61,7 +61,15 @@ function chip(cls: string) {
   ].join(" ");
 }
 
-type SortBy = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
+type SortBy =
+  | "date_desc"
+  | "date_asc"
+  | "amount_desc"
+  | "amount_asc"
+  | "desc_asc"
+  | "desc_desc"
+  | "job_asc"
+  | "job_desc";
 
 export default function RevenuePage() {
   const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
@@ -71,6 +79,37 @@ export default function RevenuePage() {
   const [err, setErr] = useState<string | null>(null);
 
   const [sortBy, setSortBy] = useState<SortBy>("date_desc");
+
+  // Header sort helpers (inside component)
+  function sortArrow(active: boolean, dir: "asc" | "desc") {
+    if (!active) return <span className="ml-1 text-white/30">↕</span>;
+    return <span className="ml-1 text-white/80">{dir === "asc" ? "▲" : "▼"}</span>;
+  }
+
+  function toggleSort(field: "date" | "amount" | "desc" | "job") {
+    setSortBy((prev) => {
+      const asc: SortBy =
+        field === "date"
+          ? "date_asc"
+          : field === "amount"
+          ? "amount_asc"
+          : field === "job"
+          ? "job_asc"
+          : "desc_asc";
+
+      const desc: SortBy =
+        field === "date"
+          ? "date_desc"
+          : field === "amount"
+          ? "amount_desc"
+          : field === "job"
+          ? "job_desc"
+          : "desc_desc";
+
+      if (prev === desc) return asc;
+      return desc;
+    });
+  }
 
   useEffect(() => {
     document.title = "Revenue · ChiefOS";
@@ -107,22 +146,42 @@ export default function RevenuePage() {
 
   const sorted = useMemo(() => {
     const out = (rows || []).slice();
+    const cmpStr = (a: string, b: string) => String(a).localeCompare(String(b));
 
     out.sort((A, B) => {
       const aDate = pickDate(A);
       const bDate = pickDate(B);
+
       const aAmt = toMoney(A.amount ?? A.total);
       const bAmt = toMoney(B.amount ?? B.total);
 
+      const aDesc = pickDesc(A);
+      const bDesc = pickDesc(B);
+
+      const aJob = pickJob(A);
+      const bJob = pickJob(B);
+
       switch (sortBy) {
         case "date_asc":
-          return String(aDate).localeCompare(String(bDate));
+          return cmpStr(aDate, bDate);
         case "date_desc":
-          return String(bDate).localeCompare(String(aDate));
+          return cmpStr(bDate, aDate);
+
         case "amount_asc":
           return aAmt - bAmt;
         case "amount_desc":
           return bAmt - aAmt;
+
+        case "desc_asc":
+          return cmpStr(aDesc, bDesc);
+        case "desc_desc":
+          return cmpStr(bDesc, aDesc);
+
+        case "job_asc":
+          return cmpStr(aJob, bJob);
+        case "job_desc":
+          return cmpStr(bJob, aJob);
+
         default:
           return 0;
       }
@@ -165,17 +224,6 @@ export default function RevenuePage() {
               <span className="text-white/45">Total</span>
               <span className="text-white">${totals.sum.toFixed(2)}</span>
             </div>
-
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortBy)}
-              className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-            >
-              <option value="date_desc">Date (newest)</option>
-              <option value="date_asc">Date (oldest)</option>
-              <option value="amount_desc">Amount (high → low)</option>
-              <option value="amount_asc">Amount (low → high)</option>
-            </select>
           </div>
         </div>
 
@@ -189,12 +237,71 @@ export default function RevenuePage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-white/60">
-                  <th className="py-3 pl-4 pr-4">Date</th>
-                  <th className="py-3 pr-4">Amount</th>
-                  <th className="py-3 pr-4">Description</th>
-                  <th className="py-3 pr-4">Job</th>
+                  <th className="py-3 pl-4 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("date")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("date_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by date"
+                    >
+                      Date
+                      {sortArrow(sortBy.startsWith("date_"), sortBy === "date_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("amount")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("amount_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by amount"
+                    >
+                      Amount
+                      {sortArrow(
+                        sortBy.startsWith("amount_"),
+                        sortBy === "amount_asc" ? "asc" : "desc"
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("desc")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by description"
+                    >
+                      Description
+                      {sortArrow(sortBy.startsWith("desc_"), sortBy === "desc_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
+
+                  <th className="py-3 pr-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("job")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("job_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by job"
+                    >
+                      Job
+                      {sortArrow(sortBy.startsWith("job_"), sortBy === "job_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
                 </tr>
               </thead>
+
               <tbody>
                 {sorted.map((x, ix) => {
                   const d = pickDate(x);
