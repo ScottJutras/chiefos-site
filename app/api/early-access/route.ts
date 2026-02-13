@@ -14,6 +14,16 @@ const ratelimit = new Ratelimit({
   prefix: "chiefos:early_access",
 });
 
+type Plan = "free" | "starter" | "pro" | "unknown";
+
+function normalizePlan(v: any): Plan {
+  const s = String(v || "")
+    .trim()
+    .toLowerCase();
+  if (s === "free" || s === "starter" || s === "pro") return s;
+  return "unknown";
+}
+
 async function verifyTurnstile(token: string, ip?: string | null) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) throw new Error("Missing TURNSTILE_SECRET_KEY");
@@ -67,11 +77,12 @@ export async function POST(req: Request) {
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       null;
 
-    const { name, email, phone, turnstileToken } = await req.json();
+    const { name, email, phone, plan, turnstileToken } = await req.json();
 
     const cleanName = String(name || "").trim();
     const cleanEmail = String(email || "").trim().toLowerCase();
     const cleanPhone = phone ? String(phone).trim() : null;
+    const cleanPlan = normalizePlan(plan);
 
     if (!cleanName || !cleanEmail) {
       return NextResponse.json({ error: "Name and email are required." }, { status: 400 });
@@ -94,6 +105,18 @@ export async function POST(req: Request) {
     // Insert lead into Supabase using Service Role
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+    // ✅ IMPORTANT: This assumes your table has a "plan" column.
+    // If it doesn't, Supabase will error. Add the column OR remove "plan" from this payload.
+    const payload: Record<string, any> = {
+      email: cleanEmail,
+      name: cleanName,
+      phone: cleanPhone,
+      ip,
+      source: "pricing_or_site", // you can refine later (ex: "pricing", "homepage")
+      plan: cleanPlan,
+    };
+
     const insert = await fetch(`${supabaseUrl}/rest/v1/chiefos_beta_signups`, {
       method: "POST",
       headers: {
@@ -102,28 +125,26 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
         Prefer: "return=minimal",
       },
-      body: JSON.stringify([
-        {
-          email: cleanEmail,
-          name: cleanName,
-          phone: cleanPhone,
-          ip,
-          source: "homepage",
-        },
-      ]),
+      body: JSON.stringify([payload]),
     });
 
     if (!insert.ok) {
       const t = await insert.text();
-      // This is important to surface; otherwise you think it worked but it didn’t.
       throw new Error(`Supabase insert failed: ${t}`);
     }
 
     await sendPostmarkEmail(
-      `ChiefOS Early Access: ${cleanName}`,
-      `New early access request:\n\nName: ${cleanName}\nEmail: ${cleanEmail}\nPhone: ${
-        cleanPhone || "—"
-      }\nIP: ${ip || "—"}\n`
+      `ChiefOS Early Access (${cleanPlan}): ${cleanName}`,
+      [
+        "New early access request:",
+        "",
+        `Plan: ${cleanPlan}`,
+        `Name: ${cleanName}`,
+        `Email: ${cleanEmail}`,
+        `Phone: ${cleanPhone || "—"}`,
+        `IP: ${ip || "—"}`,
+        "",
+      ].join("\n")
     );
 
     return NextResponse.json({ ok: true });
