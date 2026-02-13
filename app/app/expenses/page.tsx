@@ -58,6 +58,8 @@ type SavedView = {
   updated_at: string;
 };
 
+type TotalsRange = "all" | "ytd" | "mtd" | "wtd" | "today";
+
 function isoDay(s?: string | null) {
   const t = String(s || "").trim();
   return t ? t.slice(0, 10) : "";
@@ -96,6 +98,27 @@ function chip(cls: string) {
   ].join(" ");
 }
 
+function moneyFmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(n) ? n : 0);
+}
+
+function isUnassignedJob(jobName: string | null | undefined) {
+  return !String(jobName || "").trim();
+}
+
+function startOfWeekMondayLocal(d: Date) {
+  // local time, Monday as week start
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  out.setDate(out.getDate() + diff);
+  return out;
+}
+
 export default function ExpensesPage() {
   const router = useRouter();
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
@@ -123,9 +146,12 @@ export default function ExpensesPage() {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [sortBy, setSortBy] = useState<SortBy>("date_desc");
 
-  // More menu
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement | null>(null);
+  // Top totals range toggles (All / YTD / MTD / WTD / Today)
+  const [totalsRange, setTotalsRange] = useState<TotalsRange>("all");
+
+  // Export menu (chip-triggered)
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement | null>(null);
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -150,7 +176,7 @@ export default function ExpensesPage() {
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
 
-  // ✅ Sorting helpers MUST live inside the component (so they can use setSortBy)
+  // Sorting helpers (must be inside component)
   function sortArrow(active: boolean, dir: "asc" | "desc") {
     if (!active) return <span className="ml-1 text-white/30">↕</span>;
     return (
@@ -190,13 +216,13 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (!moreRef.current) return;
-      if (e.target instanceof Node && !moreRef.current.contains(e.target))
-        setMoreOpen(false);
+      if (!exportRef.current) return;
+      if (e.target instanceof Node && !exportRef.current.contains(e.target))
+        setExportOpen(false);
     }
-    if (moreOpen) document.addEventListener("mousedown", onDown);
+    if (exportOpen) document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [moreOpen]);
+  }, [exportOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -302,7 +328,18 @@ export default function ExpensesPage() {
         return hay.includes(qq);
       })
       .slice();
-  }, [expenses, q, job, vendor, fromDate, toDate, minAmt, maxAmt, onlyDupes, dupeKeyCounts]);
+  }, [
+    expenses,
+    q,
+    job,
+    vendor,
+    fromDate,
+    toDate,
+    minAmt,
+    maxAmt,
+    onlyDupes,
+    dupeKeyCounts,
+  ]);
 
   const sorted = useMemo(() => {
     const out = filtered.slice();
@@ -359,11 +396,39 @@ export default function ExpensesPage() {
     return out;
   }, [filtered, sortBy]);
 
+  // Top totals strip uses the same filtered dataset, but can be limited by a time range toggle.
+  const totalsList = useMemo(() => {
+    if (totalsRange === "all") return sorted;
+
+    const now = new Date();
+    const todayIso = isoDay(now.toISOString());
+
+    const startYTD = new Date(now.getFullYear(), 0, 1);
+    const startMTD = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startWTD = startOfWeekMondayLocal(now);
+
+    const startIso =
+      totalsRange === "ytd"
+        ? isoDay(startYTD.toISOString())
+        : totalsRange === "mtd"
+        ? isoDay(startMTD.toISOString())
+        : totalsRange === "wtd"
+        ? isoDay(startWTD.toISOString())
+        : todayIso;
+
+    return sorted.filter((e) => {
+      const d = isoDay(e.expense_date);
+      if (!d) return false;
+      if (totalsRange === "today") return d === todayIso;
+      return d >= startIso && d <= todayIso;
+    });
+  }, [sorted, totalsRange]);
+
   const totals = useMemo(() => {
-    const count = sorted.length;
-    const sum = sorted.reduce((acc, e) => acc + toMoney(e.amount), 0);
+    const count = totalsList.length;
+    const sum = totalsList.reduce((acc, e) => acc + toMoney(e.amount), 0);
     return { count, sum };
-  }, [sorted]);
+  }, [totalsList]);
 
   // Grouping (kept for later UI expansion)
   const grouped = useMemo(() => {
@@ -449,7 +514,14 @@ export default function ExpensesPage() {
     const data = [headers, ...rows];
 
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [{ wch: 4 }, { wch: 14 }, { wch: 24 }, { wch: 12 }, { wch: 22 }, { wch: 40 }];
+    ws["!cols"] = [
+      { wch: 4 },
+      { wch: 14 },
+      { wch: 24 },
+      { wch: 12 },
+      { wch: 22 },
+      { wch: 40 },
+    ];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Expenses");
@@ -520,7 +592,8 @@ export default function ExpensesPage() {
     if (!draft) return;
 
     const amt = Number(String(draft.amount || "").replace(/[^0-9.\-]/g, ""));
-    if (!Number.isFinite(amt) || amt < 0) return alert("Amount must be a valid number.");
+    if (!Number.isFinite(amt) || amt < 0)
+      return alert("Amount must be a valid number.");
     if (!draft.expense_date) return alert("Expense date is required.");
 
     try {
@@ -558,6 +631,7 @@ export default function ExpensesPage() {
     setOnlyDupes(false);
     setGroupBy("none");
     setSortBy("date_desc");
+    setTotalsRange("all");
     setSelected({});
   }
 
@@ -582,7 +656,9 @@ export default function ExpensesPage() {
       });
       if (error) throw error;
 
-      setExpenses((prev) => prev.map((e) => (ids.includes(e.id) ? { ...e, job_name: j } : e)));
+      setExpenses((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, job_name: j } : e))
+      );
       setSelected({});
       alert(`Assigned job to ${data?.[0]?.updated_count ?? 0} expenses.`);
     } catch (e: any) {
@@ -607,7 +683,8 @@ export default function ExpensesPage() {
     const ids = selectedIds;
     if (!ids.length) return;
 
-    if (!confirm(`Soft-delete ${ids.length} expenses? You’ll have 10 minutes to undo.`)) return;
+    if (!confirm(`Soft-delete ${ids.length} expenses? You’ll have 10 minutes to undo.`))
+      return;
 
     try {
       setBulkBusy(true);
@@ -720,6 +797,52 @@ export default function ExpensesPage() {
 
   const allVisibleSelected = sorted.length > 0 && selectedIds.length === sorted.length;
 
+  const TopChipButton = ({
+    children,
+    onClick,
+    disabled,
+    title,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    title?: string;
+  }) => (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+    >
+      {children}
+    </button>
+  );
+
+  const RangePill = ({
+    id,
+    label,
+  }: {
+    id: TotalsRange;
+    label: string;
+  }) => {
+    const active = totalsRange === id;
+    return (
+      <button
+        type="button"
+        onClick={() => setTotalsRange(id)}
+        className={[
+          "rounded-full border px-3 py-1 text-xs transition",
+          active
+            ? "border-white/20 bg-white text-black"
+            : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
+        ].join(" ")}
+      >
+        {label}
+      </button>
+    );
+  };
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
@@ -728,101 +851,105 @@ export default function ExpensesPage() {
           <div>
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Ledger</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Expenses</h1>
-            <p className="mt-1 text-sm text-white/60">
-              Bulk actions • Undo delete • Saved views • Exports • Edit
-            </p>
+
+            {/* Feature chips (replaces the “More ▾” pattern) */}
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <TopChipButton onClick={() => router.push("/app/expenses/audit")} title="Change log">
+                Audit
+              </TopChipButton>
+              <TopChipButton onClick={() => router.push("/app/expenses/trash")} title="Deleted items">
+                Trash
+              </TopChipButton>
+              <TopChipButton
+                onClick={() => router.push("/app/expenses/vendors")}
+                title="Merge messy vendor spellings into one official name"
+              >
+                Vendor cleanup
+              </TopChipButton>
+
+              {/* Export chip w/ menu */}
+              <div className="relative" ref={exportRef}>
+                <TopChipButton
+                  onClick={() => setExportOpen((v) => !v)}
+                  disabled={!sorted.length || downloading !== null}
+                  title="Download"
+                >
+                  Export ▾
+                </TopChipButton>
+
+                {exportOpen && (
+                  <div className="absolute left-0 mt-2 w-56 rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] overflow-hidden z-20">
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("csv");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "csv" ? "Preparing…" : "Download CSV"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("xlsx");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("pdf");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "pdf" ? "Preparing…" : "Download PDF"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <TopChipButton
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  router.push("/login");
+                }}
+                title="Sign out"
+              >
+                Log out
+              </TopChipButton>
+            </div>
           </div>
 
-          {/* More menu */}
-          <div className="relative" ref={moreRef}>
-            <button
-              onClick={() => setMoreOpen((v) => !v)}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-            >
-              More ▾
-            </button>
+          {/* Top totals strip */}
+          <div className="w-full md:w-auto">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="text-xs text-white/55">Total (filtered)</div>
+                  <div className="mt-1 text-2xl font-semibold text-white">
+                    ${moneyFmt(totals.sum)}
+                  </div>
+                  <div className="mt-1 text-xs text-white/55">
+                    {totals.count} items • Totals reflect all matching items (not just what’s visible).
+                  </div>
+                </div>
 
-            {moreOpen && (
-              <div className="absolute right-0 mt-2 w-60 rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] overflow-hidden z-20">
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    router.push("/app/expenses/audit");
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                >
-                  Audit
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    router.push("/app/expenses/trash");
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                >
-                  Trash
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    router.push("/app/expenses/vendors");
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                >
-                  Vendor normalization
-                </button>
-
-                <div className="border-t border-white/10" />
-
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    runDownload("csv");
-                  }}
-                  disabled={!sorted.length || downloading !== null}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                >
-                  {downloading === "csv" ? "Preparing…" : "Download CSV"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    runDownload("xlsx");
-                  }}
-                  disabled={!sorted.length || downloading !== null}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                >
-                  {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    runDownload("pdf");
-                  }}
-                  disabled={!sorted.length || downloading !== null}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                >
-                  {downloading === "pdf" ? "Preparing…" : "Download PDF"}
-                </button>
-
-                <div className="border-t border-white/10" />
-
-                <button
-                  onClick={async () => {
-                    setMoreOpen(false);
-                    await supabase.auth.signOut();
-                    router.push("/login");
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                >
-                  Log out
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <RangePill id="all" label="All" />
+                  <RangePill id="ytd" label="YTD" />
+                  <RangePill id="mtd" label="MTD" />
+                  <RangePill id="wtd" label="WTD" />
+                  <RangePill id="today" label="Today" />
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -853,13 +980,14 @@ export default function ExpensesPage() {
 
         {/* Saved views */}
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-sm font-semibold text-white/90">Saved views</div>
+          <div className="text-sm font-semibold text-white/90">Saved views</div>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <div className="text-xs text-white/55">Save this filter setup as</div>
 
             <input
               value={viewName}
               onChange={(e) => setViewName(e.target.value)}
-              placeholder="Name this view (e.g., 'Home Depot - 2026 YTD')"
+              placeholder="e.g., Home Depot • 2026 YTD • Under $200"
               className="flex-1 min-w-[240px] rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
             />
 
@@ -876,6 +1004,10 @@ export default function ExpensesPage() {
             >
               Reset
             </button>
+          </div>
+
+          <div className="mt-2 text-xs text-white/45">
+            Saves filters + sorting so you can reopen this view later.
           </div>
 
           {views.length > 0 && (
@@ -1019,8 +1151,10 @@ export default function ExpensesPage() {
                 Show duplicates
               </label>
 
+              {/* Keep small inline summary too */}
               <div className="ml-auto text-sm text-white/70">
-                {totals.count} items • <b className="text-white">${totals.sum.toFixed(2)}</b>
+                {sorted.length} rows •{" "}
+                <b className="text-white">${moneyFmt(sorted.reduce((a, e) => a + toMoney(e.amount), 0))}</b>
               </div>
             </div>
           </div>
@@ -1184,7 +1318,7 @@ export default function ExpensesPage() {
                     </button>
                   </th>
 
-                  <th className="py-3 pr-4 w-24">Edit</th>
+                  <th className="py-3 pr-4 w-28">Edit</th>
                 </tr>
               </thead>
 
@@ -1195,6 +1329,7 @@ export default function ExpensesPage() {
                     .trim()
                     .toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
                   const isDupe = (dupeKeyCounts.get(k) || 0) >= 2;
+                  const unassigned = isUnassignedJob(e.job_name);
 
                   return (
                     <tr key={e.id} className="border-b border-white/5 text-sm">
@@ -1221,28 +1356,40 @@ export default function ExpensesPage() {
                         )}
                       </td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white">
-                        ${toMoney(e.amount).toFixed(2)}
+                        ${moneyFmt(toMoney(e.amount))}
                       </td>
-                      <td className="py-3 pr-4 text-white/85">{e.job_name ?? "—"}</td>
+                      <td className="py-3 pr-4 text-white/85">
+                        {unassigned ? (
+                          <span className="inline-flex items-center gap-2">
+                            <span className="text-white/50">—</span>
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/70">
+                              Unassigned
+                            </span>
+                          </span>
+                        ) : (
+                          e.job_name
+                        )}
+                      </td>
                       <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
                       <td className="py-3 pr-4">
                         <button
                           onClick={() => openEdit(e)}
                           className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+                          title={unassigned ? "Assign job" : "Edit"}
                         >
-                          Edit
+                          {unassigned ? "Assign job" : "Edit"}
                         </button>
                       </td>
                     </tr>
                   );
                 })}
 
-                <tr>
-                  <td className="py-3 pl-4 pr-4 text-xs text-white/45" colSpan={4}>
+                <tr className="border-t border-white/10">
+                  <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={4}>
                     Total (filtered)
                   </td>
-                  <td className="py-3 pr-4 text-sm font-semibold text-white">
-                    ${totals.sum.toFixed(2)}
+                  <td className="py-4 pr-4 text-lg font-semibold text-white">
+                    ${moneyFmt(totals.sum)}
                   </td>
                   <td colSpan={3} />
                 </tr>
@@ -1256,7 +1403,7 @@ export default function ExpensesPage() {
           open={editOpen && !!draft}
           onClose={closeEdit}
           title="Edit expense"
-          subtitle="Tenant-scoped update via RPC"
+          subtitle="Secure update"
           footer={
             <div className="flex justify-end gap-2">
               <button
@@ -1313,6 +1460,7 @@ export default function ExpensesPage() {
                   value={draft.job_name}
                   onChange={(e) => setDraft({ ...draft, job_name: e.target.value })}
                   className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                  placeholder="Leave blank if unassigned"
                 />
               </div>
 
