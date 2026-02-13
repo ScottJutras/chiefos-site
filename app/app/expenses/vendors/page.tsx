@@ -1,3 +1,4 @@
+// app/app/expenses/vendors/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,14 +17,21 @@ function money(n: any) {
   return `$${x.toFixed(2)}`;
 }
 
+function chip(cls: string) {
+  return [
+    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
+    cls,
+  ].join(" ");
+}
+
 export default function VendorsPage() {
   const router = useRouter();
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
 
   const [rows, setRows] = useState<VendorRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
 
+  const [q, setQ] = useState("");
   const [canonical, setCanonical] = useState("");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
@@ -32,37 +40,20 @@ export default function VendorsPage() {
     let cancelled = false;
 
     async function load() {
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user) {
-        router.push("/login");
-        return;
-      }
+      try {
+        const { data, error } = await supabase.rpc("chiefos_list_vendors", {
+          p_include_deleted: false,
+        });
 
-     
-
-      const { data: pu } = await supabase
-        .from("chiefos_portal_users")
-        .select("tenant_id")
-        .eq("user_id", auth.user.id)
-        .maybeSingle();
-
-      if (!pu?.tenant_id) {
-        router.push("/finish-signup");
-        return;
-      }
-
-      const { data, error } = await supabase.rpc("chiefos_list_vendors", {
-        p_include_deleted: false,
-      });
-
-      if (!cancelled) {
-        if (error) {
-          console.warn(error.message);
+        if (error) throw error;
+        if (!cancelled) setRows((data ?? []) as VendorRow[]);
+      } catch (e: any) {
+        if (!cancelled) {
+          console.warn(e?.message ?? "Failed to load vendors.");
           setRows([]);
-        } else {
-          setRows((data ?? []) as VendorRow[]);
         }
-        setLoading(false);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -70,7 +61,7 @@ export default function VendorsPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -85,6 +76,11 @@ export default function VendorsPage() {
       .filter((v) => v && v !== "—");
   }, [selected]);
 
+  // For “Select all visible”, only include selectable aliases (ignore "—")
+  const selectableVisibleAliases = useMemo(() => {
+    return filtered.map((r) => String(r.vendor || "").trim()).filter((v) => v && v !== "—");
+  }, [filtered]);
+
   const suggestedCanonical = useMemo(() => {
     const clean = rows
       .filter((r) => (r.vendor || "").trim() && r.vendor !== "—")
@@ -98,13 +94,18 @@ export default function VendorsPage() {
   }, [rows]);
 
   function toggleAllVisible(on: boolean) {
-    const next: Record<string, boolean> = {};
-    if (on) for (const r of filtered) next[r.vendor] = true;
+    const next: Record<string, boolean> = { ...selected };
+    if (on) {
+      for (const v of selectableVisibleAliases) next[v] = true;
+    } else {
+      for (const v of selectableVisibleAliases) delete next[v];
+    }
     setSelected(next);
   }
 
   const allVisibleSelected =
-    filtered.length > 0 && selectedAliases.length === filtered.length;
+    selectableVisibleAliases.length > 0 &&
+    selectableVisibleAliases.every((v) => !!selected[v]);
 
   async function normalize() {
     const canon = canonical.trim();
@@ -127,7 +128,6 @@ export default function VendorsPage() {
         `Normalized ${data?.[0]?.updated_count ?? 0} expenses.\nSaved ${data?.[0]?.alias_count ?? 0} alias rows.`
       );
 
-      // Reload vendor stats
       const { data: fresh, error: freshErr } = await supabase.rpc("chiefos_list_vendors", {
         p_include_deleted: false,
       });
@@ -143,71 +143,83 @@ export default function VendorsPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-gray-600">Loading vendors…</div>;
+  if (gateLoading || loading) return <div className="p-8 text-white/70">Loading vendors…</div>;
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-6xl mx-auto px-6 py-16">
+    <main className="min-h-screen">
+      <div className="mx-auto max-w-6xl py-6">
+        {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold">Vendor Normalization</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Expenses</div>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight">Vendors</h1>
+            <p className="mt-1 text-sm text-white/60">
               Merge vendor variants (Home Depot / HOMEDEPOT / HomeDepot) into a canonical name.
             </p>
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={chip("border-white/10 bg-black/40 text-white/70")}>
+              <span className="text-white/45">Visible</span>
+              <span className="text-white">{filtered.length}</span>
+            </div>
+            <div className={chip("border-white/10 bg-black/40 text-white/70")}>
+              <span className="text-white/45">Selected</span>
+              <span className="text-white">{selectedAliases.length}</span>
+            </div>
+
             <button
               onClick={() => router.push("/app/expenses")}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
             >
-              Back to Expenses
+              Back
             </button>
             <button
               onClick={() => router.push("/app/expenses/audit")}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
             >
               Audit
             </button>
             <button
               onClick={() => router.push("/app/expenses/trash")}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
             >
               Trash
             </button>
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg border p-4">
+        {/* Controls */}
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <div className="md:col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">Search vendors</label>
+              <label className="block text-xs text-white/60 mb-1">Search vendors</label>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
                 placeholder="Type vendor…"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs text-gray-600 mb-1">Canonical vendor name</label>
+              <label className="block text-xs text-white/60 mb-1">Canonical vendor name</label>
               <input
                 value={canonical}
                 onChange={(e) => setCanonical(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
                 placeholder='e.g. "Home Depot"'
               />
 
               {suggestedCanonical && (
-                <div className="mt-2 text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                <div className="mt-2 text-xs text-white/55 flex items-center gap-2 flex-wrap">
                   <span>
-                    Suggestion: <b className="text-gray-800">{suggestedCanonical}</b>
+                    Suggestion: <b className="text-white/85">{suggestedCanonical}</b>
                   </span>
                   <button
                     type="button"
                     onClick={() => setCanonical(suggestedCanonical)}
-                    className="rounded-full border px-2 py-0.5 hover:bg-gray-50"
+                    className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 hover:bg-white/10 text-white/80"
                     disabled={busy}
                     title="Set canonical to the most common vendor"
                   >
@@ -217,10 +229,11 @@ export default function VendorsPage() {
               )}
             </div>
 
-            <div className="md:col-span-2 flex gap-2">
+            <div className="md:col-span-2 flex gap-2 flex-wrap">
               <button
                 onClick={() => toggleAllVisible(!allVisibleSelected)}
-                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
+                disabled={busy || selectableVisibleAliases.length === 0}
               >
                 {allVisibleSelected ? "Clear selection" : "Select all (visible)"}
               </button>
@@ -228,62 +241,67 @@ export default function VendorsPage() {
               <button
                 onClick={normalize}
                 disabled={busy}
-                className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50"
               >
-                {busy ? "Normalizing…" : "Normalize selected → canonical"}
+                {busy ? "Normalizing…" : "Normalize → canonical"}
               </button>
             </div>
           </div>
 
-          <div className="mt-3 text-sm text-gray-600">
-            Selected aliases: <b>{selectedAliases.length}</b>
-            <span className="ml-2 text-xs text-gray-500">
+          <div className="mt-3 text-sm text-white/60">
+            Selected aliases: <b className="text-white/85">{selectedAliases.length}</b>
+            <span className="ml-2 text-xs text-white/45">
               Tip: click a vendor row to set canonical quickly.
             </span>
           </div>
         </div>
 
+        {/* Table */}
         {filtered.length === 0 ? (
-          <p className="mt-12 text-gray-600">No vendors match your search.</p>
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            No vendors match your search.
+          </div>
         ) : (
-          <div className="mt-8 overflow-x-auto">
-            <table className="min-w-full border-collapse">
+          <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
+            <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b text-left text-sm text-gray-600">
-                  <th className="py-2 pr-4 w-10"></th>
-                  <th className="py-2 pr-4">Vendor</th>
-                  <th className="py-2 pr-4">Count</th>
-                  <th className="py-2 pr-4">Total</th>
+                <tr className="border-b border-white/10 text-left text-xs text-white/60">
+                  <th className="py-3 pl-4 pr-4 w-10"></th>
+                  <th className="py-3 pr-4">Vendor</th>
+                  <th className="py-3 pr-4">Count</th>
+                  <th className="py-3 pr-4">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
-                  <tr
-                    key={r.vendor}
-                    className="border-b text-sm hover:bg-gray-50 cursor-pointer"
-                    onClick={() => {
-                      const v = String(r.vendor || "").trim();
-                      if (v && v !== "—") setCanonical(v);
-                    }}
-                    title="Click to set canonical"
-                  >
-                    <td
-                      className="py-2 pr-4"
-                      onClick={(e) => e.stopPropagation()}
+                {filtered.map((r) => {
+                  const v = String(r.vendor || "").trim() || "—";
+                  return (
+                    <tr
+                      key={v}
+                      className="border-b border-white/5 hover:bg-white/5 cursor-pointer"
+                      onClick={() => {
+                        if (v && v !== "—") setCanonical(v);
+                      }}
+                      title="Click to set canonical"
                     >
-                      <input
-                        type="checkbox"
-                        checked={!!selected[r.vendor]}
-                        onChange={(e) =>
-                          setSelected((prev) => ({ ...prev, [r.vendor]: e.target.checked }))
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-4">{r.vendor || "—"}</td>
-                    <td className="py-2 pr-4">{Number(r.count || 0)}</td>
-                    <td className="py-2 pr-4 whitespace-nowrap">{money(r.total_amount)}</td>
-                  </tr>
-                ))}
+                      <td className="py-3 pl-4 pr-4" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={!!selected[v]}
+                          onChange={(e) =>
+                            setSelected((prev) => ({ ...prev, [v]: e.target.checked }))
+                          }
+                          disabled={v === "—"}
+                        />
+                      </td>
+                      <td className="py-3 pr-4 text-white/85">{v}</td>
+                      <td className="py-3 pr-4 text-white/70">{Number(r.count || 0)}</td>
+                      <td className="py-3 pr-4 whitespace-nowrap text-white/85">
+                        {money(r.total_amount)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

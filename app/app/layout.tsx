@@ -1,18 +1,21 @@
-// C:\...\chiefos-site\app\app\layout.tsx
+// app/app/layout.tsx
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AppNav } from "./nav";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b bg-white">
+    <div className="min-h-screen bg-black text-white">
+      {/* Terminal top bar (sits under the global fixed EarlyAccessTopBar) */}
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link href="/app" className="font-semibold">
+          <Link href="/app" className="font-semibold tracking-tight hover:text-white/90 transition">
             ChiefOS
           </Link>
-          <AppNav />
+
+          <div className="flex items-center gap-3">
+            <AppNav />
+          </div>
         </div>
       </header>
 

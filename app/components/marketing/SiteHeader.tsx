@@ -6,9 +6,10 @@ import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 
 const links = [
-  { label: "Product", href: "#product" },
   { label: "How it works", href: "#how" },
-  { label: "Why ChiefOS", href: "#why" },
+  { label: "Scoreboard", href: "#scoreboard" },
+  { label: "Time truth", href: "#time" },
+  { label: "Plans", href: "#pricing-preview" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -26,7 +27,7 @@ export default function SiteHeader() {
   return (
     <header
       className={[
-        "fixed top-0 left-0 right-0 z-50",
+        "fixed top-8 left-0 right-0 z-50",
         "transition-all duration-300",
         scrolled ? "bg-black/70 backdrop-blur-xl border-b border-white/10" : "bg-transparent",
       ].join(" ")}
@@ -47,7 +48,6 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
           <a href="/login" className="text-sm text-white/70 hover:text-white transition">
             Sign in
@@ -69,19 +69,18 @@ export default function SiteHeader() {
               <span className="inline-grid h-7 w-7 place-items-center rounded-xl border border-white/10 bg-black/30">
                 <WhatsAppIcon className="h-[18px] w-[18px] text-white translate-y-[0.5px]" />
               </span>
-              Try on WhatsApp
+              Start on WhatsApp
             </a>
           </TooltipChip>
 
           <a
-            href="/early-access"
+            href="/early-access?plan=starter"
             className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
           >
             Get early access
           </a>
         </div>
 
-        {/* Mobile menu button */}
         <button
           className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
           onClick={() => setOpen((v) => !v)}
@@ -91,7 +90,6 @@ export default function SiteHeader() {
         </button>
       </div>
 
-      {/* Mobile menu */}
       {open && (
         <div className="md:hidden border-t border-white/10 bg-black/90 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-6 py-4 flex flex-col gap-3">
@@ -122,7 +120,7 @@ export default function SiteHeader() {
               <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
                 <WhatsAppIcon className="h-[18px] w-[18px] text-white translate-y-[0.5px]" />
               </span>
-              Try on WhatsApp
+              Start on WhatsApp
             </a>
 
             <div className="pt-2 flex gap-3">
@@ -134,7 +132,7 @@ export default function SiteHeader() {
                 Sign in
               </a>
               <a
-                href="/early-access"
+                href="/early-access?plan=starter"
                 className="flex-1 inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
                 onClick={() => setOpen(false)}
               >

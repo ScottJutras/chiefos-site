@@ -1,3 +1,4 @@
+// app/components/Toast.tsx
 "use client";
 
 import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
@@ -5,6 +6,18 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 type Toast = { id: string; message: string; kind?: "info" | "error" | "success" };
 
 const ToastCtx = createContext<{ push: (t: Omit<Toast, "id">) => void } | null>(null);
+
+function tone(kind?: Toast["kind"]) {
+  if (kind === "error") return "border-red-200 bg-red-50 text-red-900";
+  if (kind === "success") return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  return "border-black/10 bg-white text-black";
+}
+
+function badge(kind?: Toast["kind"]) {
+  if (kind === "error") return "Error";
+  if (kind === "success") return "Done";
+  return "Note";
+}
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
@@ -21,16 +34,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+
+      <div className="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite" aria-relevant="additions">
         {items.map((t) => (
           <div
             key={t.id}
-            className="rounded-lg border bg-white px-4 py-2 text-sm shadow-sm"
+            role="status"
+            className={[
+              "w-[320px] max-w-[calc(100vw-2rem)] rounded-2xl border p-4 shadow-[0_18px_60px_rgba(0,0,0,0.12)]",
+              "backdrop-blur-xl",
+              tone(t.kind),
+            ].join(" ")}
           >
-            <div className="font-medium">
-              {t.kind === "error" ? "Error" : t.kind === "success" ? "Done" : "Note"}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs tracking-[0.16em] uppercase opacity-70">{badge(t.kind)}</div>
+                <div className="mt-1 text-sm font-medium">{t.message}</div>
+              </div>
             </div>
-            <div className="text-gray-700">{t.message}</div>
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-// C:\...\chiefos-site\app\app\nav.tsx
+// app/app/nav.tsx
 "use client";
 
 import Link from "next/link";
@@ -23,8 +23,11 @@ export function AppNav() {
             key={it.href}
             href={it.href}
             className={[
-              "rounded-md px-3 py-1.5 text-sm font-medium",
-              active ? "bg-black text-white" : "text-gray-700 hover:bg-gray-100",
+              "rounded-xl px-3 py-1.5 text-sm font-medium transition",
+              "border",
+              active
+                ? "border-white/20 bg-white text-black"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
             ].join(" ")}
           >
             {it.label}
