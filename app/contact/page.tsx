@@ -12,7 +12,6 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [showTurnstile, setShowTurnstile] = useState(true);
   const [turnstileKey, setTurnstileKey] = useState(0);
 
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -20,11 +19,9 @@ export default function ContactPage() {
 
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-  // IMPORTANT: keep options stable (no new object each render)
+  // Keep options stable (avoid re-render loops)
   const turnstileOptions = useMemo(() => {
-    return {
-      appearance: "interaction-only" as const, // ✅ avoids constant rendering + overlay issues
-    };
+    return { appearance: "always" as const };
   }, []);
 
   function resetTurnstile() {
@@ -35,17 +32,11 @@ export default function ContactPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+    setStatus("sending");
 
     try {
       if (!siteKey) throw new Error("Bot check misconfigured (missing site key).");
-
-      // Don’t submit until token exists
-      if (!turnstileToken) {
-        setShowTurnstile(true);
-        throw new Error("Please complete the bot check.");
-      }
-
-      setStatus("sending");
+      if (!turnstileToken) throw new Error("Please complete the bot check.");
 
       const r = await fetch("/api/contact", {
         method: "POST",
@@ -60,13 +51,10 @@ export default function ContactPage() {
       setName("");
       setEmail("");
       setMessage("");
-      setShowTurnstile(false);
       resetTurnstile();
     } catch (e: any) {
       setStatus("error");
       setErr(e?.message ?? "Message failed.");
-
-      // Only reset after a real failure — avoids “infinite reload” vibes
       resetTurnstile();
     }
   }
@@ -145,62 +133,21 @@ export default function ContactPage() {
               />
             </div>
 
-            {/* Bot check */}
             <div className="pt-2">
               {!siteKey ? (
                 <div className="text-xs text-red-200">
                   Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
                 </div>
               ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="text-sm text-white/80">
-                      {turnstileToken ? (
-                        <span className="text-white/90 font-semibold">✅ Verified</span>
-                      ) : (
-                        <span>Verify you’re human (one click)</span>
-                      )}
-                    </div>
-
-                    {!turnstileToken && !showTurnstile && (
-                      <button
-                        type="button"
-                        onClick={() => setShowTurnstile(true)}
-                        className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-                      >
-                        Verify
-                      </button>
-                    )}
-
-                    {turnstileToken && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowTurnstile(true);
-                          resetTurnstile();
-                        }}
-                        className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-                      >
-                        Re-verify
-                      </button>
-                    )}
-                  </div>
-
-                  {showTurnstile && !turnstileToken && (
-                    <div className="mt-3 relative z-0">
-                      <Turnstile
-                        key={turnstileKey}
-                        siteKey={siteKey}
-                        options={turnstileOptions}
-                        onSuccess={(token) => {
-                          setTurnstileToken(token);
-                          setShowTurnstile(false);
-                        }}
-                        onExpire={() => resetTurnstile()}
-                        onError={() => resetTurnstile()}
-                      />
-                    </div>
-                  )}
+                <div className="inline-block">
+                  <Turnstile
+                    key={turnstileKey}
+                    siteKey={siteKey}
+                    options={turnstileOptions}
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onExpire={() => resetTurnstile()}
+                    onError={() => resetTurnstile()}
+                  />
                 </div>
               )}
             </div>

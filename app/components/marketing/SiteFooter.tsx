@@ -1,4 +1,8 @@
 // app/components/marketing/SiteFooter.tsx
+"use client";
+
+import Link from "next/link";
+
 export default function SiteFooter({
   brandLine = "Start with receipts. End with job truth.",
   subLine = "Capture real work. Understand real jobs.",
@@ -19,18 +23,18 @@ export default function SiteFooter({
             </p>
 
             <div className="mt-6 flex gap-3">
-              <a
+              <Link
                 href="/early-access?plan=starter"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
               >
                 Get early access
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/login"
                 className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
               >
                 Sign in
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -38,42 +42,42 @@ export default function SiteFooter({
             <div>
               <div className="text-white/80 font-semibold">Explore</div>
               <div className="mt-3 space-y-2 text-white/60">
-                <a className="block hover:text-white transition" href="#how">
+                <Link className="block hover:text-white transition" href="/#how">
                   How it works
-                </a>
-                <a className="block hover:text-white transition" href="#scoreboard">
+                </Link>
+                <Link className="block hover:text-white transition" href="/#scoreboard">
                   Scoreboard
-                </a>
-                <a className="block hover:text-white transition" href="#time">
+                </Link>
+                <Link className="block hover:text-white transition" href="/#time">
                   Time truth
-                </a>
-                <a className="block hover:text-white transition" href="#pricing-preview">
+                </Link>
+                <Link className="block hover:text-white transition" href="/#pricing-preview">
                   Plans
-                </a>
-                <a className="block hover:text-white transition" href="#faq">
+                </Link>
+                <Link className="block hover:text-white transition" href="/#faq">
                   FAQ
-                </a>
+                </Link>
               </div>
             </div>
 
             <div>
               <div className="text-white/80 font-semibold">Legal</div>
               <div className="mt-3 space-y-2 text-white/60">
-                <a className="block hover:text-white transition" href="#">
+                <Link className="block hover:text-white transition" href="/privacy">
                   Privacy
-                </a>
-                <a className="block hover:text-white transition" href="#">
+                </Link>
+                <Link className="block hover:text-white transition" href="/terms">
                   Terms
-                </a>
+                </Link>
               </div>
             </div>
 
             <div>
               <div className="text-white/80 font-semibold">Contact</div>
               <div className="mt-3 space-y-2 text-white/60">
-                <a className="block hover:text-white transition" href="/contact">
+                <Link className="block hover:text-white transition" href="/contact">
                   Contact us
-                </a>
+                </Link>
                 <div className="text-xs text-white/45">We reply fast. No spam.</div>
               </div>
             </div>
