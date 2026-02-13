@@ -1,10 +1,11 @@
 // app/contact/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/marketing/SiteHeader";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
+
 
 export default function ContactPage() {
   const [name, setName] = useState("");
@@ -13,6 +14,10 @@ export default function ContactPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [err, setErr] = useState<string | null>(null);
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+  const turnstileOptions = useMemo(() => {
+  return { appearance: "always" as const };
+}, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,13 +125,21 @@ export default function ContactPage() {
             </div>
 
             <div className="pt-2">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken(null)}
-                options={{ appearance: "always" }}
-              />
-            </div>
+  {siteKey ? (
+    <Turnstile
+      siteKey={siteKey}
+      onSuccess={(token) => setTurnstileToken(token)}
+      onExpire={() => setTurnstileToken(null)}
+      onError={() => setTurnstileToken(null)}
+      options={turnstileOptions}
+    />
+  ) : (
+    <div className="text-xs text-red-200">
+      Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    </div>
+  )}
+</div>
+
 
             {err && (
               <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">

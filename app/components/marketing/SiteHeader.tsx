@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 
@@ -33,6 +34,7 @@ export default function SiteHeader() {
       ].join(" ")}
     >
       <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
+        {/* Brand (hash link is fine as <a>) */}
         <a href="#top" className="flex items-center gap-2 group">
           <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center font-bold transition group-hover:-translate-y-[1px]">
             C
@@ -40,6 +42,7 @@ export default function SiteHeader() {
           <div className="font-semibold tracking-tight group-hover:text-white transition">ChiefOS</div>
         </a>
 
+        {/* Hash-nav stays <a> */}
         <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
           {links.map((l) => (
             <a key={l.href} href={l.href} className="hover:text-white transition">
@@ -49,10 +52,12 @@ export default function SiteHeader() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          <a href="/login" className="text-sm text-white/70 hover:text-white transition">
+          {/* INTERNAL route -> Link */}
+          <Link href="/login" className="text-sm text-white/70 hover:text-white transition">
             Sign in
-          </a>
+          </Link>
 
+          {/* external-ish route (opens new tab), keep <a> */}
           <TooltipChip tip="No app download. Works inside WhatsApp." show={scrolled} className="inline-flex">
             <a
               href="/wa?t=header"
@@ -73,15 +78,17 @@ export default function SiteHeader() {
             </a>
           </TooltipChip>
 
-          <a
+          {/* INTERNAL route -> Link */}
+          <Link
             href="/early-access?plan=starter"
             className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
           >
             Get early access
-          </a>
+          </Link>
         </div>
 
         <button
+          type="button"
           className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10 transition"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
@@ -124,20 +131,23 @@ export default function SiteHeader() {
             </a>
 
             <div className="pt-2 flex gap-3">
-              <a
+              {/* INTERNAL route -> Link */}
+              <Link
                 href="/login"
                 className="flex-1 inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
                 onClick={() => setOpen(false)}
               >
                 Sign in
-              </a>
-              <a
+              </Link>
+
+              {/* INTERNAL route -> Link */}
+              <Link
                 href="/early-access?plan=starter"
                 className="flex-1 inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
                 onClick={() => setOpen(false)}
               >
                 Get early access
-              </a>
+              </Link>
             </div>
 
             <div className="text-xs text-white/45">No app download. Works inside WhatsApp.</div>
