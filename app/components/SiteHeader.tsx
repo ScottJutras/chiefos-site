@@ -13,7 +13,10 @@ export default function SiteHeader({
   rightHref = "/login",
 }: SiteHeaderProps) {
   return (
-    <header className="fixed top-8 left-0 right-0 z-50">
+    <header
+      className="fixed left-0 right-0 z-50"
+      style={{ top: "calc(var(--early-access-banner-h) + 8px)" }}
+    >
       <div className="mx-auto max-w-5xl px-4">
         <div className="mt-3 rounded-2xl border border-black/10 bg-white/70 backdrop-blur-xl shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between px-4 py-3">
@@ -22,7 +25,9 @@ export default function SiteHeader({
                 C
               </div>
               <div className="leading-tight">
-                <div className="text-sm font-semibold tracking-tight text-black">ChiefOS</div>
+                <div className="text-sm font-semibold tracking-tight text-black">
+                  ChiefOS
+                </div>
                 <div className="text-[11px] text-black/55">Secure portal</div>
               </div>
             </Link>

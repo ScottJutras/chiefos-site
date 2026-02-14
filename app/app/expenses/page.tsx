@@ -1,7 +1,7 @@
 // app/app/expenses/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useTenantGate } from "@/lib/useTenantGate";
@@ -110,9 +110,8 @@ function isUnassignedJob(jobName: string | null | undefined) {
 }
 
 function startOfWeekMondayLocal(d: Date) {
-  // local time, Monday as week start
   const day = d.getDay(); // 0=Sun..6=Sat
-  const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
+  const diff = day === 0 ? -6 : 1 - day;
   const out = new Date(d);
   out.setHours(0, 0, 0, 0);
   out.setDate(out.getDate() + diff);
@@ -146,10 +145,10 @@ export default function ExpensesPage() {
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [sortBy, setSortBy] = useState<SortBy>("date_desc");
 
-  // Top totals range toggles (All / YTD / MTD / WTD / Today)
+  // Top totals range toggles
   const [totalsRange, setTotalsRange] = useState<TotalsRange>("all");
 
-  // Export menu (chip-triggered)
+  // Export menu
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
 
@@ -176,7 +175,9 @@ export default function ExpensesPage() {
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
 
-  // Sorting helpers (must be inside component)
+  // Group accordion state
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
   function sortArrow(active: boolean, dir: "asc" | "desc") {
     if (!active) return <span className="ml-1 text-white/30">↕</span>;
     return (
@@ -208,7 +209,6 @@ export default function ExpensesPage() {
           ? "job_desc"
           : "desc_desc";
 
-      // Cycle: desc -> asc -> desc ...
       if (prev === desc) return asc;
       return desc;
     });
@@ -273,7 +273,6 @@ export default function ExpensesPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [expenses]);
 
-  // Duplicate detection (same date + vendor + amount)
   const dupeKeyCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of expenses) {
@@ -396,7 +395,6 @@ export default function ExpensesPage() {
     return out;
   }, [filtered, sortBy]);
 
-  // Top totals strip uses the same filtered dataset, but can be limited by a time range toggle.
   const totalsList = useMemo(() => {
     if (totalsRange === "all") return sorted;
 
@@ -430,7 +428,6 @@ export default function ExpensesPage() {
     return { count, sum };
   }, [totalsList]);
 
-  // Grouping (kept for later UI expansion)
   const grouped = useMemo(() => {
     if (groupBy === "none") return null;
 
@@ -464,7 +461,6 @@ export default function ExpensesPage() {
     return groups;
   }, [sorted, groupBy]);
 
-  // Keep selection sane if filters change
   useEffect(() => {
     const visible = new Set(sorted.map((e) => e.id));
     setSelected((prev) => {
@@ -475,6 +471,23 @@ export default function ExpensesPage() {
       return next;
     });
   }, [sorted]);
+
+  // Keep group accordion state aligned with groups
+  useEffect(() => {
+    if (!grouped) {
+      setOpenGroups({});
+      return;
+    }
+    setOpenGroups((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const g of grouped) {
+        // keep existing state if present; otherwise default OPEN for first few groups
+        const existing = prev[g.key];
+        next[g.key] = typeof existing === "boolean" ? existing : true;
+      }
+      return next;
+    });
+  }, [grouped]);
 
   function buildRows(list: Expense[]) {
     const headers = ["#", "Date", "Vendor", "Amount", "Job", "Description"];
@@ -641,6 +654,14 @@ export default function ExpensesPage() {
     setSelected(next);
   }
 
+  function toggleAllInGroup(items: Expense[], on: boolean) {
+    setSelected((prev) => {
+      const next = { ...prev };
+      for (const e of items) next[e.id] = on;
+      return next;
+    });
+  }
+
   async function bulkAssignJob(newJob: string) {
     const ids = selectedIds;
     if (!ids.length) return;
@@ -743,7 +764,19 @@ export default function ExpensesPage() {
   }
 
   function currentViewPayload() {
-    return { q, job, vendor, fromDate, toDate, minAmt, maxAmt, onlyDupes, groupBy, sortBy };
+    return {
+      q,
+      job,
+      vendor,
+      fromDate,
+      toDate,
+      minAmt,
+      maxAmt,
+      onlyDupes,
+      groupBy,
+      sortBy,
+      totalsRange,
+    };
   }
 
   async function refreshViews() {
@@ -779,6 +812,7 @@ export default function ExpensesPage() {
     setOnlyDupes(!!p.onlyDupes);
     setGroupBy(p.groupBy ?? "none");
     setSortBy(p.sortBy ?? "date_desc");
+    setTotalsRange(p.totalsRange ?? "all");
   }
 
   async function deleteView(id: string) {
@@ -819,13 +853,7 @@ export default function ExpensesPage() {
     </button>
   );
 
-  const RangePill = ({
-    id,
-    label,
-  }: {
-    id: TotalsRange;
-    label: string;
-  }) => {
+  const RangePill = ({ id, label }: { id: TotalsRange; label: string }) => {
     const active = totalsRange === id;
     return (
       <button
@@ -843,6 +871,46 @@ export default function ExpensesPage() {
     );
   };
 
+  const GroupPill = ({
+    active,
+    onClick,
+    children,
+    title,
+  }: {
+    active?: boolean;
+    onClick?: () => void;
+    children: React.ReactNode;
+    title?: string;
+  }) => (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={[
+        "rounded-full border px-3 py-1 text-xs transition",
+        active
+          ? "border-white/20 bg-white text-black"
+          : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+
+  const expandAll = () => {
+    if (!grouped) return;
+    const next: Record<string, boolean> = {};
+    for (const g of grouped) next[g.key] = true;
+    setOpenGroups(next);
+  };
+
+  const collapseAll = () => {
+    if (!grouped) return;
+    const next: Record<string, boolean> = {};
+    for (const g of grouped) next[g.key] = false;
+    setOpenGroups(next);
+  };
+
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
@@ -852,7 +920,7 @@ export default function ExpensesPage() {
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Ledger</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Expenses</h1>
 
-            {/* Feature chips (replaces the “More ▾” pattern) */}
+            {/* Feature chips */}
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               <TopChipButton onClick={() => router.push("/app/expenses/audit")} title="Change log">
                 Audit
@@ -1151,10 +1219,11 @@ export default function ExpensesPage() {
                 Show duplicates
               </label>
 
-              {/* Keep small inline summary too */}
               <div className="ml-auto text-sm text-white/70">
                 {sorted.length} rows •{" "}
-                <b className="text-white">${moneyFmt(sorted.reduce((a, e) => a + toMoney(e.amount), 0))}</b>
+                <b className="text-white">
+                  ${moneyFmt(sorted.reduce((a, e) => a + toMoney(e.amount), 0))}
+                </b>
               </div>
             </div>
           </div>
@@ -1209,12 +1278,175 @@ export default function ExpensesPage() {
               </button>
             </div>
           </div>
+
+          {/* Group controls (only when grouping enabled) */}
+          {groupBy !== "none" && grouped && grouped.length > 0 && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <div className="text-xs text-white/50 mr-1">Grouped view</div>
+              <GroupPill onClick={expandAll} title="Open all groups">Expand all</GroupPill>
+              <GroupPill onClick={collapseAll} title="Close all groups">Collapse all</GroupPill>
+              <div className="text-xs text-white/40 ml-auto">
+                Tip: use “Select all in group” to bulk-assign jobs or delete.
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Ledger table */}
+        {/* Ledger */}
         {sorted.length === 0 ? (
           <p className="mt-12 text-white/60">No expenses match your filters.</p>
+        ) : groupBy !== "none" && grouped ? (
+          /* Grouped accordion */
+          <div className="mt-8 space-y-3">
+            {grouped.map((g) => {
+              const open = !!openGroups[g.key];
+              const ids = g.items.map((x) => x.id);
+              const selectedCount = ids.reduce((acc, id) => acc + (selected[id] ? 1 : 0), 0);
+              const allInGroupSelected = g.items.length > 0 && selectedCount === g.items.length;
+
+              return (
+                <div
+                  key={g.key}
+                  className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden"
+                >
+                  <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenGroups((prev) => ({ ...prev, [g.key]: !open }))
+                      }
+                      className="inline-flex items-center gap-2 text-sm text-white/85 hover:text-white transition"
+                      title={open ? "Collapse group" : "Expand group"}
+                    >
+                      <span className="text-white/60">{open ? "▾" : "▸"}</span>
+                      <span className="font-semibold">{g.key}</span>
+                      <span className="text-xs text-white/50">
+                        ({g.count} • ${moneyFmt(g.sum)})
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-white/45">
+                        Selected: <b className="text-white/85">{selectedCount}</b>
+                      </span>
+
+                      <GroupPill
+                        active={allInGroupSelected}
+                        onClick={() => toggleAllInGroup(g.items, !allInGroupSelected)}
+                        title="Toggle selection for this group"
+                      >
+                        {allInGroupSelected ? "Clear group" : "Select group"}
+                      </GroupPill>
+
+                      <GroupPill
+                        onClick={() => {
+                          // Quick action: select group + scroll to bulk bar mentally; no scroll jump
+                          toggleAllInGroup(g.items, true);
+                        }}
+                        title="Select all items in this group"
+                      >
+                        Select all in group
+                      </GroupPill>
+                    </div>
+                  </div>
+
+                  {open && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-left text-xs text-white/60">
+                            <th className="py-3 pl-4 pr-3 w-10"></th>
+                            <th className="py-3 pr-4 w-10">#</th>
+                            <th className="py-3 pr-4">Date</th>
+                            <th className="py-3 pr-4">Vendor</th>
+                            <th className="py-3 pr-4">Amount</th>
+                            <th className="py-3 pr-4">Job</th>
+                            <th className="py-3 pr-4">Description</th>
+                            <th className="py-3 pr-4 w-28">Edit</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {g.items.map((e, ix) => {
+                            const checked = !!selected[e.id];
+                            const k = `${isoDay(e.expense_date)}|${String(e.vendor || "")
+                              .trim()
+                              .toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
+                            const isDupe = (dupeKeyCounts.get(k) || 0) >= 2;
+                            const unassigned = isUnassignedJob(e.job_name);
+
+                            return (
+                              <tr key={e.id} className="border-b border-white/5 text-sm">
+                                <td className="py-3 pl-4 pr-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(ev) =>
+                                      setSelected((prev) => ({
+                                        ...prev,
+                                        [e.id]: ev.target.checked,
+                                      }))
+                                    }
+                                  />
+                                </td>
+                                <td className="py-3 pr-4 text-white/45">{ix + 1}</td>
+                                <td className="py-3 pr-4 whitespace-nowrap text-white/85">
+                                  {isoDay(e.expense_date)}
+                                </td>
+                                <td className="py-3 pr-4 text-white/85">
+                                  {e.vendor ?? "—"}{" "}
+                                  {isDupe && (
+                                    <span className="ml-2 text-xs text-orange-300">(dupe?)</span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 whitespace-nowrap text-white">
+                                  ${moneyFmt(toMoney(e.amount))}
+                                </td>
+                                <td className="py-3 pr-4 text-white/85">
+                                  {unassigned ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      <span className="text-white/50">—</span>
+                                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/70">
+                                        Unassigned
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    e.job_name
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
+                                <td className="py-3 pr-4">
+                                  <button
+                                    onClick={() => openEdit(e)}
+                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+                                    title={unassigned ? "Assign job" : "Edit"}
+                                  >
+                                    {unassigned ? "Assign job" : "Edit"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+
+                          <tr className="border-t border-white/10">
+                            <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={4}>
+                              Group total
+                            </td>
+                            <td className="py-4 pr-4 text-lg font-semibold text-white">
+                              ${moneyFmt(g.sum)}
+                            </td>
+                            <td colSpan={3} />
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
+          /* Flat table */
           <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
             <table className="min-w-full border-collapse">
               <thead>
@@ -1404,6 +1636,7 @@ export default function ExpensesPage() {
           onClose={closeEdit}
           title="Edit expense"
           subtitle="Secure update"
+          busy={saving}
           footer={
             <div className="flex justify-end gap-2">
               <button
@@ -1476,13 +1709,6 @@ export default function ExpensesPage() {
             </div>
           )}
         </Slideover>
-
-        {/* Note on grouping (kept) */}
-        {grouped && (
-          <div className="mt-6 text-xs text-white/40">
-            Grouping is computed. Next step: render grouped accordion + group totals in the ledger.
-          </div>
-        )}
       </div>
     </main>
   );

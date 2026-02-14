@@ -64,7 +64,11 @@ export default function LoginClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
+    <main
+  className="min-h-screen bg-white text-gray-900"
+  style={{ paddingTop: "var(--early-access-banner-h)" }}
+>
+
       <SiteHeader rightLabel="Create account" rightHref="/signup" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">

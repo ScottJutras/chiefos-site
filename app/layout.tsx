@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/app/components/Toast";
-import EarlyAccessTopBar from "@/app/components/EarlyAccessTopBar";
+import EarlyAccessBanner from "@/app/components/EarlyAccessBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,13 +21,14 @@ export const metadata: Metadata = {
     default: "ChiefOS",
     template: "%s · ChiefOS",
   },
-  description: "ChiefOS — an AI-native operating system for contractors and service businesses.",
+  description:
+    "ChiefOS — an AI-native operating system for contractors and service businesses.",
   icons: {
     icon: [
-      { url: "/favicon.ico" }, // app/favicon.ico (recommended) or public/favicon.ico
-      { url: "/icon.png", type: "image/png" }, // optional
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png" }], // optional
+    apple: [{ url: "/apple-touch-icon.png" }],
   },
 };
 
@@ -39,9 +40,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-  <EarlyAccessTopBar />
-  <ToastProvider>{children}</ToastProvider>
-</body>
+        <EarlyAccessBanner />
+        <div style={{ paddingTop: "var(--early-access-banner-h)" }}>
+          <ToastProvider>{children}</ToastProvider>
+        </div>
+      </body>
     </html>
   );
 }

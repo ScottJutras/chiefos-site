@@ -71,7 +71,11 @@ export default function SignupClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
+    <main
+  className="min-h-screen bg-white text-gray-900"
+  style={{ paddingTop: "var(--early-access-banner-h)" }}
+>
+
       <SiteHeader rightLabel="Log in" rightHref="/login" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">

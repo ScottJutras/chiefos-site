@@ -1,10 +1,15 @@
 // app/app/time/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useToast } from "@/app/components/Toast";
+import Slideover from "@/app/app/components/Slideover";
+
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type TimeEntry = {
   id: number;
@@ -43,6 +48,18 @@ const TYPE_OPTIONS = [
   "drive_stop",
 ];
 
+type SortBy =
+  | "time_desc"
+  | "time_asc"
+  | "employee_asc"
+  | "employee_desc"
+  | "type_asc"
+  | "type_desc"
+  | "job_asc"
+  | "job_desc";
+
+type TotalsRange = "all" | "ytd" | "mtd" | "wtd" | "today";
+
 function isoDay(s?: string | null) {
   const t = String(s || "").trim();
   return t ? t.slice(0, 10) : "";
@@ -51,9 +68,12 @@ function isoDay(s?: string | null) {
 function isoTime(s?: string | null) {
   const t = String(s || "").trim();
   if (!t) return "";
-  // "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS"
   const x = t.replace("T", " ");
   return x.slice(11, 19);
+}
+
+function baseTime(r: TimeEntry) {
+  return String(r.local_time || r.timestamp || "").trim();
 }
 
 // Supabase wants timestamp without tz as "YYYY-MM-DD HH:MM:SS"
@@ -77,15 +97,71 @@ function chip(cls: string) {
   ].join(" ");
 }
 
-type SortBy =
-  | "time_desc"
-  | "time_asc"
-  | "employee_asc"
-  | "employee_desc"
-  | "type_asc"
-  | "type_desc"
-  | "job_asc"
-  | "job_desc";
+function startOfWeekMondayLocal(d: Date) {
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  out.setDate(out.getDate() + diff);
+  return out;
+}
+
+function parseMs(s: string) {
+  // expects "YYYY-MM-DD HH:MM:SS" (or "YYYY-MM-DDTHH:MM:SS")
+  const x = String(s || "").trim().replace("T", " ");
+  if (!x) return NaN;
+  // Interpret as local time (browser locale) — OK because values are “no tz”
+  const d = new Date(x.replace(" ", "T"));
+  return d.getTime();
+}
+
+function hoursFmt(h: number) {
+  const x = Number.isFinite(h) ? h : 0;
+  return x.toFixed(2);
+}
+
+/**
+ * Simple hour estimate:
+ * per employee, pair clock_in -> next clock_out
+ * ignores breaks/drives for now; quick & useful.
+ */
+function estimateHours(entries: TimeEntry[]) {
+  const byEmp = new Map<string, TimeEntry[]>();
+
+  for (const r of entries) {
+    const emp = String(r.employee_user_id || r.user_id || r.owner_id || r.employee_name || "—");
+    if (!byEmp.has(emp)) byEmp.set(emp, []);
+    byEmp.get(emp)!.push(r);
+  }
+
+  let totalMs = 0;
+
+  for (const [, list] of byEmp) {
+    const ordered = list
+      .slice()
+      .sort((a, b) => (parseMs(baseTime(a)) || 0) - (parseMs(baseTime(b)) || 0));
+
+    let openIn: number | null = null;
+
+    for (const r of ordered) {
+      const t = parseMs(baseTime(r));
+      if (!Number.isFinite(t)) continue;
+
+      const ty = String(r.type || "").trim();
+
+      if (ty === "clock_in") {
+        openIn = t;
+      } else if (ty === "clock_out") {
+        if (openIn != null && t >= openIn) {
+          totalMs += t - openIn;
+        }
+        openIn = null;
+      }
+    }
+  }
+
+  return totalMs / (1000 * 60 * 60);
+}
 
 export default function TimePage() {
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
@@ -101,11 +177,17 @@ export default function TimePage() {
 
   // View
   const [sortBy, setSortBy] = useState<SortBy>("time_desc");
+  const [totalsRange, setTotalsRange] = useState<TotalsRange>("all");
 
   // Busy states
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  // Edit modal state
+  // Export menu
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement | null>(null);
+  const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
+
+  // Slideover state
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<{
     id: number;
@@ -116,7 +198,11 @@ export default function TimePage() {
     dtLocal: string; // datetime-local value
   } | null>(null);
 
-  // Header sort helpers (inside component)
+  const slideoverBusy = useMemo(() => {
+    if (!draft) return false;
+    return busyId === draft.id;
+  }, [busyId, draft]);
+
   function sortArrow(active: boolean, dir: "asc" | "desc") {
     if (!active) return <span className="ml-1 text-white/30">↕</span>;
     return <span className="ml-1 text-white/80">{dir === "asc" ? "▲" : "▼"}</span>;
@@ -147,9 +233,72 @@ export default function TimePage() {
     });
   }
 
+  const TopChipButton = ({
+    children,
+    onClick,
+    disabled,
+    title,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    title?: string;
+  }) => (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+    >
+      {children}
+    </button>
+  );
+
+  const RangePill = ({ id, label }: { id: TotalsRange; label: string }) => {
+    const active = totalsRange === id;
+    return (
+      <button
+        type="button"
+        onClick={() => setTotalsRange(id)}
+        className={[
+          "rounded-full border px-3 py-1 text-xs transition",
+          active
+            ? "border-white/20 bg-white text-black"
+            : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
+        ].join(" ")}
+      >
+        {label}
+      </button>
+    );
+  };
+
   useEffect(() => {
     document.title = "Time · ChiefOS";
   }, []);
+
+
+  
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (!exportRef.current) return;
+      if (e.target instanceof Node && !exportRef.current.contains(e.target)) setExportOpen(false);
+    }
+    if (exportOpen) document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [exportOpen]);
+
+useEffect(() => {
+  if (!exportOpen) return;
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") setExportOpen(false);
+  };
+
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}, [exportOpen]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +306,7 @@ export default function TimePage() {
     async function load() {
       try {
         setError(null);
+
         const { data, error } = await supabase
           .from("time_entries")
           .select("*")
@@ -210,8 +360,8 @@ export default function TimePage() {
     const cmpStr = (a: string, b: string) => a.localeCompare(b);
 
     out.sort((A, B) => {
-      const aBase = A.local_time || A.timestamp || "";
-      const bBase = B.local_time || B.timestamp || "";
+      const aBase = baseTime(A);
+      const bBase = baseTime(B);
       const aT = String(aBase).replace("T", " ");
       const bT = String(bBase).replace("T", " ");
 
@@ -253,10 +403,41 @@ export default function TimePage() {
     return out;
   }, [filtered, sortBy]);
 
-  const totals = useMemo(() => ({ count: sorted.length }), [sorted]);
+  const totalsList = useMemo(() => {
+    if (totalsRange === "all") return sorted;
+
+    const now = new Date();
+    const todayIso = isoDay(now.toISOString());
+
+    const startYTD = new Date(now.getFullYear(), 0, 1);
+    const startMTD = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startWTD = startOfWeekMondayLocal(now);
+
+    const startIso =
+      totalsRange === "ytd"
+        ? isoDay(startYTD.toISOString())
+        : totalsRange === "mtd"
+        ? isoDay(startMTD.toISOString())
+        : totalsRange === "wtd"
+        ? isoDay(startWTD.toISOString())
+        : todayIso;
+
+    return sorted.filter((r) => {
+      const d = isoDay(baseTime(r));
+      if (!d) return false;
+      if (totalsRange === "today") return d === todayIso;
+      return d >= startIso && d <= todayIso;
+    });
+  }, [sorted, totalsRange]);
+
+  const totals = useMemo(() => {
+    const count = totalsList.length;
+    const hours = estimateHours(totalsList);
+    return { count, hours };
+  }, [totalsList]);
 
   function openEdit(r: TimeEntry) {
-    const base = r.local_time || r.timestamp || "";
+    const base = baseTime(r);
     setDraft({
       id: r.id,
       type: String(r.type || ""),
@@ -266,6 +447,12 @@ export default function TimePage() {
       dtLocal: toInputDateTimeLocal(base),
     });
     setEditOpen(true);
+  }
+
+  function closeEdit() {
+    if (slideoverBusy) return;
+    setEditOpen(false);
+    setDraft(null);
   }
 
   async function saveEdit() {
@@ -280,7 +467,6 @@ export default function TimePage() {
     try {
       setBusyId(draft.id);
 
-      // Update BOTH timestamp + local_time to preserve your current data model.
       const patch: Partial<TimeEntry> = {
         timestamp: ts,
         local_time: ts,
@@ -327,6 +513,111 @@ export default function TimePage() {
     }
   }
 
+  function buildRows(list: TimeEntry[]) {
+    const headers = ["#", "Date", "Time", "Employee", "Type", "Job", "TZ", "Source", "Address", "ID"];
+    const rowsOut = list.map((r, ix) => {
+      const base = baseTime(r);
+      const day = isoDay(base);
+      const time = isoTime(base);
+      return [
+        ix + 1,
+        day,
+        time,
+        r.employee_name ?? "",
+        r.type ?? "",
+        r.job_name ?? "",
+        r.tz ?? "",
+        r.source_msg_id ? "WhatsApp" : "",
+        r.address ?? "",
+        String(r.id ?? ""),
+      ];
+    });
+    return { headers, rows: rowsOut };
+  }
+
+  function downloadCSV(list: TimeEntry[]) {
+    if (!list.length) return;
+    const { headers, rows: rr } = buildRows(list);
+
+    const csv = [headers, ...rr]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "time.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadXLSX(list: TimeEntry[]) {
+    if (!list.length) return;
+    const { headers, rows: rr } = buildRows(list);
+    const data = [headers, ...rr];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws["!cols"] = [
+      { wch: 4 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 20 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 34 },
+      { wch: 10 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Time");
+    XLSX.writeFile(wb, "time.xlsx");
+  }
+
+  function downloadPDF(list: TimeEntry[]) {
+    if (!list.length) return;
+
+    const { headers, rows: rr } = buildRows(list);
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+    doc.setFontSize(14);
+    doc.text("Time", 40, 40);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [headers],
+      body: rr,
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 24 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 48 },
+        3: { cellWidth: 90 },
+        4: { cellWidth: 70 },
+      },
+    });
+
+    doc.save("time.pdf");
+  }
+
+  async function runDownload(kind: "csv" | "xlsx" | "pdf") {
+    const list = sorted;
+    if (!list.length || downloading) return;
+    try {
+      setDownloading(kind);
+      if (kind === "csv") downloadCSV(list);
+      if (kind === "xlsx") downloadXLSX(list);
+      if (kind === "pdf") downloadPDF(list);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   if (gateLoading || loading) return <div className="p-8 text-white/70">Loading time…</div>;
   if (error) return <div className="p-8 text-red-300">Error: {error}</div>;
 
@@ -338,15 +629,81 @@ export default function TimePage() {
           <div>
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Ledger</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Time</h1>
-            <p className="mt-1 text-sm text-white/60">
-              Review, edit, and soft-delete time events (clock, break, lunch, drive).
-            </p>
+
+            {/* Feature chips */}
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              {/* Export chip */}
+              <div className="relative" ref={exportRef}>
+                <TopChipButton
+                  onClick={() => setExportOpen((v) => !v)}
+                  disabled={!sorted.length || downloading !== null}
+                  title="Download"
+                >
+                  Export ▾
+                </TopChipButton>
+
+                {exportOpen && (
+                  <div className="absolute left-0 mt-2 w-56 rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] overflow-hidden z-20">
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("csv");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "csv" ? "Preparing…" : "Download CSV"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("xlsx");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setExportOpen(false);
+                        runDownload("pdf");
+                      }}
+                      disabled={!sorted.length || downloading !== null}
+                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                    >
+                      {downloading === "pdf" ? "Preparing…" : "Download PDF"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className={chip("border-white/10 bg-black/40 text-white/70")}>
-              <span className="text-white/45">Items</span>
-              <span className="text-white">{totals.count}</span>
+          {/* Top totals strip */}
+          <div className="w-full md:w-auto">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="text-xs text-white/55">Totals (filtered)</div>
+                  <div className="mt-1 text-2xl font-semibold text-white">
+                    {totals.count} events
+                  </div>
+                  <div className="mt-1 text-xs text-white/55">
+                    Est. hours: <b className="text-white">{hoursFmt(totals.hours)}</b> (clock_in → clock_out)
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <RangePill id="all" label="All" />
+                  <RangePill id="ytd" label="YTD" />
+                  <RangePill id="mtd" label="MTD" />
+                  <RangePill id="wtd" label="WTD" />
+                  <RangePill id="today" label="Today" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -463,7 +820,7 @@ export default function TimePage() {
 
               <tbody>
                 {sorted.map((r) => {
-                  const base = r.local_time || r.timestamp || "";
+                  const base = baseTime(r);
                   const day = isoDay(base);
                   const time = isoTime(base);
 
@@ -510,100 +867,92 @@ export default function TimePage() {
           </div>
         )}
 
-        {/* Edit modal */}
-        {editOpen && draft && (
-          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0B0B0E] p-4 shadow-[0_30px_120px_rgba(0,0,0,0.55)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-white/90">Edit time entry</div>
-                  <div className="mt-1 text-xs text-white/50">
-                    This edits the recorded event time. (Clock/break/lunch/drive are all events.)
-                  </div>
-                </div>
-
-                <button
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/10"
-                  onClick={() => {
-                    setEditOpen(false);
-                    setDraft(null);
-                  }}
-                  disabled={busyId === draft.id}
+        {/* Edit slideover */}
+        <Slideover
+          open={editOpen && !!draft}
+          onClose={closeEdit}
+          busy={slideoverBusy}
+          title="Edit time entry"
+          subtitle="Edits the recorded event time (clock/break/lunch/drive are all events)."
+          footer={
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={closeEdit}
+                disabled={slideoverBusy}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={slideoverBusy}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
+              >
+                {slideoverBusy ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          }
+        >
+          {draft && (
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Type</label>
+                <select
+                  value={draft.type}
+                  onChange={(e) => setDraft((d) => (d ? { ...d, type: e.target.value } : d))}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
                 >
-                  Close
-                </button>
+                  {TYPE_OPTIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                  {!TYPE_OPTIONS.includes(draft.type) && (
+                    <option value={draft.type}>{draft.type}</option>
+                  )}
+                </select>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-white/60 mb-1">Type</label>
-                  <select
-                    value={draft.type}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, type: e.target.value } : d))}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                  >
-                    {TYPE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    {!TYPE_OPTIONS.includes(draft.type) && <option value={draft.type}>{draft.type}</option>}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-white/60 mb-1">Event time</label>
-                  <input
-                    type="datetime-local"
-                    value={draft.dtLocal}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, dtLocal: e.target.value } : d))}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs text-white/60 mb-1">Job name (optional)</label>
-                  <input
-                    value={draft.job_name}
-                    onChange={(e) => setDraft((d) => (d ? { ...d, job_name: e.target.value } : d))}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
-                    placeholder="e.g. Medway Park"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs text-white/60 mb-1">Employee</label>
-                  <input
-                    value={draft.employee_name}
-                    readOnly
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Event time</label>
+                <input
+                  type="datetime-local"
+                  value={draft.dtLocal}
+                  onChange={(e) => setDraft((d) => (d ? { ...d, dtLocal: e.target.value } : d))}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
+                />
               </div>
 
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/80 hover:bg-white/10 disabled:opacity-50"
-                  onClick={() => {
-                    setEditOpen(false);
-                    setDraft(null);
-                  }}
-                  disabled={busyId === draft.id}
-                >
-                  Cancel
-                </button>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Job name (optional)</label>
+                <input
+                  value={draft.job_name}
+                  onChange={(e) => setDraft((d) => (d ? { ...d, job_name: e.target.value } : d))}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
+                  placeholder="e.g. Medway Park"
+                />
+              </div>
 
-                <button
-                  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50"
-                  onClick={saveEdit}
-                  disabled={busyId === draft.id}
-                >
-                  {busyId === draft.id ? "Saving…" : "Save"}
-                </button>
+              <div>
+                <label className="block text-xs text-white/60 mb-1">Employee</label>
+                <input
+                  value={draft.employee_name}
+                  readOnly
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-white/60 mb-1">TZ</label>
+                <input
+                  value={draft.tz}
+                  readOnly
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70"
+                />
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </Slideover>
       </div>
     </main>
   );

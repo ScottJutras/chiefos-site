@@ -7,6 +7,18 @@
   /* Fonts from next/font via CSS variables in layout.tsx */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  :root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* ✅ NEW: reserved space for the sticky early access bar */
+  --early-access-banner-h: 0px;
+
+  /* Fonts from next/font via CSS variables in layout.tsx */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 }
 
 @media (prefers-color-scheme: dark) {
