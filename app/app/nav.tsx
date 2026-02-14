@@ -9,6 +9,7 @@ const items = [
   { href: "/app/revenue", label: "Revenue" },
   { href: "/app/time", label: "Time" },
   { href: "/app/tasks", label: "Tasks" },
+  { href: "/app/settings/billing", label: "Billing" }, // ✅ add
 ];
 
 export function AppNav() {
