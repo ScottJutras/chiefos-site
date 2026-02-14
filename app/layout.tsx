@@ -24,10 +24,7 @@ export const metadata: Metadata = {
   description:
     "ChiefOS — an AI-native operating system for contractors and service businesses.",
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/icon.png", type: "image/png" },
-    ],
+    icon: [{ url: "/favicon.ico" }, { url: "/icon.png", type: "image/png" }],
     apple: [{ url: "/apple-touch-icon.png" }],
   },
 };
@@ -41,9 +38,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <EarlyAccessBanner />
-        <div style={{ paddingTop: "var(--early-access-banner-h)" }}>
-          <ToastProvider>{children}</ToastProvider>
-        </div>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

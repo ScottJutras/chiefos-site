@@ -6,7 +6,6 @@ import { AppNav } from "./nav";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Terminal top bar (sits under the global sticky EarlyAccessBanner) */}
       <header
         className="sticky z-20 border-b border-white/10 bg-black/70 backdrop-blur-xl"
         style={{ top: "var(--early-access-banner-h)" }}
@@ -25,7 +24,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Page body */}
+      {/* IMPORTANT: no top padding here (header already consumes height) */}
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>
   );

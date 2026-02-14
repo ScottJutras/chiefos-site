@@ -15,11 +15,10 @@ export default function EarlyAccessBanner() {
     pathname.startsWith("/app");
 
   useEffect(() => {
-    // If we're not showing the banner, zero the offset.
-    if (!show) {
-      document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
-      return;
-    }
+    // Always reset first so we never carry stale height between routes.
+    document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
+
+    if (!show) return;
 
     const el = ref.current;
     if (!el) return;
@@ -36,6 +35,8 @@ export default function EarlyAccessBanner() {
 
     window.addEventListener("resize", apply);
     return () => {
+      // ✅ Critical: prevent stale height after unmount / route change
+      document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
       ro.disconnect();
       window.removeEventListener("resize", apply);
     };
@@ -53,9 +54,7 @@ export default function EarlyAccessBanner() {
           <span className="rounded bg-white/10 px-2 py-1 text-[11px] tracking-wide">
             EARLY ACCESS
           </span>
-          <span className="hidden sm:inline">
-            Stable logging first. Job truth follows.
-          </span>
+          <span className="hidden sm:inline">Stable logging first. Job truth follows.</span>
         </div>
         <div className="text-white/60">ChiefOS</div>
       </div>
