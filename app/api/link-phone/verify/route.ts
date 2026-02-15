@@ -143,22 +143,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "OTP invalid." }, { status: 400 });
     }
 
-    const owner = await resolveOwnerByPhoneDigits(phoneDigits);
-    console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0) });
-    
-    if (!owner?.ownerId) {
-      return NextResponse.json({ error: "No owner found for this phone." }, { status: 404 });
-    }
+  const owner = await resolveOwnerByPhoneDigits(phoneDigits);
+console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0) });
 
-    if (!owner.dashboardToken) {
-      return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
-    }
+// DEBUG: prove we can return a response (toggle via env var)
+if (process.env.LINK_PHONE_DEBUG_RETURN === "1") {
+  return NextResponse.json({
+    ok: true,
+    debug: "returned_after_owner_lookup",
+    owner_found: !!owner,
+    owner_id: owner?.ownerId || null,
+    has_dashboard_token: !!owner?.dashboardToken,
+  });
+}
 
-    const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
-    setDashboardCookie(res, owner.dashboardToken);
+if (!owner?.ownerId) {
+  return NextResponse.json({ error: "No owner found for this phone." }, { status: 404 });
+}
 
-    console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0) });
-    return res;
+if (!owner.dashboardToken) {
+  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
+}
+
+const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
+setDashboardCookie(res, owner.dashboardToken);
+console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0) });
+return res;
+
   } catch (e: any) {
     console.error("[LINK_PHONE_VERIFY] error", { ms: msSince(t0), err: e?.message || String(e) });
     return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500 });
