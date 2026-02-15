@@ -26,21 +26,41 @@ async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   headers.set("Accept", "application/json");
   if (init?.body && !headers.get("Content-Type")) headers.set("Content-Type", "application/json");
 
-  const resp = await fetch(url, { ...init, headers, cache: "no-store" });
-  const text = await resp.text();
+  // ✅ hard timeout so UI never hangs forever
+  const controller = new AbortController();
+  const timeoutMs = 12_000;
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
-  let json: any = null;
   try {
-    json = text ? JSON.parse(text) : null;
-  } catch {}
+    const resp = await fetch(url, {
+      ...init,
+      headers,
+      cache: "no-store",
+      signal: controller.signal,
+    });
 
-  if (!resp.ok) {
-    const msg = json?.error || json?.message || `Request failed (${resp.status})`;
-    throw new Error(msg);
+    const text = await resp.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {}
+
+    if (!resp.ok) {
+      const msg = json?.error || json?.message || `Request failed (${resp.status})`;
+      throw new Error(msg);
+    }
+
+    return json as T;
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new Error("Verify timed out. The server didn’t respond. Check Vercel logs for /api/link-phone/verify.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
   }
-
-  return json as T;
 }
+
 
 export default function LinkPhoneClient() {
   const router = useRouter();
