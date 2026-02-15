@@ -1,8 +1,8 @@
-// app/app/settings/billing/page.tsx
+// chiefos-site/app/app/settings/billing/BillingClient.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type BillingStatus =
   | { linked: false }
@@ -21,9 +21,9 @@ type BillingStatus =
         | null;
       effective_plan: "free" | "starter" | "pro" | string;
       cancel_at_period_end?: boolean | null;
-      current_period_start?: number | null; // unix seconds
-      current_period_end?: number | null; // unix seconds
-      stripe_customer_id?: boolean;
+      current_period_start?: number | null; // unix seconds (or null)
+      current_period_end?: number | null; // unix seconds (or null)
+      stripe_customer_id?: boolean | null;
     };
 
 const STATUS_URL = "/api/billing/status";
@@ -86,35 +86,12 @@ function normalizePlanKey(x: unknown): "free" | "starter" | "pro" {
   return "free";
 }
 
-function getAuthTokenFromClient(searchParams: URLSearchParams): string | null {
-  const qp = searchParams.get("token");
-  if (qp && qp.trim()) return qp.trim();
-
-  try {
-    // add any keys your app uses here
-    const candidates = [
-      "chiefos_dashboard_token",
-      "dashboard_token",
-      "dashboardToken",
-      "token",
-      "billing_token",
-    ];
-    for (const k of candidates) {
-      const v = window.localStorage.getItem(k);
-      if (v && v.trim()) return v.trim();
-    }
-  } catch {}
-
-  return null;
-}
-
-async function apiFetchJSON<T>(url: string, token: string | null, init?: RequestInit): Promise<T> {
+async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
   headers.set("Accept", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init?.body && !headers.get("Content-Type")) headers.set("Content-Type", "application/json");
 
-  const resp = await fetch(url, { ...init, headers, cache: "no-store" });
+  const resp = await fetch(url, { ...init, headers, cache: "no-store", credentials: "include" });
 
   const text = await resp.text();
   let json: any = null;
@@ -123,11 +100,7 @@ async function apiFetchJSON<T>(url: string, token: string | null, init?: Request
   } catch {}
 
   if (!resp.ok) {
-    const msg =
-      json?.error ||
-      json?.message ||
-      (typeof json === "string" ? json : null) ||
-      `Request failed (${resp.status})`;
+    const msg = json?.error || json?.message || `Request failed (${resp.status})`;
     throw new Error(msg);
   }
 
@@ -158,6 +131,7 @@ function StatusPill({
 }
 
 export default function BillingClient() {
+  const router = useRouter();
   const sp = useSearchParams();
 
   const preferredPlan = useMemo(() => {
@@ -167,7 +141,6 @@ export default function BillingClient() {
     return null;
   }, [sp]);
 
-  const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -212,24 +185,25 @@ export default function BillingClient() {
 
   const billingIssue = useMemo(() => subStatus === "past_due", [subStatus]);
 
-  // Token bootstrap
-  useEffect(() => {
-    try {
-      const usp = new URLSearchParams(sp.toString());
-      setToken(getAuthTokenFromClient(usp));
-    } catch {
-      setToken(null);
-    }
-  }, [sp]);
+  function stopPolling() {
+    pollingRef.current?.stop?.();
+    pollingRef.current = null;
+  }
 
-  async function refreshStatus(t = token) {
+  async function refreshStatus() {
     setErr(null);
     try {
-      const out = await apiFetchJSON<BillingStatus>(STATUS_URL, t, { method: "GET" });
+      const out = await apiFetchJSON<BillingStatus>(STATUS_URL, { method: "GET" });
       setStatus(out);
       return out;
     } catch (e: any) {
-      setErr(e?.message || "Failed to load billing status");
+      const msg = String(e?.message || "Failed to load billing status");
+      // ✅ minimal routing behavior (prevents support tickets)
+      if (msg.toLowerCase().includes("missing dashboard token")) {
+        router.replace("/app/link-phone?next=/app/settings/billing");
+        return null;
+      }
+      setErr(msg);
       setStatus(null);
       return null;
     } finally {
@@ -237,19 +211,13 @@ export default function BillingClient() {
     }
   }
 
-  // Initial fetch
   useEffect(() => {
     setLoading(true);
-    refreshStatus(token);
+    refreshStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, []);
 
-  function stopPolling() {
-    pollingRef.current?.stop?.();
-    pollingRef.current = null;
-  }
-
-  function startPolling(target: "starter" | "pro", t = token) {
+  function startPolling(target: "starter" | "pro") {
     stopPolling();
     setActivating(true);
     setActivationTarget(target);
@@ -263,7 +231,7 @@ export default function BillingClient() {
     const tick = async () => {
       if (cancelled) return;
 
-      const out = await refreshStatus(t);
+      const out = await refreshStatus();
       if (cancelled) return;
 
       const eff =
@@ -289,7 +257,6 @@ export default function BillingClient() {
     };
 
     const id = window.setInterval(tick, intervalMs);
-    // initial faster tick
     window.setTimeout(tick, 800);
 
     pollingRef.current = {
@@ -300,24 +267,23 @@ export default function BillingClient() {
     };
   }
 
-  // Auto polling when returning from Stripe
+  // Auto polling when returning from Stripe (session_id in URL)
   useEffect(() => {
     const hasSession = !!sp.get("session_id");
     if (!hasSession) return;
 
     const target = (preferredPlan || "starter") as "starter" | "pro";
-    startPolling(target, token);
+    startPolling(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp, preferredPlan, token]);
+  }, [sp, preferredPlan]);
 
   async function startCheckout(planKey: "starter" | "pro") {
     setErr(null);
-    // show “activating” UX immediately; polling will really start after return
     setActivating(true);
     setActivationTarget(planKey);
 
     try {
-      const out = await apiFetchJSON<{ url: string }>(CHECKOUT_URL, token, {
+      const out = await apiFetchJSON<{ url: string }>(CHECKOUT_URL, {
         method: "POST",
         body: JSON.stringify({ planKey }),
       });
@@ -334,7 +300,7 @@ export default function BillingClient() {
   async function openPortal() {
     setErr(null);
     try {
-      const out = await apiFetchJSON<{ url: string }>(PORTAL_URL, token, { method: "POST" });
+      const out = await apiFetchJSON<{ url: string }>(PORTAL_URL, { method: "POST" });
       if (out?.url) window.location.href = out.url;
       else throw new Error("Failed to open billing portal.");
     } catch (e: any) {
@@ -406,13 +372,13 @@ export default function BillingClient() {
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <a
-                href="/app/link-phone"
+                href="/app/link-phone?next=/app/settings/billing"
                 className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
               >
                 Link Phone
               </a>
               <button
-                onClick={() => refreshStatus(token)}
+                onClick={() => refreshStatus()}
                 className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-sm font-medium text-white hover:bg-white/5"
               >
                 Retry
@@ -452,7 +418,7 @@ export default function BillingClient() {
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
-                    onClick={() => refreshStatus(token)}
+                    onClick={() => refreshStatus()}
                     className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-sm font-medium text-white hover:bg-white/5"
                   >
                     Refresh
@@ -573,7 +539,3 @@ export default function BillingClient() {
     </div>
   );
 }
-
-  
-
-
