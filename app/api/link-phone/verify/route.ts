@@ -22,6 +22,10 @@ function isProd() {
   return process.env.NODE_ENV === "production";
 }
 
+function msSince(t0: number) {
+  return Date.now() - t0;
+}
+
 function setDashboardCookie(res: NextResponse, token: string) {
   const prod = isProd();
   res.cookies.set({
@@ -95,7 +99,6 @@ async function resolveOwnerByPhoneDigits(phoneDigits: string) {
   });
 
   if (!r.ok) throw new Error(`owner_lookup_failed: ${await r.text()}`);
-  
 
   const rows = (await r.json()) as Array<{ user_id?: string; dashboard_token?: string; email?: string }>;
   const ownerId = String(rows?.[0]?.user_id || "").replace(/\D/g, "");
@@ -106,80 +109,74 @@ async function resolveOwnerByPhoneDigits(phoneDigits: string) {
   return { ownerId, dashboardToken: dashboardToken || null, email };
 }
 
-function msSince(t0: number) {
-  return Date.now() - t0;
-}
-
 export async function POST(req: Request) {
-    const BUILD =
-  process.env.VERCEL_GIT_COMMIT_SHA ||
-  process.env.VERCEL_DEPLOYMENT_ID ||
-  process.env.VERCEL_URL ||
-  "local";
+  const BUILD =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_DEPLOYMENT_ID ||
+    process.env.VERCEL_URL ||
+    "local";
 
-console.info("[LINK_PHONE_VERIFY] build", { BUILD });
+  const t0 = Date.now();
 
-    const t0 = Date.now();
+  const reply = (payload: any, status = 200) =>
+    NextResponse.json(payload, { status, headers: { "x-chiefos-build": BUILD } });
+
   try {
+    console.info("[LINK_PHONE_VERIFY] build", { BUILD });
     console.info("[LINK_PHONE_VERIFY] start", { ms: msSince(t0) });
 
     const { ownerPhone, otp } = await req.json().catch(() => ({}));
     const phoneDigits = DIGITS(ownerPhone);
     const otpDigits = DIGITS(otp);
 
-    if (!phoneDigits || phoneDigits.length < 10) {
-      return NextResponse.json({ error: "Valid phone required." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
-    }
-    if (!otpDigits || otpDigits.length !== 6) {
-      return NextResponse.json({ error: "Valid 6-digit OTP required." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
-    }
+    if (!phoneDigits || phoneDigits.length < 10) return reply({ error: "Valid phone required." }, 400);
+    if (!otpDigits || otpDigits.length !== 6) return reply({ error: "Valid 6-digit OTP required." }, 400);
 
     const authUser = await getAuthUserFromBearer(req);
     console.info("[LINK_PHONE_VERIFY] auth_user_lookup", { ms: msSince(t0) });
-    if (!authUser) return NextResponse.json({ error: "Not logged in." }, { status: 401, headers: { "x-chiefos-build": BUILD } });
+    if (!authUser) return reply({ error: "Not logged in." }, 401);
 
     const row = await getLatestOtpRow(authUser.id, phoneDigits);
     console.info("[LINK_PHONE_VERIFY] otp_lookup", { ms: msSince(t0) });
-    if (!row) return NextResponse.json({ error: "OTP not found." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
+    if (!row) return reply({ error: "OTP not found." }, 400);
 
     const exp = Date.parse(row.expires_at);
-    if (!Number.isFinite(exp) || Date.now() > exp) {
-      return NextResponse.json({ error: "OTP expired." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
+    if (!Number.isFinite(exp) || Date.now() > exp) return reply({ error: "OTP expired." }, 400);
+
+    if (sha256(otpDigits) !== String(row.otp_hash || "")) return reply({ error: "OTP invalid." }, 400);
+
+    const owner = await resolveOwnerByPhoneDigits(phoneDigits);
+    console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0), owner_found: !!owner });
+
+    // ✅ HARD DEBUG SWITCH: if set, we MUST return right here
+    if (process.env.LINK_PHONE_DEBUG_RETURN === "1") {
+      return reply({
+        ok: true,
+        debug: "returned_after_owner_lookup",
+        owner_found: !!owner,
+        owner_id: owner?.ownerId || null,
+        has_dashboard_token: !!owner?.dashboardToken,
+      });
     }
 
-    if (sha256(otpDigits) !== String(row.otp_hash || "")) {
-      return NextResponse.json({ error: "OTP invalid." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
-    }
+    if (!owner?.ownerId) return reply({ error: "No owner found for this phone." }, 404);
+    if (!owner.dashboardToken) return reply({ error: "Owner missing dashboard token." }, 500);
 
-  const owner = await resolveOwnerByPhoneDigits(phoneDigits);
-console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0) });
+    console.info("[LINK_PHONE_VERIFY] pre_cookie", { ms: msSince(t0) });
+    const res = NextResponse.json(
+      { ok: true, linked: true, owner_id: owner.ownerId },
+      { status: 200, headers: { "x-chiefos-build": BUILD } }
+    );
 
-// DEBUG: prove we can return a response (toggle via env var)
-if (process.env.LINK_PHONE_DEBUG_RETURN === "1") {
-  return NextResponse.json({
-    ok: true,
-    debug: "returned_after_owner_lookup",
-    owner_found: !!owner,
-    owner_id: owner?.ownerId || null,
-    has_dashboard_token: !!owner?.dashboardToken, headers: { "x-chiefos-build": BUILD }
-  });
-}
+    setDashboardCookie(res, owner.dashboardToken);
 
-if (!owner?.ownerId) {
-  return NextResponse.json({ error: "No owner found for this phone." }, { status: 404, headers: { "x-chiefos-build": BUILD } });
-}
-
-if (!owner.dashboardToken) {
-  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500, headers: { "x-chiefos-build": BUILD } });
-}
-
-const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
-setDashboardCookie(res, owner.dashboardToken);
-console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0), headers: { "x-chiefos-build": BUILD } });
-return res;
-
+    console.info("[LINK_PHONE_VERIFY] pre_return", { ms: msSince(t0) });
+    return res;
   } catch (e: any) {
     console.error("[LINK_PHONE_VERIFY] error", { ms: msSince(t0), err: e?.message || String(e) });
-    return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500, headers: { "x-chiefos-build": BUILD } });
+    return NextResponse.json(
+      { error: e?.message || "link_phone_verify_failed" },
+      { status: 500, headers: { "x-chiefos-build": BUILD } }
+    );
   }
 }
