@@ -111,7 +111,15 @@ function msSince(t0: number) {
 }
 
 export async function POST(req: Request) {
-  const t0 = Date.now();
+    const BUILD =
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.VERCEL_DEPLOYMENT_ID ||
+  process.env.VERCEL_URL ||
+  "local";
+
+console.info("[LINK_PHONE_VERIFY] build", { BUILD });
+
+    const t0 = Date.now();
   try {
     console.info("[LINK_PHONE_VERIFY] start", { ms: msSince(t0) });
 
@@ -120,27 +128,27 @@ export async function POST(req: Request) {
     const otpDigits = DIGITS(otp);
 
     if (!phoneDigits || phoneDigits.length < 10) {
-      return NextResponse.json({ error: "Valid phone required." }, { status: 400 });
+      return NextResponse.json({ error: "Valid phone required." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
     }
     if (!otpDigits || otpDigits.length !== 6) {
-      return NextResponse.json({ error: "Valid 6-digit OTP required." }, { status: 400 });
+      return NextResponse.json({ error: "Valid 6-digit OTP required." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
     }
 
     const authUser = await getAuthUserFromBearer(req);
     console.info("[LINK_PHONE_VERIFY] auth_user_lookup", { ms: msSince(t0) });
-    if (!authUser) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
+    if (!authUser) return NextResponse.json({ error: "Not logged in." }, { status: 401, headers: { "x-chiefos-build": BUILD } });
 
     const row = await getLatestOtpRow(authUser.id, phoneDigits);
     console.info("[LINK_PHONE_VERIFY] otp_lookup", { ms: msSince(t0) });
-    if (!row) return NextResponse.json({ error: "OTP not found." }, { status: 400 });
+    if (!row) return NextResponse.json({ error: "OTP not found." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
 
     const exp = Date.parse(row.expires_at);
     if (!Number.isFinite(exp) || Date.now() > exp) {
-      return NextResponse.json({ error: "OTP expired." }, { status: 400 });
+      return NextResponse.json({ error: "OTP expired." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
     }
 
     if (sha256(otpDigits) !== String(row.otp_hash || "")) {
-      return NextResponse.json({ error: "OTP invalid." }, { status: 400 });
+      return NextResponse.json({ error: "OTP invalid." }, { status: 400, headers: { "x-chiefos-build": BUILD } });
     }
 
   const owner = await resolveOwnerByPhoneDigits(phoneDigits);
@@ -153,25 +161,25 @@ if (process.env.LINK_PHONE_DEBUG_RETURN === "1") {
     debug: "returned_after_owner_lookup",
     owner_found: !!owner,
     owner_id: owner?.ownerId || null,
-    has_dashboard_token: !!owner?.dashboardToken,
+    has_dashboard_token: !!owner?.dashboardToken, headers: { "x-chiefos-build": BUILD }
   });
 }
 
 if (!owner?.ownerId) {
-  return NextResponse.json({ error: "No owner found for this phone." }, { status: 404 });
+  return NextResponse.json({ error: "No owner found for this phone." }, { status: 404, headers: { "x-chiefos-build": BUILD } });
 }
 
 if (!owner.dashboardToken) {
-  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
+  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500, headers: { "x-chiefos-build": BUILD } });
 }
 
 const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
 setDashboardCookie(res, owner.dashboardToken);
-console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0) });
+console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0), headers: { "x-chiefos-build": BUILD } });
 return res;
 
   } catch (e: any) {
     console.error("[LINK_PHONE_VERIFY] error", { ms: msSince(t0), err: e?.message || String(e) });
-    return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500 });
+    return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500, headers: { "x-chiefos-build": BUILD } });
   }
 }
