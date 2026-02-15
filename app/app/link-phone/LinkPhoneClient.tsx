@@ -1,4 +1,4 @@
-// chiefos-site\app\app\link-phone\LinkPhoneClient.tsx
+// chiefos-site/app/app/link-phone/LinkPhoneClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,6 +8,9 @@ import { supabase } from "@/lib/supabase";
 function DIGITS(x: unknown) {
   return String(x ?? "").replace(/\D/g, "");
 }
+
+const WHATSAPP_NUMBER = "12316802664"; // no +, no whatsapp: prefix
+const WA_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("LINK")}`;
 
 async function getSupabaseAccessToken(): Promise<string | null> {
   try {
@@ -55,6 +58,9 @@ export default function LinkPhoneClient() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // ✅ new: user confirmation they opened WhatsApp + sent LINK
+  const [linkSent, setLinkSent] = useState(false);
+
   useEffect(() => {
     (async () => {
       const token = await getSupabaseAccessToken();
@@ -67,9 +73,14 @@ export default function LinkPhoneClient() {
     setErr(null);
     setMsg(null);
 
+    if (!linkSent) {
+      setErr('Before sending OTP, open WhatsApp and send "LINK" to ChiefOS (Step 1).');
+      return;
+    }
+
     const phoneDigits = DIGITS(phone);
     if (!phoneDigits || phoneDigits.length < 10) {
-      setErr("Please enter a valid phone number.");
+      setErr("Please enter a valid phone number (include country code digits).");
       return;
     }
 
@@ -79,7 +90,8 @@ export default function LinkPhoneClient() {
       return;
     }
 
-    setMsg("Sending OTP…");
+    // ✅ Explicit Step 2 message (right before API call)
+    setMsg('Step 2 — Sending OTP. If you didn’t send "LINK" in WhatsApp first, delivery will fail.');
 
     await apiFetchJSON<{ ok: true }>("/api/link-phone/start", {
       method: "POST",
@@ -88,7 +100,7 @@ export default function LinkPhoneClient() {
     });
 
     setStage("enter_otp");
-    setMsg("OTP sent. Check your phone.");
+    setMsg("OTP sent. Check your WhatsApp messages.");
   }
 
   async function verifyOtp() {
@@ -99,7 +111,7 @@ export default function LinkPhoneClient() {
     const otpDigits = DIGITS(otp);
 
     if (!phoneDigits || phoneDigits.length < 10) {
-      setErr("Please enter a valid phone number.");
+      setErr("Please enter a valid phone number (include country code digits).");
       return;
     }
     if (!otpDigits || otpDigits.length !== 6) {
@@ -115,7 +127,6 @@ export default function LinkPhoneClient() {
 
     setMsg("Verifying…");
 
-    // verify sets HttpOnly cookie chiefos_dashboard_token
     await apiFetchJSON<{ ok: true; linked: true; owner_id: string }>("/api/link-phone/verify", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -168,12 +179,48 @@ export default function LinkPhoneClient() {
             {err}
           </div>
         )}
+
         {msg && (
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
             {msg}
           </div>
         )}
 
+        {/* Step 1 */}
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm font-medium">Step 1 — Open WhatsApp</div>
+          <p className="mt-2 text-sm text-white/70">
+            To allow OTP delivery, you must send{" "}
+            <span className="text-white/90 font-medium">LINK</span> to ChiefOS (opens a 24-hour WhatsApp window).
+          </p>
+
+          <a
+            href={WA_LINK}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+          >
+            Open WhatsApp &amp; send “LINK”
+          </a>
+
+          {/* ✅ Step 1 confirmation gate */}
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-3">
+            <input
+              type="checkbox"
+              checked={linkSent}
+              onChange={(e) => setLinkSent(e.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <div>
+              <div className="text-sm font-medium text-white/90">I sent “LINK” in WhatsApp</div>
+              <div className="text-xs text-white/60">
+                Required so we can message you the OTP without templates.
+              </div>
+            </div>
+          </label>
+        </div>
+
+        {/* Step 2 */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6">
           <label className="block text-sm text-white/70">Owner phone (digits)</label>
           <input
@@ -199,7 +246,12 @@ export default function LinkPhoneClient() {
             {stage === "enter_phone" ? (
               <button
                 onClick={startOtp}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+                disabled={!linkSent}
+                className={[
+                  "rounded-xl px-4 py-2 text-sm font-medium",
+                  linkSent ? "bg-white text-black hover:bg-white/90" : "cursor-not-allowed bg-white/10 text-white/50",
+                ].join(" ")}
+                title={linkSent ? "Send OTP" : 'Send "LINK" in WhatsApp first'}
               >
                 Send OTP
               </button>
@@ -209,8 +261,9 @@ export default function LinkPhoneClient() {
                   onClick={verifyOtp}
                   className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
                 >
-                  Verify & Link
+                  Verify &amp; Link
                 </button>
+
                 <button
                   onClick={() => {
                     setStage("enter_phone");
@@ -234,7 +287,7 @@ export default function LinkPhoneClient() {
           </div>
 
           <div className="mt-4 text-xs text-white/50">
-            Production note: OTP must be delivered (Twilio SMS/WhatsApp). Logging OTP is dev-only.
+            Note: WhatsApp OTP requires you to send LINK first (24-hour window). Templates are not enabled yet.
           </div>
         </div>
       </div>
