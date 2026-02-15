@@ -95,6 +95,7 @@ async function resolveOwnerByPhoneDigits(phoneDigits: string) {
   });
 
   if (!r.ok) throw new Error(`owner_lookup_failed: ${await r.text()}`);
+  
 
   const rows = (await r.json()) as Array<{ user_id?: string; dashboard_token?: string; email?: string }>;
   const ownerId = String(rows?.[0]?.user_id || "").replace(/\D/g, "");
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
 
     const owner = await resolveOwnerByPhoneDigits(phoneDigits);
     console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0) });
+    
     if (!owner?.ownerId) {
       return NextResponse.json({ error: "No owner found for this phone." }, { status: 404 });
     }
