@@ -1,4 +1,4 @@
-// chiefos-site/app/app/link-phone/page.tsx
+// chiefos-site\app\app\link-phone\LinkPhoneClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -39,7 +39,7 @@ async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   return json as T;
 }
 
-export default function LinkPhonePage() {
+export default function LinkPhoneClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
