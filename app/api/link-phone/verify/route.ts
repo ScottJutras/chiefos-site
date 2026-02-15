@@ -7,17 +7,21 @@ export const runtime = "nodejs";
 function DIGITS(x: unknown) {
   return String(x ?? "").replace(/\D/g, "");
 }
+
 function requireEnv(name: string) {
   const v = process.env[name];
   if (!v) throw new Error(`Missing ${name}`);
   return v;
 }
+
 function sha256(s: string) {
   return crypto.createHash("sha256").update(s).digest("hex");
 }
+
 function isProd() {
   return process.env.NODE_ENV === "production";
 }
+
 function setDashboardCookie(res: NextResponse, token: string) {
   const prod = isProd();
   res.cookies.set({
@@ -32,18 +36,6 @@ function setDashboardCookie(res: NextResponse, token: string) {
   });
 }
 
-// ✅ fetch helper with timeout so serverless never hangs forever
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit & { timeoutMs?: number } = {}) {
-  const { timeoutMs = 10_000, ...rest } = init as any;
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...rest, signal: controller.signal });
-  } finally {
-    clearTimeout(t);
-  }
-}
-
 async function getAuthUserFromBearer(req: Request) {
   const raw = req.headers.get("authorization") || "";
   const m = raw.match(/^bearer\s+(.+)$/i);
@@ -53,16 +45,16 @@ async function getAuthUserFromBearer(req: Request) {
   const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const anon = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
-  const r = await fetchWithTimeout(`${supabaseUrl}/auth/v1/user`, {
+  const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
     headers: { apikey: anon, Authorization: `Bearer ${jwt}` },
     cache: "no-store",
-    timeoutMs: 10_000,
   });
 
   if (!r.ok) return null;
   const u = await r.json();
   const id = String(u?.id || "").trim();
   const email = u?.email ? String(u.email).trim().toLowerCase() : null;
+
   return id ? { id, email } : null;
 }
 
@@ -77,15 +69,14 @@ async function getLatestOtpRow(authUserId: string, phoneDigits: string) {
     `&select=otp_hash,expires_at,created_at` +
     `&order=created_at.desc&limit=1`;
 
-  const r = await fetchWithTimeout(url, {
+  const r = await fetch(url, {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
     cache: "no-store",
-    timeoutMs: 10_000,
   });
 
   if (!r.ok) throw new Error(`otp_lookup_failed: ${await r.text()}`);
 
-  const rows = (await r.json()) as Array<{ otp_hash: string; expires_at: string; created_at?: string }>;
+  const rows = (await r.json()) as Array<{ otp_hash: string; expires_at: string }>;
   return rows?.[0] || null;
 }
 
@@ -98,10 +89,9 @@ async function resolveOwnerByPhoneDigits(phoneDigits: string) {
     `?user_id=eq.${encodeURIComponent(phoneDigits)}` +
     `&select=user_id,dashboard_token,email&limit=1`;
 
-  const r = await fetchWithTimeout(url, {
+  const r = await fetch(url, {
     headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
     cache: "no-store",
-    timeoutMs: 10_000,
   });
 
   if (!r.ok) throw new Error(`owner_lookup_failed: ${await r.text()}`);
@@ -115,46 +105,14 @@ async function resolveOwnerByPhoneDigits(phoneDigits: string) {
   return { ownerId, dashboardToken: dashboardToken || null, email };
 }
 
-async function upsertAuthLink(authUserId: string, ownerId: string, linkedPhone: string, email?: string | null) {
-  const supabaseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-
-  const now = new Date().toISOString();
-  const payload: Record<string, any> = {
-    auth_user_id: authUserId,
-    owner_id: ownerId,
-    linked_phone: linkedPhone,
-    updated_at: now,
-    created_at: now,
-  };
-  if (email) payload.email = email;
-
-  const r = await fetchWithTimeout(`${supabaseUrl}/rest/v1/user_auth_links`, {
-    method: "POST",
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=minimal",
-    },
-    body: JSON.stringify(payload),
-    timeoutMs: 10_000,
-  });
-
-  if (!r.ok) throw new Error(`auth_links_upsert_failed: ${await r.text()}`);
+function msSince(t0: number) {
+  return Date.now() - t0;
 }
 
 export async function POST(req: Request) {
-  const startedAt = Date.now();
-  const step = (name: string, extra?: any) => {
-    console.log("[LINK_PHONE_VERIFY]", name, {
-      ms: Date.now() - startedAt,
-      ...(extra || {}),
-    });
-  };
-
+  const t0 = Date.now();
   try {
-    step("start");
+    console.info("[LINK_PHONE_VERIFY] start", { ms: msSince(t0) });
 
     const { ownerPhone, otp } = await req.json().catch(() => ({}));
     const phoneDigits = DIGITS(ownerPhone);
@@ -167,12 +125,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Valid 6-digit OTP required." }, { status: 400 });
     }
 
-    step("auth_user_lookup");
     const authUser = await getAuthUserFromBearer(req);
+    console.info("[LINK_PHONE_VERIFY] auth_user_lookup", { ms: msSince(t0) });
     if (!authUser) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
-    step("otp_lookup");
     const row = await getLatestOtpRow(authUser.id, phoneDigits);
+    console.info("[LINK_PHONE_VERIFY] otp_lookup", { ms: msSince(t0) });
     if (!row) return NextResponse.json({ error: "OTP not found." }, { status: 400 });
 
     const exp = Date.parse(row.expires_at);
@@ -184,31 +142,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "OTP invalid." }, { status: 400 });
     }
 
-    step("owner_lookup");
     const owner = await resolveOwnerByPhoneDigits(phoneDigits);
+    console.info("[LINK_PHONE_VERIFY] owner_lookup", { ms: msSince(t0) });
     if (!owner?.ownerId) {
       return NextResponse.json({ error: "No owner found for this phone." }, { status: 404 });
     }
 
-    step("auth_link_upsert");
-    // ✅ Monday-safe: linking row is "nice to have" — cookie is what Billing needs.
-// If auth_links upsert hangs or fails, we still set cookie + return success.
-if (!owner.dashboardToken) {
-  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
-}
+    if (!owner.dashboardToken) {
+      return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
+    }
 
-// Fire-and-forget best effort (DO NOT await)
-try {
-  upsertAuthLink(authUser.id, owner.ownerId, phoneDigits, authUser.email || owner.email || null);
-} catch {}
+    const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
+    setDashboardCookie(res, owner.dashboardToken);
 
-// ✅ Always set cookie + return success
-const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
-setDashboardCookie(res, owner.dashboardToken);
-return res;
-
+    console.info("[LINK_PHONE_VERIFY] success", { ms: msSince(t0) });
+    return res;
   } catch (e: any) {
-    console.error("[LINK_PHONE_VERIFY_ERR]", e?.message || e);
+    console.error("[LINK_PHONE_VERIFY] error", { ms: msSince(t0), err: e?.message || String(e) });
     return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500 });
   }
 }
