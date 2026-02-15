@@ -191,16 +191,22 @@ export async function POST(req: Request) {
     }
 
     step("auth_link_upsert");
-    await upsertAuthLink(authUser.id, owner.ownerId, phoneDigits, authUser.email || owner.email || null);
+    // ✅ Monday-safe: linking row is "nice to have" — cookie is what Billing needs.
+// If auth_links upsert hangs or fails, we still set cookie + return success.
+if (!owner.dashboardToken) {
+  return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
+}
 
-    if (!owner.dashboardToken) {
-      return NextResponse.json({ error: "Owner missing dashboard token." }, { status: 500 });
-    }
+// Fire-and-forget best effort (DO NOT await)
+try {
+  upsertAuthLink(authUser.id, owner.ownerId, phoneDigits, authUser.email || owner.email || null);
+} catch {}
 
-    step("set_cookie_and_return");
-    const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
-    setDashboardCookie(res, owner.dashboardToken);
-    return res;
+// ✅ Always set cookie + return success
+const res = NextResponse.json({ ok: true, linked: true, owner_id: owner.ownerId });
+setDashboardCookie(res, owner.dashboardToken);
+return res;
+
   } catch (e: any) {
     console.error("[LINK_PHONE_VERIFY_ERR]", e?.message || e);
     return NextResponse.json({ error: e?.message || "link_phone_verify_failed" }, { status: 500 });
