@@ -124,6 +124,8 @@ export default function LinkPhoneClient() {
   }
 
   async function verifyOtp() {
+    console.log("[LINK_PHONE] verifyOtp clicked", { phone, otp });
+
     setErr(null);
     setMsg(null);
 
@@ -146,6 +148,7 @@ export default function LinkPhoneClient() {
     }
 
     setMsg("Verifying…");
+console.log("[LINK_PHONE] calling /api/link-phone/verify");
 
     await apiFetchJSON<{ ok: true; linked: true; owner_id: string }>("/api/link-phone/verify", {
       method: "POST",
