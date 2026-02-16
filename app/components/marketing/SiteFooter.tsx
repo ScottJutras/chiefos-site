@@ -85,7 +85,7 @@ export default function SiteFooter({
         </div>
 
         <div className="mt-10 text-xs text-white/40">
-          © {new Date().getFullYear()} ChiefOS. Privacy-first by design.
+          © {new Date().getFullYear()} ChiefOS. Privacy-first by design. ChiefOS is a product of 9839429 Canada Inc.
         </div>
       </div>
     </footer>
