@@ -19,7 +19,7 @@ export default function AppIndexPage() {
     // useTenantGate already redirects when missing auth/tenant,
     // so if we get here and have user+tenant, we can route.
     if (userId && tenantId) {
-      router.replace("/app/expenses");
+      router.replace("/app/dashboard");
     }
   }, [loading, userId, tenantId, router]);
 

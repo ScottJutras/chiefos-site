@@ -5,12 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
+  { href: "/app/dashboard", label: "Dashboard" },
+  { href: "/app/chief", label: "Chief" },
+
   { href: "/app/expenses", label: "Expenses" },
   { href: "/app/revenue", label: "Revenue" },
   { href: "/app/time", label: "Time" },
   { href: "/app/tasks", label: "Tasks" },
-  { href: "/app/settings/billing", label: "Billing" }, // ✅ add
+
+  { href: "/app/settings/billing", label: "Billing" },
 ];
+
 
 export function AppNav() {
   const pathname = usePathname();
