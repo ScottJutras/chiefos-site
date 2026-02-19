@@ -43,13 +43,21 @@ export default function LoginClient() {
         body: JSON.stringify({ email, password, turnstileToken }),
       });
 
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.error || "Login failed.");
+            const j = await r.json().catch(() => ({} as any));
+
+      if (!r.ok) {
+        throw new Error(j?.error || j?.message || "Login failed.");
+      }
+
+      if (!j?.session?.access_token || !j?.session?.refresh_token) {
+        throw new Error("Login succeeded but session tokens were missing.");
+      }
 
       const { error: setErr2 } = await supabase.auth.setSession({
         access_token: j.session.access_token,
         refresh_token: j.session.refresh_token,
       });
+
       if (setErr2) throw setErr2;
 
       await track("login_success", {});

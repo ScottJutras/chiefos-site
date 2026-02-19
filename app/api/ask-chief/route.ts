@@ -15,21 +15,14 @@ function mustEnv(name: string) {
 }
 
 function jsonErr(code: string, message: string, status = 200, extra?: Record<string, any>) {
-  return NextResponse.json(
-    { ok: false, code, message, ...(extra || {}) },
-    { status }
-  );
+  return NextResponse.json({ ok: false, code, message, ...(extra || {}) }, { status });
 }
 
 export async function POST(req: Request) {
   try {
     const token = getBearerToken(req);
     if (!token) {
-      return jsonErr(
-        "AUTH_REQUIRED",
-        "Missing session. Please log in again.",
-        401
-      );
+      return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
     }
 
     const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
@@ -47,18 +40,28 @@ export async function POST(req: Request) {
     // - permissions
     // - deterministic codes + evidence contract
     const ac = new AbortController();
-const t = setTimeout(() => ac.abort(), 15000);
+    const t = setTimeout(() => ac.abort(), 15000);
 
-const upstream = await fetch(`${core}/api/ask-chief`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify(body),
-  signal: ac.signal,
-}).finally(() => clearTimeout(t));
-
+    let upstream: Response;
+    try {
+      upstream = await fetch(`${core}/api/ask-chief`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+    } catch (e: any) {
+      const name = String(e?.name || "");
+      if (name === "AbortError") {
+        return jsonErr("ERROR", "Ask Chief timed out. Try again in a moment.", 504);
+      }
+      return jsonErr("ERROR", e?.message || "Ask Chief request failed.", 502);
+    } finally {
+      clearTimeout(t);
+    }
 
     const text = await upstream.text();
 
@@ -69,26 +72,19 @@ const upstream = await fetch(`${core}/api/ask-chief`, {
       // If core returns nonstandard errors, normalize minimal contract:
       // UI expects ok:boolean + code on gate failures.
       if (typeof json?.ok !== "boolean") {
-        return jsonErr(
-          "ERROR",
-          "Ask Chief core returned an invalid response shape.",
-          502,
-          { raw: json }
-        );
+        return jsonErr("ERROR", "Ask Chief core returned an invalid response shape.", 502, {
+          raw: json,
+        });
       }
 
       return NextResponse.json(json, { status: upstream.status });
     } catch {
       // Non-JSON response from core
-      return jsonErr(
-        "ERROR",
-        "Ask Chief core returned a non-JSON response.",
-        502,
-        { raw: text?.slice(0, 500) }
-      );
+      return jsonErr("ERROR", "Ask Chief core returned a non-JSON response.", 502, {
+        raw: text?.slice(0, 500),
+      });
     }
   } catch (e: any) {
-    // If CHIEF_CORE_API_BASE_URL missing, etc.
     return jsonErr("ERROR", e?.message || "Ask Chief failed.", 500);
   }
 }
