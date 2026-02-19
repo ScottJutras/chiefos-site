@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
+import { useSearchParams } from "next/navigation";
+
 
 type TotalsRange = "all" | "ytd" | "mtd" | "wtd" | "today";
 
@@ -89,11 +91,36 @@ export default function ChiefPage() {
   // We still use the gate to ensure portal session context is correct.
   // Do NOT treat tenantId as authoritative; server derives tenant from session/membership.
   const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
-
   const [range, setRange] = useState<TotalsRange>("mtd");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const searchParams = useSearchParams();
+  const didAutoRunRef = useRef(false);
 
+  useEffect(() => {
+    if (didAutoRunRef.current) return;
+
+    const raw = searchParams.get("q") || "";
+    const nextQ = raw.trim();
+
+    if (!nextQ) return;
+
+    didAutoRunRef.current = true;
+
+    // Prefill input for transparency
+    setQ(nextQ);
+
+    // Fire once (non-blocking)
+    void callAskChief(nextQ);
+
+    // Optional: clean URL so refresh doesn't re-run
+    // (works without importing router, and avoids loop risk)
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("q");
+      window.history.replaceState({}, "", url.toString());
+    }
+    }, [searchParams, gateLoading]);
   // conversation
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -134,8 +161,8 @@ export default function ChiefPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length]);
 
-  async function callAskChief(prompt: string) {
-    const trimmed = prompt.trim();
+    async function callAskChief(prompt: string) {
+    const trimmed = String(prompt || "").trim();
     if (!trimmed || busy) return;
 
     setBusy(true);
@@ -146,24 +173,82 @@ export default function ChiefPage() {
 
     setMsgs((prev) => [...prev, userMsg, pendingChief]);
 
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token;
-      if (!token) {
-        const resp: AskChiefErr = {
-          ok: false,
-          code: "AUTH_REQUIRED",
-          message: "Please log in again.",
+    const setPendingResp = (resp: AskChiefResp) => {
+      setMsgs((prev) =>
+        prev.map((m) => (m.id === pendingChief.id ? { ...m, pending: false, resp } : m))
+      );
+    };
+
+    const normalizeResp = (j: any, status: number): AskChiefResp => {
+      // Deterministic error shape from core
+      if (j?.ok === false && j?.code) return j as AskChiefErr;
+
+      // ok:true but missing evidence_meta => fill it (prevents UI crashes)
+      if (j?.ok === true) {
+        const ok: AskChiefOk = {
+          ok: true,
+          answer: String(j?.answer || j?.message || "Done."),
+          evidence_meta: j?.evidence_meta ?? {
+            range: normalizeRange(range),
+            job: null,
+            tables: { expenses: 0, revenue: 0, time: 0, tasks: 0, jobs: 0 },
+            totals: { revenue: 0, expenses: 0, net: 0, hours_est: 0 },
+          },
+          warnings: Array.isArray(j?.warnings) ? j.warnings : [],
+          actions: Array.isArray(j?.actions) ? j.actions : [],
         };
-        setMsgs((prev) => prev.map((m) => (m.id === pendingChief.id ? { ...m, pending: false, resp } : m)));
+        return ok;
+      }
+
+      // Legacy shape (missing ok)
+      if (j?.answer && !("ok" in j)) {
+        const ok: AskChiefOk = {
+          ok: true,
+          answer: String(j.answer),
+          evidence_meta: {
+            range: normalizeRange(range),
+            job: null,
+            tables: { expenses: 0, revenue: 0, time: 0, tasks: 0, jobs: 0 },
+            totals: { revenue: 0, expenses: 0, net: 0, hours_est: 0 },
+          },
+          warnings: ["Ask Chief response was auto-normalized (missing ok/evidence_meta)."],
+          actions: [],
+        };
+        return ok;
+      }
+
+      // Map by HTTP status if missing contract keys
+      if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Please log in again." };
+      if (status === 403) return { ok: false, code: "PERMISSION_DENIED", message: "Access denied." };
+      if (status === 402)
+        return {
+          ok: false,
+          code: "PLAN_REQUIRED",
+          message: "Ask Chief unlocks on Starter.",
+          upgrade_url: "/app/settings/billing",
+        };
+
+      return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief failed." };
+    };
+
+    try {
+      // ✅ Never crash if supabase/session blows up
+      let token: string | null = null;
+      try {
+        const sess = await supabase?.auth?.getSession?.();
+        token = sess?.data?.session?.access_token ?? null;
+      } catch {
+        token = null;
+      }
+
+      if (!token) {
+        setPendingResp({ ok: false, code: "AUTH_REQUIRED", message: "Please log in again." });
         return;
       }
 
       const body = {
         prompt: trimmed,
         range: normalizeRange(range),
-        // Optional hints (server must not trust these, but can use as UX assist)
-        // jobId: null,
       };
 
       const r = await fetch("/api/ask-chief", {
@@ -182,29 +267,15 @@ export default function ChiefPage() {
         j = null;
       }
 
-      // If backend returns non-2xx for deterministic codes, normalize here
-      const resp: AskChiefResp = (() => {
-        if (j?.ok === true) return j as AskChiefOk;
-
-        // If backend sends structured error
-        if (j?.ok === false && j?.code) return j as AskChiefErr;
-
-        // If backend didn’t include ok/code, map based on status
-        if (r.status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Please log in again." };
-        if (r.status === 403) return { ok: false, code: "PERMISSION_DENIED", message: "Access denied." };
-        return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief failed." };
-      })();
-
-      setMsgs((prev) =>
-        prev.map((m) => (m.id === pendingChief.id ? { ...m, pending: false, resp } : m))
-      );
+      const resp = normalizeResp(j, r.status);
+      setPendingResp(resp);
     } catch (e: any) {
-      const resp: AskChiefErr = { ok: false, code: "ERROR", message: e?.message ?? "Ask Chief failed." };
-      setMsgs((prev) => prev.map((m) => (m.id === pendingChief.id ? { ...m, pending: false, resp } : m)));
+      setPendingResp({ ok: false, code: "ERROR", message: e?.message ?? "Ask Chief failed." });
     } finally {
       setBusy(false);
     }
   }
+
 
   function RangePill({ id }: { id: TotalsRange }) {
     const active = range === id;
