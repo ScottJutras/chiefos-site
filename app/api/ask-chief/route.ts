@@ -46,15 +46,19 @@ export async function POST(req: Request) {
     // - plan gating (digits-based billing identity)
     // - permissions
     // - deterministic codes + evidence contract
-    const upstream = await fetch(`${core}/api/ask-chief`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        // Optional: preserve original IP/proxy headers if needed later
-      },
-      body: JSON.stringify(body),
-    });
+    const ac = new AbortController();
+const t = setTimeout(() => ac.abort(), 15000);
+
+const upstream = await fetch(`${core}/api/ask-chief`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify(body),
+  signal: ac.signal,
+}).finally(() => clearTimeout(t));
+
 
     const text = await upstream.text();
 
