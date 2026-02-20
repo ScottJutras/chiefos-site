@@ -8,23 +8,35 @@ function mustEnv(name: string) {
   return v;
 }
 
-function jsonErr(code: string, message: string, status = 200, extra?: Record<string, any>) {
+function jsonErr(
+  code: string,
+  message: string,
+  status = 200,
+  extra?: Record<string, any>
+) {
   return NextResponse.json({ ok: false, code, message, ...(extra || {}) }, { status });
 }
 
-export async function GET(req: Request, ctx: { params: Promise<{ transactionId: string }> }) {
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<{ transactionId: string }> }
+) {
   try {
     const { transactionId } = await ctx.params;
+
     const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
 
     // Preserve ?download=1 etc.
     const url = new URL(req.url);
     const qs = url.searchParams.toString();
-    const upstreamUrl = `${core}/api/receipts/${encodeURIComponent(transactionId)}${qs ? `?${qs}` : ""}`;
+    const upstreamUrl = `${core}/api/receipts/${encodeURIComponent(transactionId)}${
+      qs ? `?${qs}` : ""
+    }`;
 
-    // Forward cookies to core (dashboard auth)
+    // Forward cookies + bearer to core (dashboard cookie OR portal bearer)
     const h = await headers();
     const cookie = h.get("cookie") || "";
+    const authorization = h.get("authorization") || "";
 
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
@@ -34,8 +46,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ transactionId: 
       upstream = await fetch(upstreamUrl, {
         method: "GET",
         headers: {
-          cookie, // ✅ forwards dashboard cookie token
+          ...(cookie ? { cookie } : {}),
+          ...(authorization ? { authorization } : {}),
         },
+        cache: "no-store",
         signal: ac.signal,
       });
     } catch (e: any) {
@@ -48,20 +62,21 @@ export async function GET(req: Request, ctx: { params: Promise<{ transactionId: 
 
     const ct = upstream.headers.get("content-type") || "";
 
+    // Pass JSON errors through
     if (ct.includes("application/json")) {
       const j = await upstream.json().catch(() => null);
-      return NextResponse.json(j ?? { ok: false, code: "ERROR", message: "Receipt failed." }, { status: upstream.status });
+      return NextResponse.json(
+        j ?? { ok: false, code: "ERROR", message: "Receipt failed." },
+        { status: upstream.status }
+      );
     }
 
     // Stream binary through
     const outHeaders = new Headers();
-    const pass = (name: string) => {
-      const v = upstream.headers.get(name);
-      if (v) outHeaders.set(name, v);
-    };
-    pass("content-type");
-    pass("content-disposition");
-    pass("cache-control");
+    for (const k of ["content-type", "content-disposition", "cache-control"]) {
+      const v = upstream.headers.get(k);
+      if (v) outHeaders.set(k, v);
+    }
 
     return new Response(upstream.body, { status: upstream.status, headers: outHeaders });
   } catch (e: any) {

@@ -10,11 +10,15 @@ const nextConfig: NextConfig = {
 
   async rewrites() {
     return [
-      // Proxy billing API from the Next app domain → Express backend
+      // ✅ Billing API from Next domain → Express backend
       {
         source: "/api/billing/:path*",
         destination: `${BACKEND_ORIGIN}/api/billing/:path*`,
       },
+
+      // IMPORTANT:
+      // We intentionally do NOT rewrite /api/receipts/*
+      // because Next owns /api/receipts/[transactionId] and proxies to core using CHIEF_CORE_API_BASE_URL.
     ];
   },
 };
