@@ -13,6 +13,14 @@ function jsonErr(code: string, message: string, status = 200, extra?: Record<str
   return NextResponse.json({ ok: false, code, message, ...(extra || {}) }, { status });
 }
 
+function getBearerTokenFromHeader(req: Request) {
+  const h = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!h) return null;
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m?.[1] || null;
+}
+
+// Cookie fallback (Option A) — only used if header token not present
 async function getAccessTokenFromCookies() {
   const cookieStore = await cookies();
 
@@ -37,15 +45,13 @@ async function getAccessTokenFromCookies() {
 
 export async function GET(req: Request, ctx: { params: Promise<{ transactionId: string }> }) {
   try {
-    const token = await getAccessTokenFromCookies();
+    // ✅ Preferred: token via Authorization header
+    let token = getBearerTokenFromHeader(req);
 
-    if (!token) {
-      // This is the expected failure mode if cookie-based auth isn't present.
-      // In that case, you either:
-      // - ensure Supabase SSR cookie auth is configured, OR
-      // - fall back to client fetch/blob (Option B).
-      return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
-    }
+    // ✅ Fallback: try SSR cookie session
+    if (!token) token = await getAccessTokenFromCookies();
+
+    if (!token) return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
 
     const { transactionId } = await ctx.params;
     const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
@@ -55,7 +61,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ transactionId: 
     const qs = url.searchParams.toString();
     const upstreamUrl = `${core}/api/receipts/${encodeURIComponent(transactionId)}${qs ? `?${qs}` : ""}`;
 
-    // 15s timeout (tomorrow-safe)
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
 
@@ -79,9 +84,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ transactionId: 
     // If upstream returned JSON error, pass it through
     if (ct.includes("application/json")) {
       const j = await upstream.json().catch(() => null);
-      return NextResponse.json(j ?? { ok: false, code: "ERROR", message: "Receipt failed." }, {
-        status: upstream.status,
-      });
+      return NextResponse.json(j ?? { ok: false, code: "ERROR", message: "Receipt failed." }, { status: upstream.status });
     }
 
     // Stream binary response through
@@ -90,6 +93,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ transactionId: 
       const v = upstream.headers.get(name);
       if (v) headers.set(name, v);
     };
+
     pass("content-type");
     pass("content-disposition");
     pass("cache-control");
