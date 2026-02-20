@@ -5,9 +5,16 @@ import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 function labelFromContentType(contentType?: string | null) {
-  const ct = String(contentType || "").toLowerCase();
+  const ct = String(contentType || "").toLowerCase().trim();
+
+  // No type stored → assume it’s a receipt image
   if (!ct) return "Receipt";
-  if (ct.includes("image/") || ct.includes("pdf")) return "Receipt";
+
+  // Explicit receipt types
+  if (ct.startsWith("image/")) return "Receipt";
+  if (ct === "application/pdf") return "Receipt";
+
+  // Everything else (audio, unknown, etc.)
   return "Attachment";
 }
 
@@ -115,7 +122,9 @@ export default function ReceiptActions({
         className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition disabled:opacity-50"
         title={`View ${label.toLowerCase()}`}
       >
-        <span aria-hidden="true">📎</span>
+        <span aria-hidden="true">
+  {label === "Receipt" ? "🧾" : "📎"}
+</span>
         {busy === "view" ? "Opening…" : label}
       </button>
 
