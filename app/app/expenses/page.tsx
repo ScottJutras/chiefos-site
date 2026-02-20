@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Slideover from "@/app/app/components/Slideover";
+import ReceiptActions from "@/app/app/components/ReceiptActions";
 
 type Expense = {
   id: string;
@@ -19,6 +20,11 @@ type Expense = {
   expense_date: string;
   job_name: string | null;
   deleted_at?: string | null;
+
+  // ✅ Receipt wiring (must come from chiefos_expenses view)
+  transaction_id?: number | null; // must equal public.transactions.id (int)
+  media_asset_id?: string | null;
+  content_type?: string | null;
 };
 
 type EditDraft = {
@@ -230,7 +236,7 @@ export default function ExpensesPage() {
     async function load() {
       try {
         const { data, error } = await supabase
-          .from("chiefos_expenses")
+          .from("chiefos_expenses_receipts")
           .select("*")
           .is("deleted_at", null)
           .order("expense_date", { ascending: false });
@@ -746,7 +752,7 @@ export default function ExpensesPage() {
       if (error) throw error;
 
       const { data: fresh, error: fErr } = await supabase
-        .from("chiefos_expenses")
+        .from("chiefos_expenses_receipts")
         .select("*")
         .is("deleted_at", null)
         .order("expense_date", { ascending: false });
@@ -1362,6 +1368,7 @@ export default function ExpensesPage() {
                             <th className="py-3 pr-4">Amount</th>
                             <th className="py-3 pr-4">Job</th>
                             <th className="py-3 pr-4">Description</th>
+                            <th className="py-3 pr-4">Receipt</th>
                             <th className="py-3 pr-4 w-28">Edit</th>
                           </tr>
                         </thead>
@@ -1415,15 +1422,28 @@ export default function ExpensesPage() {
                                   )}
                                 </td>
                                 <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
-                                <td className="py-3 pr-4">
-                                  <button
-                                    onClick={() => openEdit(e)}
-                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
-                                    title={unassigned ? "Assign job" : "Edit"}
-                                  >
-                                    {unassigned ? "Assign job" : "Edit"}
-                                  </button>
-                                </td>
+
+<td className="py-3 pr-4">
+  {e.transaction_id ? (
+    <ReceiptActions
+      transactionId={e.transaction_id}
+      mediaAssetId={e.media_asset_id ?? null}
+      contentType={e.content_type ?? null}
+    />
+  ) : (
+    <span className="text-xs text-white/35">—</span>
+  )}
+</td>
+
+<td className="py-3 pr-4">
+  <button
+    onClick={() => openEdit(e)}
+    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+    title={unassigned ? "Assign job" : "Edit"}
+  >
+    {unassigned ? "Assign job" : "Edit"}
+  </button>
+</td>
                               </tr>
                             );
                           })}
@@ -1435,7 +1455,7 @@ export default function ExpensesPage() {
                             <td className="py-4 pr-4 text-lg font-semibold text-white">
                               ${moneyFmt(g.sum)}
                             </td>
-                            <td colSpan={3} />
+                            <td colSpan={4} />
                           </tr>
                         </tbody>
                       </table>
@@ -1533,24 +1553,22 @@ export default function ExpensesPage() {
                   </th>
 
                   <th className="py-3 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("desc")}
-                      className={[
-                        "inline-flex items-center hover:text-white transition",
-                        sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
-                      ].join(" ")}
-                      title="Sort by description"
-                    >
-                      Description
-                      {sortArrow(
-                        sortBy.startsWith("desc_"),
-                        sortBy === "desc_asc" ? "asc" : "desc"
-                      )}
-                    </button>
-                  </th>
+  <button
+    type="button"
+    onClick={() => toggleSort("desc")}
+    className={[
+      "inline-flex items-center hover:text-white transition",
+      sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
+    ].join(" ")}
+    title="Sort by description"
+  >
+    Description
+    {sortArrow(sortBy.startsWith("desc_"), sortBy === "desc_asc" ? "asc" : "desc")}
+  </button>
+</th>
 
-                  <th className="py-3 pr-4 w-28">Edit</th>
+<th className="py-3 pr-4">Receipt</th>
+<th className="py-3 pr-4 w-28">Edit</th>
                 </tr>
               </thead>
 
@@ -1603,27 +1621,40 @@ export default function ExpensesPage() {
                         )}
                       </td>
                       <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
-                      <td className="py-3 pr-4">
-                        <button
-                          onClick={() => openEdit(e)}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
-                          title={unassigned ? "Assign job" : "Edit"}
-                        >
-                          {unassigned ? "Assign job" : "Edit"}
-                        </button>
-                      </td>
+
+<td className="py-3 pr-4">
+  {e.transaction_id ? (
+    <ReceiptActions
+      transactionId={e.transaction_id}
+      mediaAssetId={e.media_asset_id ?? null}
+      contentType={e.content_type ?? null}
+    />
+  ) : (
+    <span className="text-xs text-white/35">—</span>
+  )}
+</td>
+
+<td className="py-3 pr-4">
+  <button
+    onClick={() => openEdit(e)}
+    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+    title={unassigned ? "Assign job" : "Edit"}
+  >
+    {unassigned ? "Assign job" : "Edit"}
+  </button>
+</td>
                     </tr>
                   );
                 })}
 
                 <tr className="border-t border-white/10">
                   <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={4}>
-                    Total (filtered)
-                  </td>
+  Total (filtered)
+</td>
                   <td className="py-4 pr-4 text-lg font-semibold text-white">
                     ${moneyFmt(totals.sum)}
                   </td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                 </tr>
               </tbody>
             </table>
