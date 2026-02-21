@@ -57,11 +57,14 @@ export default function SiteHeader() {
       <div className="fixed top-0 left-0 right-0 z-[60]">
         <div className="h-8 border-b border-white/10 bg-black/90 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-6 h-full flex items-center justify-between">
-            <div className="text-[11px] text-white/70">
-              <span className="text-white/85 font-semibold">Stop stacking apps.</span>
-              <span className="mx-2 text-white/25">—</span>
-              Start running a system.
-            </div>
+            <div className="text-sm">
+              <span className="text-white font-semibold">
+                    Manage your business.
+              </span>
+              <span className="ml-2 text-white/80 font-semibold">
+                    Not apps.
+              </span>
+           </div>
 
             <Link
               href="/early-access?plan=starter"
