@@ -210,10 +210,10 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-      {/* HERO (Simple tools + clear modules) */}
+     {/* HERO (Simple tools + clear modules) */}
 <Section id="top" className="pt-16 md:pt-20 pb-14 md:pb-20">
-  <div className="max-w-5xl">
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+  <div className="max-w-5xl mx-auto text-center">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
       <span className="h-2 w-2 rounded-full bg-emerald-400" />
       Add Chief to WhatsApp and say 'Hi' to get started
     </div>
@@ -224,22 +224,22 @@ export default function Home() {
       Outstanding performance.
     </h1>
 
-    <p className="mt-4 text-lg md:text-xl text-white/75 leading-relaxed">
+    <p className="mt-4 text-lg md:text-xl text-white/75 leading-relaxed max-w-3xl mx-auto">
       Stop stacking apps. Start running a system.
     </p>
 
-    <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed">
+    <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto">
       ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
     </p>
 
-    {/* CTAs (unchanged behavior) */}
-    <div className="mt-8 flex flex-col sm:flex-row gap-3 overflow-visible">
+    {/* CTAs */}
+    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
       <TooltipChip tip="No app download. Works inside WhatsApp.">
         <a
           href="/wa?t=hero"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
         >
           <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
             <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
@@ -250,14 +250,14 @@ export default function Home() {
 
       <a
         href="/early-access?plan=starter"
-        className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+        className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
       >
         Get early access
       </a>
 
       <a
         href="/login"
-        className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+        className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
       >
         Sign in
       </a>
