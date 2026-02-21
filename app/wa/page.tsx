@@ -1,0 +1,209 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Turnstile } from "@marsidev/react-turnstile";
+
+export default function WhatsAppGatePage() {
+  const sp = useSearchParams();
+
+  const t = sp.get("t") || "hero";
+  const plan = sp.get("plan"); // optional
+
+  const [token, setToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
+  const [status, setStatus] = useState<"idle" | "verifying" | "error">("idle");
+  const [err, setErr] = useState<string | null>(null);
+
+  // ✅ Needed for the “Copy message” block
+  const [starterMessage, setStarterMessage] = useState<string>("");
+  const [redirectUrl, setRedirectUrl] = useState<string>("");
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+  // Keep options stable (avoid re-render loops)
+  const turnstileOptions = useMemo(() => {
+    return { appearance: "always" as const };
+  }, []);
+
+  function resetTurnstile() {
+    setToken(null);
+    setTurnstileKey((k) => k + 1);
+  }
+
+  function isAllowedWhatsAppUrl(url: string) {
+    return (
+      url.startsWith("https://wa.me/") ||
+      url.startsWith("https://api.whatsapp.com/")
+    );
+  }
+
+  function isShortLink(url: string) {
+    // e.g. https://wa.me/message/XXXXXXXXXXXX
+    return url.includes("wa.me/message/");
+  }
+
+  async function openWhatsApp() {
+    setErr(null);
+    setStatus("verifying");
+
+    // clear any previous results
+    setStarterMessage("");
+    setRedirectUrl("");
+
+    try {
+      if (!siteKey) throw new Error("Bot check is not configured (missing site key).");
+      if (!token) throw new Error("Please complete the bot check.");
+
+      const r = await fetch("/api/wa-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ turnstileToken: token, t, plan }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || "Could not open WhatsApp.");
+
+      const url = String(j?.url || "");
+      const msg = String(j?.message || "");
+
+      if (!url || !isAllowedWhatsAppUrl(url)) {
+        throw new Error("Invalid WhatsApp redirect URL.");
+      }
+
+      // Store for UI
+      setRedirectUrl(url);
+      setStarterMessage(msg);
+
+      // ✅ If we’re using the short-link path, don’t auto-redirect.
+      // Short links often don’t support ?text= prefill reliably.
+      // We show Copy + Open instead.
+      if (isShortLink(url)) return;
+
+      // ✅ Otherwise it’s safe to auto-open immediately
+      window.location.assign(url);
+    } catch (e: any) {
+      setStatus("error");
+      setErr(e?.message ?? "Could not open WhatsApp.");
+      resetTurnstile();
+    } finally {
+      setStatus("idle");
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-black text-white">
+      <div className="mx-auto max-w-2xl px-6 pt-28 pb-16">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+          Quick check → then we open WhatsApp
+        </div>
+
+        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">
+          Start on WhatsApp
+        </h1>
+
+        <p className="mt-3 text-white/70 leading-relaxed">
+          ChiefOS runs on WhatsApp. This quick check prevents bot scraping and spam.
+        </p>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="text-sm font-semibold text-white/90">One quick step</div>
+          <p className="mt-2 text-sm text-white/70">
+            Complete the check below, then we’ll open your chat with Chief.
+          </p>
+
+          <div className="mt-5">
+            {!siteKey ? (
+              <div className="text-xs text-red-200">
+                Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
+              </div>
+            ) : (
+              <div className="inline-block">
+                <Turnstile
+                  key={turnstileKey}
+                  siteKey={siteKey}
+                  options={turnstileOptions}
+                  onSuccess={(tok) => setToken(tok)}
+                  onExpire={() => resetTurnstile()}
+                  onError={() => resetTurnstile()}
+                />
+              </div>
+            )}
+          </div>
+
+          {err && (
+            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {err}
+            </div>
+          )}
+
+          {/* ✅ Only shows when the API returns a message/url (primarily for short link mode) */}
+          {starterMessage ? (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="text-sm font-semibold text-white/90">Starter message</div>
+              <div className="mt-2 text-sm text-white/70">
+                If WhatsApp doesn’t prefill automatically, copy this:
+              </div>
+
+              <div className="mt-3 rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-white/85">
+                {starterMessage}
+              </div>
+
+              <div className="mt-3 flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(starterMessage);
+                    } catch {
+                      // no-op
+                    }
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                >
+                  Copy message
+                </button>
+
+                {redirectUrl ? (
+                  <a
+                    href={redirectUrl}
+                    className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                  >
+                    Open WhatsApp
+                  </a>
+                ) : null}
+              </div>
+
+              <div className="mt-2 text-xs text-white/45">
+                This flow protects the number from being scraped.
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={openWhatsApp}
+              disabled={status === "verifying" || !token}
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-60"
+            >
+              {status === "verifying" ? "Opening…" : "Open WhatsApp"}
+            </button>
+
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+            >
+              Back to home
+            </Link>
+          </div>
+
+          <p className="mt-4 text-xs text-white/45">
+            On desktop, WhatsApp Web will open (or you’ll be prompted).
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
