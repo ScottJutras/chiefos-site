@@ -784,7 +784,7 @@ export default function Home() {
         "Exports included (CSV/XLS/PDF)",
       ]}
       ctaHref="/early-access?plan=starter"
-      ctaLabel="Get access"
+      ctaLabel="Get it now"
       foot="For owners who want clarity without the night shift."
     />
 
@@ -800,7 +800,7 @@ export default function Home() {
         "Board seats (bookkeepers/advisors)",
       ]}
       ctaHref="/early-access?plan=pro"
-      ctaLabel="Get access"
+      ctaLabel="Get it now"
       foot="Crew captures. Owner approves. Chief keeps it grounded."
     />
   </div>
@@ -888,7 +888,7 @@ export default function Home() {
                 href="/early-access?plan=starter"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
               >
-                Get early access
+                Get it now
               </a>
             </div>
 
