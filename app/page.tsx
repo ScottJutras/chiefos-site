@@ -9,7 +9,17 @@ import FAQ from "@/app/components/marketing/FAQ";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
 import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
-
+import {
+  ExpensesIcon,
+  TimeIcon,
+  RevenueIcon,
+  TasksIcon,
+  ReminderIcon,
+  QuotesIcon,
+  DocsIcon,
+  JobsIcon,
+  ChiefIcon,
+} from "@/app/components/marketing/ToolIcons";
 export const metadata = {
   title: "ChiefOS",
   description:
@@ -271,59 +281,59 @@ export default function Home() {
   {/* Wide cards (page-width feel) */}
   <div className="mt-10 grid gap-4">
     <ToolCard
-      title="Expenses"
-      icon={<IconGlyph label="EXP" />}
-      blurb="Snap a receipt, text a vendor + amount, or log it later. Keep costs clean, categorized, and tied to the job that caused them."
-    />
+  title="Expenses"
+  icon={<ExpensesIcon className="h-6 w-6 text-white/80" />}
+  blurb="Snap a receipt, text a vendor + amount..."
+/>
 
     <ToolCard
-      title="Time Clock"
-      icon={<IconGlyph label="TIME" />}
-      blurb="Clock in/out, break, and track shift truth without guessing later. Time stays connected to jobs so labor cost makes sense."
-    />
+  title="Time Clock"
+  icon={<TimeIcon className="h-6 w-6 text-white/80" />}
+  blurb="Clock in/out, break..."
+/>
+
+   <ToolCard
+  title="Time Clock"
+  icon={<TimeIcon className="h-6 w-6 text-white/80" />}
+  blurb="Clock in/out, break..."
+/>
 
     <ToolCard
-      title="Revenue"
-      icon={<IconGlyph label="REV" />}
-      blurb="Log invoices, deposits, and money-in as it happens. See what’s actually been collected — tied back to the job."
-    />
+  title="Tasks"
+  icon={<TasksIcon className="h-6 w-6 text-white/80" />}
+  blurb="Capture what’s open..."
+/>
+
+   <ToolCard
+  title="Reminders"
+  badge="Coming soon"
+  icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
+  blurb="Lightweight reminders..."
+/>
 
     <ToolCard
-      title="Tasks"
-      icon={<IconGlyph label="TASK" />}
-      blurb="Capture what’s open, who owns it, and what’s blocking the job — without living in a separate project manager."
-    />
+  title="Quotes"
+  badge="Coming soon"
+  icon={<QuotesIcon className="h-6 w-6 text-white/80" />}
+  blurb="Create and track quotes..."
+/>
 
     <ToolCard
-      title="Reminders"
-      icon={<IconGlyph label="REM" />}
-      badge="Coming soon"
-      blurb="Lightweight reminders for follow-ups, missing info, and deadlines — so nothing falls through the cracks."
-    />
+  title="Docs"
+  icon={<DocsIcon className="h-6 w-6 text-white/80" />}
+  blurb="Keep your paperwork in one place..."
+/>
 
     <ToolCard
-      title="Quotes"
-      icon={<IconGlyph label="QUOTE" />}
-      badge="Coming soon"
-      blurb="Create and track quotes tied to jobs — so pricing, scope, and change orders don’t live in random notes."
-    />
-
-    <ToolCard
-      title="Docs"
-      icon={<IconGlyph label="DOCS" />}
-      blurb="Keep your paperwork in one place: quotes, contracts, change orders, invoices, and receipts — linked to the job that created them."
-    />
-
-    <ToolCard
-      title="Jobs"
-      icon={<IconGlyph label="JOBS" />}
-      blurb="Jobs are the spine. Every receipt, hour, task, and dollar ties back to a job — so job truth is real, not reconstructed."
-    />
+  title="Jobs"
+  icon={<JobsIcon className="h-6 w-6 text-white/80" />}
+  blurb="Jobs are the spine..."
+/>
 
     <ToolCard
   title="Chief"
   featured
-  icon={<IconGlyph label="CHIEF" />}
+  icon={<ChiefIcon className="h-7 w-7 text-white" />}
   blurb={
     "Chief is the layer that turns messy inputs into usable records — then answers questions from your data.\n\n" +
     "• Text messages\n" +
