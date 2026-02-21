@@ -923,7 +923,7 @@ export default function ExpensesPage() {
         {/* Title row */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Ledger</div>
+            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Records</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Expenses</h1>
 
             {/* Feature chips */}
@@ -938,7 +938,7 @@ export default function ExpensesPage() {
                 onClick={() => router.push("/app/expenses/vendors")}
                 title="Merge messy vendor spellings into one official name"
               >
-                Vendor cleanup
+                Clean up vendors
               </TopChipButton>
 
               {/* Export chip w/ menu */}
@@ -1011,7 +1011,7 @@ export default function ExpensesPage() {
                     ${moneyFmt(totals.sum)}
                   </div>
                   <div className="mt-1 text-xs text-white/55">
-                    {totals.count} items • Totals reflect all matching items (not just what’s visible).
+                    {totals.count} items • Total includes everything matching your filters.
                   </div>
                 </div>
 
@@ -1031,7 +1031,7 @@ export default function ExpensesPage() {
         {undo && (
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm text-white/80">
-              Soft-deleted <b className="text-white">{undo.deletedCount}</b> expenses. Undo until{" "}
+              Removed <b className="text-white">{undo.deletedCount}</b> expenses. You can undo until{" "}
               <b className="text-white">{new Date(undo.expiresAt).toLocaleTimeString()}</b>.
             </div>
             <div className="flex gap-2">
@@ -1666,7 +1666,7 @@ export default function ExpensesPage() {
           open={editOpen && !!draft}
           onClose={closeEdit}
           title="Edit expense"
-          subtitle="Secure update"
+          subtitle="Quick edit"
           busy={saving}
           footer={
             <div className="flex justify-end gap-2">

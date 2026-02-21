@@ -1,3 +1,4 @@
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\app\dashboard\page.tsx
 "use client";
 
 import Link from "next/link";
@@ -41,8 +42,6 @@ function Card({
 }
 
 export default function DashboardPage() {
-  // We keep this consistent with the rest of the portal.
-  // If auth/tenant is missing, useTenantGate will handle redirects.
   const { loading } = useTenantGate({ requireWhatsApp: false });
 
   if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
@@ -52,13 +51,15 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-6xl py-6">
         <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
           <div className="text-xs text-white/55">Workspace</div>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-white/90">
+            Your system
+          </h1>
           <p className="mt-2 text-sm text-white/60">
-            Your ledger at a glance. Ask Chief when you want the why — not another dashboard.
+            Capture once. Keep it connected. Ask Chief when you want an answer — not another app.
           </p>
         </div>
 
-        {/* Ask Chief mini entry (inevitable) */}
+        {/* Ask Chief mini entry */}
         <div className="mt-6">
           <AskChiefMini />
         </div>
@@ -67,25 +68,25 @@ export default function DashboardPage() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card
             title="Expenses"
-            desc="Receipts, overhead, job costs. Keep it clean, keep it traceable."
+            desc="Receipts, overhead, job costs — organized and export-ready."
             href="/app/expenses"
-            badge="Ledger"
+            badge="Money out"
           />
           <Card
             title="Revenue"
-            desc="Invoices, payments, money in. See what’s actually been collected."
+            desc="Invoices and payments — see what’s been logged and collected."
             href="/app/revenue"
-            badge="Cash-in"
+            badge="Money in"
           />
           <Card
             title="Time"
-            desc="Clock-ins, breaks, approvals. Labor is your biggest cost — track it properly."
+            desc="Clock-ins, breaks, approvals — track labour like it matters."
             href="/app/time"
             badge="Crew"
           />
           <Card
             title="Tasks"
-            desc="What’s open, who owns it, what’s blocking the job."
+            desc="What’s open, who owns it, and what’s blocking the job."
             href="/app/tasks"
             badge="Ops"
           />
@@ -95,7 +96,7 @@ export default function DashboardPage() {
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm font-semibold text-white/90">Plans & Billing</div>
           <div className="mt-1 text-sm text-white/60">
-            Upgrade when you’re ready for crew self-logging and deeper controls.
+            Upgrade when you’re ready for crew self-logging, approvals, and deeper control.
           </div>
           <div className="mt-3">
             <Link

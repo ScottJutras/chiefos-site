@@ -65,18 +65,24 @@ export default function ContactPage() {
 
       <div className="mx-auto max-w-2xl px-6 pt-28 pb-16">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-          We reply fast. No spam.
+          WhatsApp-first support. Real replies. No spam.
         </div>
 
-        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">Contact</h1>
-        <p className="mt-3 text-white/70">
-          Send a note. If it’s urgent, start on WhatsApp — that’s where ChiefOS lives.
+        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">
+          Contact ChiefOS
+        </h1>
+
+        <p className="mt-3 text-white/70 leading-relaxed">
+          If you’re trying to start, the fastest path is WhatsApp — that’s where ChiefOS lives.
+          If you’d rather email, drop a note here.
         </p>
 
         {status === "sent" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="text-sm font-semibold text-white/90">Message received.</div>
-            <p className="mt-2 text-sm text-white/70">We’ll get back to you soon.</p>
+            <div className="text-sm font-semibold text-white/90">Got it.</div>
+            <p className="mt-2 text-sm text-white/70">
+              Your message is in. We’ll reply as soon as we can.
+            </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <a
@@ -128,7 +134,7 @@ export default function ContactPage() {
                 className="mt-1 w-full min-h-[140px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="How can we help?"
+                placeholder="What do you need help with? (Plans, setup, logging, exports, crew access, etc.)"
                 required
               />
             </div>
@@ -173,16 +179,21 @@ export default function ContactPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
               >
-                Prefer WhatsApp
+                Start on WhatsApp
               </a>
             </div>
 
-            <p className="text-xs text-white/45">We’ll only use your email to respond.</p>
+            <p className="text-xs text-white/45">
+              We only use your email to reply. No lists. No marketing blasts.
+            </p>
           </form>
         )}
       </div>
 
-      <SiteFooter />
+      <SiteFooter
+        brandLine="Stop stacking apps. Start running a system."
+        subLine="Capture once. Structure automatically. Ask anything."
+      />
     </main>
   );
 }

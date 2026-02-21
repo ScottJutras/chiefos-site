@@ -158,7 +158,7 @@ export default function Home() {
                 href="/early-access?plan=starter"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
               >
-                Get early access
+                Sign up
               </a>
 
               <a
@@ -744,92 +744,116 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* PLANS (match your maturity framing + fix exports) */}
-      <Section id="pricing-preview" className="py-14 md:py-20">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
-            Start simple. Grow into structure.
-          </h2>
-          <p className="mt-4 text-white/70 text-lg leading-relaxed">
-            Free builds the habit. Paid upgrades unlock speed, answers, and crew control.
-          </p>
-        </div>
+     {/* PLANS (Framed around maturity + aligned with new language) */}
+<Section id="pricing-preview" className="py-14 md:py-20">
+  <div className="max-w-3xl">
+    <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
+      Start simple. Grow into structure.
+    </h2>
+    <p className="mt-4 text-white/70 text-lg leading-relaxed">
+      Free gets you capturing. Starter adds speed + answers. Pro adds crew controls — without losing the habit.
+    </p>
+  </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          <PlanCard
-            name="Free"
-            sub="Field Capture"
-            price="$0"
-            badge="Start here"
-            bullets={[
-              "Text-based WhatsApp logging",
-              "3 jobs • 90-day history",
-              "Exports included (CSV/XLS/PDF)",
-              "No receipt photos, no voice, no Ask Chief",
-            ]}
-            ctaHref="/wa?t=free"
-            ctaLabel="Start on WhatsApp"
-            foot="Free is for capture. Paid is for speed + answers + control."
-          />
+  <div className="mt-10 grid gap-6 md:grid-cols-3">
+    <PlanCard
+      name="Free"
+      sub="Field Capture"
+      price="$0"
+      badge="Start here"
+      bullets={[
+        "WhatsApp capture (text)",
+        "3 jobs • 90-day history",
+        "Job totals (no Ask Chief)",
+        "No receipt photos, no voice, no exports",
+      ]}
+      ctaHref="/wa?t=free"
+      ctaLabel="Start on WhatsApp"
+      foot="Free is for capture. Paid is for speed, answers, and control."
+    />
 
-          <PlanCard
-            name="Starter"
-            sub="Owner Mode"
-            price="$29"
-            badge="Most popular"
-            bullets={[
-              "Receipt photos + voice logging",
-              "Ask Chief (owner-only)",
-              "25 jobs • 1-year history",
-              "Exports included",
-            ]}
-            ctaHref="/early-access?plan=starter"
-            ctaLabel="Get early access"
-            foot="Best for owner-operators who want answers quickly."
-          />
+    <PlanCard
+      name="Starter"
+      sub="Owner Mode"
+      price="$59"
+      badge="Most popular"
+      bullets={[
+        "Receipt photos + voice logging",
+        "Ask Chief (owner-only)",
+        "25 jobs • 1-year history",
+        "Exports included (CSV/XLS/PDF)",
+      ]}
+      ctaHref="/early-access?plan=starter"
+      ctaLabel="Get access"
+      foot="For owners who want clarity without the night shift."
+    />
 
-          <PlanCard
-            name="Pro"
-            sub="Crew + Control"
-            price="$79"
-            badge="Teams"
-            bullets={[
-              "Crew self-logging from their own phones",
-              "Approvals + audit trail",
-              "Unlimited jobs • 7-year history",
-              "Board seats (bookkeepers/advisors)",
-            ]}
-            ctaHref="/early-access?plan=pro"
-            ctaLabel="Join Pro early access"
-            foot="Crew captures. Owner approves. Chief explains."
-          />
-        </div>
+    <PlanCard
+      name="Pro"
+      sub="Crew + Control"
+      price="$149"
+      badge="Teams"
+      bullets={[
+        "Crew self-logging from their own phones",
+        "Approvals + audit trail",
+        "Unlimited jobs • 7-year history",
+        "Board seats (bookkeepers/advisors)",
+      ]}
+      ctaHref="/early-access?plan=pro"
+      ctaLabel="Get access"
+      foot="Crew captures. Owner approves. Chief keeps it grounded."
+    />
+  </div>
 
-        <div className="mt-6 text-xs text-white/45">
-          Change plans anytime. Your records stay exportable — nothing trapped.
-        </div>
-      </Section>
+  <div className="mt-6 text-xs text-white/45">
+    Upgrade when you hit a boundary. Paid plans stay reversible with exports — nothing trapped.
+  </div>
+</Section>
 
-      {/* SOCIAL PROOF */}
-      <Section id="proof" className="py-14 md:py-20">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">What owners say</h2>
-          <p className="mt-4 text-white/70 text-lg leading-relaxed">No buzzwords. Just relief.</p>
-        </div>
+    {/* SOCIAL PROOF (Relief > buzzwords) */}
+<Section id="proof" className="py-14 md:py-20">
+  <div className="max-w-3xl">
+    <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
+      What owners say
+    </h2>
+    <p className="mt-4 text-white/70 text-lg leading-relaxed">
+      No buzzwords. Just relief.
+    </p>
+  </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
-          {[
-            "“I finally see what’s going on.”",
-            "“It feels like everything just talks to each other.”",
-            "“I stopped chasing information.”",
-            "“I know what my jobs are actually doing.”",
-          ].map((q) => (
-            <div key={q} className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-              <div className="text-lg text-white/80 leading-relaxed">{q}</div>
-            </div>
-          ))}
-        </div>
-      </Section>
+  <div className="mt-10 grid gap-6 md:grid-cols-2">
+    {[
+      {
+        q: "“I finally know what’s going on.”",
+        s: "Jobs stopped being a mystery.",
+      },
+      {
+        q: "“It feels like everything talks to each other now.”",
+        s: "Time, money, and tasks stopped living in different places.",
+      },
+      {
+        q: "“I’m not rebuilding my business at night anymore.”",
+        s: "Capture happens during the day. Understanding shows up right after.",
+      },
+      {
+        q: "“When someone asks if we made money, I can answer.”",
+        s: "Not a guess. Not a feeling. The record is right there.",
+      },
+    ].map((t) => (
+      <div
+        key={t.q}
+        className="rounded-2xl border border-white/10 bg-white/[0.04] p-6"
+      >
+        <div className="text-lg text-white/85 leading-relaxed">{t.q}</div>
+        <div className="mt-3 text-sm text-white/55">{t.s}</div>
+      </div>
+    ))}
+  </div>
+
+  <div className="mt-6 text-xs text-white/45">
+    These are examples of the outcomes ChiefOS is built to create: clarity → control → confidence.
+  </div>
+</Section>
 
       {/* FINAL CLOSE */}
       <Section className="py-14 md:py-20">

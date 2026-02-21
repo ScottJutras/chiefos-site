@@ -1,13 +1,13 @@
-// app/early-access/page.tsx
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\early-access\page.tsx
 // ✅ Server component wrapper to satisfy Next.js Suspense requirement for useSearchParams
 
 import { Suspense } from "react";
 import EarlyAccessClient from "./EarlyAccessClient";
 
 export const metadata = {
-  title: "ChiefOS — Early Access",
+  title: "ChiefOS — Get Access",
   description:
-    "Request early access to ChiefOS. Start with receipts. End with job truth.",
+    "Get access to ChiefOS. Stop stacking apps. Start running a system.",
 };
 
 export default function EarlyAccessPage() {

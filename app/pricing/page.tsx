@@ -1,4 +1,4 @@
-// app/pricing/page.tsx
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\pricing\page.tsx
 import SiteHeader from "@/app/components/marketing/SiteHeader";
 import Section from "@/app/components/marketing/Section";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
@@ -92,21 +92,22 @@ export default function PricingPage() {
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
+      {/* HERO */}
       <Section className="pt-28 md:pt-32 pb-12 md:pb-16">
         <div className="max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-            Plans reflect operational maturity — not feature upsells.
+            Stop stacking apps. Start running a system.
           </div>
 
           <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-            Pricing that matches
+            Plans that match
             <br />
-            how contractors work.
+            how you actually run work.
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
-            Start with capture. Upgrade when you hit a real boundary: speed (OCR/voice), exports, or crew self-logging.
-            We don’t break the habit — we add capability.
+            Start with capture. Upgrade when you want more speed, more structure, and more control —
+            without breaking the habit.
           </p>
 
           <div className="mt-7 flex flex-col sm:flex-row gap-3 overflow-visible">
@@ -132,16 +133,17 @@ export default function PricingPage() {
               href="/early-access?plan=starter"
               className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
             >
-              Get early access
+              Choose Starter
             </a>
           </div>
 
           <p className="mt-3 text-xs text-white/45">
-            WhatsApp-first. No app download. Owners reason; crews capture (plan-dependent).
+            WhatsApp-first. No app download. Capture once → structure automatically → ask anything.
           </p>
         </div>
       </Section>
 
+      {/* PLANS */}
       <Section id="plans" className="pb-10 md:pb-12">
         <div className="grid gap-6 md:grid-cols-3">
           <PricingCard
@@ -149,11 +151,11 @@ export default function PricingPage() {
             price="$0"
             blurb="For owners who want a clean slate and a daily capture habit. Start logging immediately."
             ctaLabel="Start free"
-            ctaHref="/early-access?plan=free"
+            ctaHref="/wa?t=free"
             features={[
               "1 Owner",
               "3 Jobs (active or closed)",
-              "Expense / revenue / time / tasks (text)",
+              "Expenses / revenue / time / tasks (text)",
               "Job totals only (no Ask Chief)",
               "90-day history",
               "No OCR / voice / exports",
@@ -162,9 +164,9 @@ export default function PricingPage() {
 
           <PricingCard
             name="Starter — Owner Mode"
-            price="$49"
-            blurb="For serious owners who want speed and answers: OCR + voice + Ask Chief (owner-only)."
-            ctaLabel="Request Starter access"
+            price="$59"
+            blurb="For owners who want speed + answers. OCR + voice + Ask Chief (owner-only)."
+            ctaLabel="Choose Starter"
             ctaHref="/early-access?plan=starter"
             highlighted
             features={[
@@ -180,8 +182,8 @@ export default function PricingPage() {
           <PricingCard
             name="Pro — Crew + Control"
             price="$149"
-            blurb="For crews with real payroll exposure: self-logging, approvals, audit depth, and board roles."
-            ctaLabel="Request Pro access"
+            blurb="For teams with real payroll exposure: crew self-logging, approvals, audit depth, and board roles."
+            ctaLabel="Choose Pro"
             ctaHref="/early-access?plan=pro"
             badge="Crew + Control"
             features={[
@@ -196,19 +198,20 @@ export default function PricingPage() {
         </div>
       </Section>
 
+      {/* INCLUDES */}
       <Section className="pb-14 md:pb-16">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7">
           <div className="text-sm font-semibold text-white/90">What every plan includes</div>
           <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            Capture-first workflow, confirm-before-save, and job-anchored truth — so you get understanding, not just totals.
+            A capture-first workflow that turns messy real life into clean records — so your business runs as a system.
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {[
-              "Never hard-fail: capture continues even when enhancements are gated.",
+              "Capture never hard-fails: you can always log the basics.",
               "Jobs keep time + expenses + revenue connected to the cause.",
-              "Repairable logs: undo, edit flows, and audit trail where needed.",
-              "Searchable history so numbers stay traceable.",
+              "Confirm-before-save so your numbers stay trustworthy.",
+              "Searchable history so every number stays traceable.",
             ].map((x) => (
               <div key={x} className="flex items-start gap-3 text-sm text-white/70">
                 <Check />
@@ -219,56 +222,59 @@ export default function PricingPage() {
         </div>
       </Section>
 
+      {/* PRICING FAQ */}
       <Section className="pb-16 md:pb-20">
         <div className="max-w-3xl">
           <div className="text-sm font-semibold text-white/90">Pricing FAQ</div>
           <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            The paywall is designed to feel fair: capability upgrades triggered by real usage.
+            Plans don’t exist to gate your work — they unlock speed, structure, and control as your operation grows.
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <FAQItem
               q="What happens when I hit a plan limit?"
-              a="Capture continues. OCR, voice, Ask Chief, and exports pause until you upgrade — and we tell you exactly what happened and why."
+              a="You can still capture. If you hit a limit, the upgrade-only capabilities pause (like OCR, voice, exports, or crew self-logging) — and we tell you exactly what hit the limit."
             />
             <FAQItem
               q="Can my crew use Ask Chief?"
-              a="No. Crew are ‘senses’ — they log reality. Only the Owner uses Ask Chief to reason over company-wide data."
+              a="No. Crew are the senses — they capture reality. Owners use Ask Chief to understand the whole operation from the records."
             />
             <FAQItem
               q="What does ‘Approvals + Audit’ mean in Pro?"
-              a="Owners (and optional Board Members) approve sensitive edits before they affect job truth. Every change is traceable: who changed what, when, and which job it impacted."
+              a="Sensitive edits can require approval before they affect job truth. Every change is traceable: who changed what, when, and what job it touched."
             />
             <FAQItem
-              q="What is Priority Onboarding?"
-              a="White glove setup: help configuring crew records, job naming conventions, and your first week of capture — so adoption sticks."
+              q="Is my data trapped?"
+              a="No. Paid plans support exports (CSV/XLS/PDF). If you ever leave, your records leave with you."
             />
           </div>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <a
+              href="/wa?t=pricing-cta"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+            >
+              Start on WhatsApp
+            </a>
+            <a
               href="/early-access?plan=starter"
               className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
             >
-              Request Starter access
-            </a>
-            <a
-              href="/early-access?plan=pro"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
-            >
-              Request Pro access
+              Choose Starter
             </a>
           </div>
 
           <p className="mt-3 text-xs text-white/45">
-            Early access is limited. We onboard in small batches to keep support tight.
+            Stop stacking apps. Start running a system.
           </p>
         </div>
       </Section>
 
       <SiteFooter
-        brandLine="Start with receipts. End with job truth."
-        subLine="Capture real work. Understand real jobs."
+        brandLine="Stop stacking apps. Start running a system."
+        subLine="Capture once. Structure automatically. Ask anything."
       />
     </main>
   );

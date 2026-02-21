@@ -1,15 +1,42 @@
-// app/components/marketing/FAQ.tsx
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\components\marketing\FAQ.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+const DEFAULT_FAQS: Array<{ q: string; a: string }> = [
+  {
+    q: "Is ChiefOS another app?",
+    a: "No. ChiefOS is the operating layer that connects your day — time, money, tasks, and job records — so your business runs as a system, not a stack.",
+  },
+  {
+    q: "Do I need to download anything?",
+    a: "No. ChiefOS runs on WhatsApp. You text it, send a photo, or send a voice note — and it turns that into structured records.",
+  },
+  {
+    q: "Will ChiefOS guess my numbers?",
+    a: "No. Chief answers based on what you’ve logged and confirmed. If something is missing, Chief tells you what’s missing instead of making it up.",
+  },
+  {
+    q: "Is my data trapped?",
+    a: "No. Export anytime (CSV/XLS/PDF). If you ever leave, your records leave with you.",
+  },
+  {
+    q: "Is this accounting software?",
+    a: "It’s not bookkeeping in disguise. It’s the layer that captures and structures your business activity so you can understand jobs, costs, and margins — and export cleanly when you need to.",
+  },
+  {
+    q: "Do my workers need an app?",
+    a: "No. On Pro, crew can log from their own phones in WhatsApp. On Free and Starter, owners can log for the crew.",
+  },
+];
+
 export default function FAQ({
   items,
 }: {
-  items: Array<{ q: string; a: string }>;
+  items?: Array<{ q: string; a: string }>;
 }) {
   const [openIx, setOpenIx] = useState<number | null>(0);
-  const safe = useMemo(() => items || [], [items]);
+  const safe = useMemo(() => (items && items.length ? items : DEFAULT_FAQS), [items]);
 
   return (
     <div className="divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/5">
@@ -30,9 +57,7 @@ export default function FAQ({
               </div>
             </button>
             {open && (
-              <p className="mt-3 text-sm text-white/70 leading-relaxed">
-                {it.a}
-              </p>
+              <p className="mt-3 text-sm text-white/70 leading-relaxed">{it.a}</p>
             )}
           </div>
         );
@@ -109,16 +134,16 @@ export function StatCounter({
 export function AskChiefDemo() {
   const presets = [
     {
-      q: "Chief, how much am I making on Job 18 Main St?",
+      q: "Chief, how are we doing on Job 18 Main St?",
       a: [
-        { k: "Revenue", v: "$9,800" },
-        { k: "Costs", v: "$5,420" },
-        { k: "Profit so far", v: "$4,380" },
-        { k: "Why", v: "Labor is running high due to two long drive days." },
+        { k: "Revenue logged", v: "$9,800" },
+        { k: "Costs logged", v: "$5,420" },
+        { k: "Margin so far", v: "$4,380" },
+        { k: "Notes", v: "Labour is trending high on two long drive days." },
       ],
     },
     {
-      q: "Show me the Home Depot receipt from last week.",
+      q: "Find the Home Depot receipt from last week.",
       a: [
         { k: "Found", v: "Home Depot • $187 • Job 18 Main St" },
         { k: "Evidence", v: "Receipt image saved and searchable." },
@@ -128,7 +153,7 @@ export function AskChiefDemo() {
       q: "What did we spend on gas this month?",
       a: [
         { k: "Total", v: "$642" },
-        { k: "Notes", v: "Most purchases clustered around 3 long drive days." },
+        { k: "Pattern", v: "Clustered around 3 long drive days." },
       ],
     },
   ];
@@ -142,7 +167,7 @@ export function AskChiefDemo() {
           <div className="text-xs text-white/50">Interactive demo</div>
           <div className="mt-1 text-sm font-semibold text-white/90">Ask Chief</div>
           <div className="mt-1 text-xs text-white/60">
-            Preset questions → explainable answers (no guessing).
+            Preset questions → grounded answers (no guessing).
           </div>
         </div>
         <div className="hidden md:block text-xs text-white/50">
@@ -187,7 +212,7 @@ export function AskChiefDemo() {
             </div>
 
             <div className="mt-4 text-xs text-white/50">
-              Answers are grounded in your logs: time, receipts, revenue — attached to jobs.
+              Answers reflect what you’ve logged: time, receipts, revenue — attached to jobs.
             </div>
           </div>
         </div>

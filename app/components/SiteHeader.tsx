@@ -1,4 +1,4 @@
-// app/components/SiteHeader.tsx
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\components\SiteHeader.tsx
 "use client";
 
 import Link from "next/link";
@@ -9,7 +9,7 @@ type SiteHeaderProps = {
 };
 
 export default function SiteHeader({
-  rightLabel = "Early Access Login",
+  rightLabel = "Sign in",
   rightHref = "/login",
 }: SiteHeaderProps) {
   return (
@@ -28,7 +28,9 @@ export default function SiteHeader({
                 <div className="text-sm font-semibold tracking-tight text-black">
                   ChiefOS
                 </div>
-                <div className="text-[11px] text-black/55">Secure portal</div>
+                <div className="text-[11px] text-black/55">
+                  Your business, running as a system
+                </div>
               </div>
             </Link>
 

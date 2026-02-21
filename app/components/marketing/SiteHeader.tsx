@@ -1,4 +1,4 @@
-// app/components/marketing/SiteHeader.tsx
+// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\components\marketing\SiteHeader.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,9 +7,10 @@ import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 
 const links = [
-  { label: "How it works", href: "/#how" },
-  { label: "Scoreboard", href: "/#scoreboard" },
-  { label: "Time truth", href: "/#time" },
+  { label: "Why a system", href: "/#category" },
+  { label: "The stack problem", href: "/#clean-slate" },
+  { label: "Talk to your business", href: "/#ask" },
+  { label: "Exports", href: "/#exports" },
   { label: "Plans", href: "/#pricing-preview" },
   { label: "FAQ", href: "/#faq" },
 ];
@@ -52,14 +53,14 @@ export default function SiteHeader() {
       {/* Spacer so the fixed banner + header never cover page content */}
       <div style={{ height: BANNER_H + HEADER_H }} aria-hidden="true" />
 
-      {/* Early access banner (fixed) */}
+      {/* Top banner (fixed) */}
       <div className="fixed top-0 left-0 right-0 z-[60]">
         <div className="h-8 border-b border-white/10 bg-black/90 backdrop-blur-xl">
           <div className="mx-auto max-w-6xl px-6 h-full flex items-center justify-between">
             <div className="text-[11px] text-white/70">
-              <span className="text-white/85 font-semibold">EARLY ACCESS</span>
+              <span className="text-white/85 font-semibold">Stop stacking apps.</span>
               <span className="mx-2 text-white/25">—</span>
-              New features ship in small batches. Your account stays stable while we scale.
+              Start running a system.
             </div>
 
             <Link
@@ -82,7 +83,6 @@ export default function SiteHeader() {
         style={{ top: BANNER_H }}
       >
         <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-          {/* Logo always goes home */}
           <Link
             href="/#top"
             className="flex items-center gap-2 group"
@@ -133,7 +133,7 @@ export default function SiteHeader() {
               href="/early-access?plan=starter"
               className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
             >
-              Get early access
+              Get access
             </Link>
           </div>
 
@@ -147,7 +147,7 @@ export default function SiteHeader() {
           </button>
         </div>
 
-        {/* Mobile menu (overlay below header) */}
+        {/* Mobile menu */}
         {open && (
           <div className="md:hidden">
             <div
@@ -201,7 +201,7 @@ export default function SiteHeader() {
                     className="flex-1 inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
                     onClick={() => setOpen(false)}
                   >
-                    Get early access
+                    Get access
                   </Link>
                 </div>
 
