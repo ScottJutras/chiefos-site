@@ -211,11 +211,11 @@ export default function Home() {
       <SiteHeader />
 
       {/* HERO (Simple tools + clear modules) */}
-<Section id="top" className="pt-28 md:pt-32 pb-14 md:pb-20">
+<Section id="top" className="pt-12 md:pt-16 pb-14 md:pb-20">
   <div className="max-w-5xl">
     <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-      <span className="h-2 w-2 rounded-full bg-white/60" />
-      WhatsApp-first • Capture once • Export anytime
+      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      Add Chief to WhatsApp and say 'Hi' to get started
     </div>
 
     <h1 className="mt-6 text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
