@@ -26,7 +26,7 @@ function pickMessage(tag: string | null, plan: string | null) {
     case "support":
       return `I need help with ChiefOS${planPhrase}`;
     default:
-      return `I want to try ChiefOS${planPhrase}`;
+      return `Hi${planPhrase}`;
   }
 }
 
