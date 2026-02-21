@@ -292,12 +292,6 @@ export default function Home() {
   blurb="Clock in/out, break..."
 />
 
-   <ToolCard
-  title="Time Clock"
-  icon={<TimeIcon className="h-6 w-6 text-white/80" />}
-  blurb="Clock in/out, break..."
-/>
-
     <ToolCard
   title="Tasks"
   icon={<TasksIcon className="h-6 w-6 text-white/80" />}
