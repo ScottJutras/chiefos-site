@@ -109,96 +109,231 @@ function PlanCard({
   );
 }
 
+function ToolCard({
+  title,
+  blurb,
+  badge,
+  icon,
+  featured,
+}: {
+  title: string;
+  blurb: string;
+  badge?: string;
+  icon: React.ReactNode;
+  featured?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-2xl border p-5 md:p-6 transition",
+        featured
+          ? [
+              "border-white/25",
+              "bg-gradient-to-b from-white/[0.10] via-white/[0.05] to-white/[0.03]",
+              "shadow-[0_30px_120px_rgba(255,255,255,0.08)]",
+              "ring-1 ring-white/10",
+              "hover:bg-gradient-to-b hover:from-white/[0.13] hover:via-white/[0.06] hover:to-white/[0.04]",
+              "hover:-translate-y-[1px]",
+            ].join(" ")
+          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.06]",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div
+            className={[
+              "inline-grid h-10 w-10 place-items-center rounded-xl border",
+              featured
+                ? "border-white/20 bg-white/[0.08]"
+                : "border-white/10 bg-black/30",
+            ].join(" ")}
+          >
+            {icon}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="text-base md:text-lg font-semibold text-white/90 leading-tight">
+                {title}
+              </div>
+
+              {featured ? (
+                <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[11px] text-white/70">
+                  Ask anything
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-2 text-sm text-white/70 leading-relaxed whitespace-pre-line">
+              {blurb}
+            </div>
+          </div>
+        </div>
+
+        {badge ? (
+          <div className="shrink-0 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/65">
+            {badge}
+          </div>
+        ) : null}
+      </div>
+
+      {featured ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/70">
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
+            Text
+          </span>
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
+            Audio
+          </span>
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
+            Receipt photos
+          </span>
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
+            No invented numbers
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function IconGlyph({ label }: { label: string }) {
+  return (
+    <span className="text-[11px] tracking-[0.18em] uppercase text-white/80">
+      {label}
+    </span>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-      {/* HERO (Bold category kill + terminal vibe) */}
-      <Section id="top" className="pt-28 md:pt-32 pb-14 md:pb-20">
-        <div className="grid gap-10 md:gap-12 md:grid-cols-12 items-start">
-          <div className="md:col-span-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-              <span className="h-2 w-2 rounded-full bg-white/60" />
-              WhatsApp-first • Evidence-first • Exportable
-            </div>
+      {/* HERO (Simple tools + clear modules) */}
+<Section id="top" className="pt-28 md:pt-32 pb-14 md:pb-20">
+  <div className="max-w-5xl">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+      <span className="h-2 w-2 rounded-full bg-white/60" />
+      WhatsApp-first • Capture once • Export anytime
+    </div>
 
-            <h1 className="mt-6 text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
-              Stop stacking apps.
-              <br />
-              Start running a system.
-            </h1>
+    <h1 className="mt-6 text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
+      Simple tools. Simple pricing.
+      <br />
+      Outstanding performance.
+    </h1>
 
-            <div className="mt-4 text-xl md:text-2xl text-white/80 leading-relaxed font-semibold">
-              ChiefOS = your business, running as a system.
-            </div>
+    <p className="mt-4 text-lg md:text-xl text-white/75 leading-relaxed">
+      Stop stacking apps. Start running a system.
+    </p>
 
-            <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
-              ChiefOS brings your business into one connected operating layer — so you can capture once, structure
-              automatically, and ask anything.
-            </p>
+    <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed">
+      ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
+    </p>
 
-            {/* CTAs */}
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 overflow-visible">
-              <TooltipChip tip="No app download. Works inside WhatsApp.">
-                <a
-                  href="/wa?t=hero"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
-                >
-                  <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
-                    <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
-                  </span>
-                  Start on WhatsApp
-                </a>
-              </TooltipChip>
+    {/* CTAs (unchanged behavior) */}
+    <div className="mt-8 flex flex-col sm:flex-row gap-3 overflow-visible">
+      <TooltipChip tip="No app download. Works inside WhatsApp.">
+        <a
+          href="/wa?t=hero"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+        >
+          <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
+            <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
+          </span>
+          Start on WhatsApp
+        </a>
+      </TooltipChip>
 
-              <a
-                href="/early-access?plan=starter"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
-              >
-                Sign up
-              </a>
+      <a
+        href="/early-access?plan=starter"
+        className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+      >
+        Get early access
+      </a>
 
-              <a
-                href="/login"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
-              >
-                Sign in
-              </a>
-            </div>
+      <a
+        href="/login"
+        className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+      >
+        Sign in
+      </a>
+    </div>
 
-            <div className="mt-3 text-xs text-white/50">No demo. No setup call.</div>
+    <div className="mt-4 text-xs text-white/50">
+      Owners can ask questions. Crew capture is plan-dependent — you stay in control.
+    </div>
+  </div>
 
-            {/* Trust chips (keep terminal polish, avoid “truth/reality” language) */}
-            <div className="mt-7 grid grid-cols-2 gap-3 text-xs text-white/60">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <div className="font-semibold text-white/80">Grounded answers</div>
-                <div className="mt-1">Chief answers from what you’ve logged and confirmed.</div>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <div className="font-semibold text-white/80">Jobs are the spine</div>
-                <div className="mt-1">Time + money + tasks anchored to the job that caused them.</div>
-              </div>
-            </div>
+  {/* Wide cards (page-width feel) */}
+  <div className="mt-10 grid gap-4">
+    <ToolCard
+      title="Expenses"
+      icon={<IconGlyph label="EXP" />}
+      blurb="Snap a receipt, text a vendor + amount, or log it later. Keep costs clean, categorized, and tied to the job that caused them."
+    />
 
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] text-white/60">
-              Subscriptions • Plan enforcement • Tenant-isolated data
-            </div>
-          </div>
+    <ToolCard
+      title="Time Clock"
+      icon={<IconGlyph label="TIME" />}
+      blurb="Clock in/out, break, and track shift truth without guessing later. Time stays connected to jobs so labor cost makes sense."
+    />
 
-          <div className="md:col-span-7">
-            <MediaFrame
-              label="Terminal overview"
-              title="One system. One clear view."
-              subtitle="Capture once → structured records → questions answered"
-              videoSrc="/loops/hero-split.mp4"
-              posterSrc="/loops/hero-split.jpg"
-            />
-          </div>
-        </div>
-      </Section>
+    <ToolCard
+      title="Revenue"
+      icon={<IconGlyph label="REV" />}
+      blurb="Log invoices, deposits, and money-in as it happens. See what’s actually been collected — tied back to the job."
+    />
+
+    <ToolCard
+      title="Tasks"
+      icon={<IconGlyph label="TASK" />}
+      blurb="Capture what’s open, who owns it, and what’s blocking the job — without living in a separate project manager."
+    />
+
+    <ToolCard
+      title="Reminders"
+      icon={<IconGlyph label="REM" />}
+      badge="Coming soon"
+      blurb="Lightweight reminders for follow-ups, missing info, and deadlines — so nothing falls through the cracks."
+    />
+
+    <ToolCard
+      title="Quotes"
+      icon={<IconGlyph label="QUOTE" />}
+      badge="Coming soon"
+      blurb="Create and track quotes tied to jobs — so pricing, scope, and change orders don’t live in random notes."
+    />
+
+    <ToolCard
+      title="Docs"
+      icon={<IconGlyph label="DOCS" />}
+      blurb="Keep your paperwork in one place: quotes, contracts, change orders, invoices, and receipts — linked to the job that created them."
+    />
+
+    <ToolCard
+      title="Jobs"
+      icon={<IconGlyph label="JOBS" />}
+      blurb="Jobs are the spine. Every receipt, hour, task, and dollar ties back to a job — so job truth is real, not reconstructed."
+    />
+
+    <ToolCard
+  title="Chief"
+  featured
+  icon={<IconGlyph label="CHIEF" />}
+  blurb={
+    "Chief is the layer that turns messy inputs into usable records — then answers questions from your data.\n\n" +
+    "• Text messages\n" +
+    "• Audio notes\n" +
+    "• Receipt photos\n\n" +
+    "Chief doesn’t hallucinate numbers. It can only answer based on what you’ve logged and confirmed."
+  }
+/>
+  </div>
+</Section>
 
       {/* CATEGORY DEFINITION */}
       <Section id="category" className="py-14 md:py-20">
