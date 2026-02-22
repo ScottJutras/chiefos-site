@@ -9,7 +9,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import Slideover from "@/app/app/components/Slideover";
+
 import ReceiptActions from "@/app/app/components/ReceiptActions";
 
 type Expense = {
@@ -1661,85 +1661,7 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* Edit slideover */}
-        <Slideover
-          open={editOpen && !!draft}
-          onClose={closeEdit}
-          title="Edit expense"
-          subtitle="Quick edit"
-          busy={saving}
-          footer={
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={closeEdit}
-                disabled={saving}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveEdit}
-                disabled={saving}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save changes"}
-              </button>
-            </div>
-          }
-        >
-          {draft && (
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={draft.expense_date}
-                  onChange={(e) => setDraft({ ...draft, expense_date: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Amount</label>
-                <input
-                  value={draft.amount}
-                  onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                  placeholder="18.50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Vendor</label>
-                <input
-                  value={draft.vendor}
-                  onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Job</label>
-                <input
-                  value={draft.job_name}
-                  onChange={(e) => setDraft({ ...draft, job_name: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                  placeholder="Leave blank if unassigned"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-white/60 mb-1">Description</label>
-                <textarea
-                  value={draft.description}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15"
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
-        </Slideover>
+       
       </div>
     </main>
   );
