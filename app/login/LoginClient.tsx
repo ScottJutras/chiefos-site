@@ -1,11 +1,12 @@
 // app/login/LoginClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/SiteHeader";
+import { normalizeAuthMessage } from "@/lib/authErrors";
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -21,11 +22,27 @@ async function track(event: string, payload: Record<string, any> = {}) {
 
 export default function LoginClient() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+  // keep options stable to avoid re-render loops
+  const turnstileOptions = useMemo(() => {
+    return { appearance: "always" as const };
+  }, []);
+
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    setTurnstileKey((k) => k + 1);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,39 +50,43 @@ export default function LoginClient() {
     setLoading(true);
 
     try {
+      if (!siteKey) throw new Error("Bot check is not configured.");
       if (!turnstileToken) throw new Error("Please complete the bot check.");
 
-      await track("login_submit", { hasEmail: Boolean(email.trim()) });
+      await track("login_submit", {});
 
-      const r = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, turnstileToken }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-            const j = await r.json().catch(() => ({} as any));
+      if (error) throw error;
 
-      if (!r.ok) {
-        throw new Error(j?.error || j?.message || "Login failed.");
+      // Some email-confirm setups can produce no session yet.
+      if (!data?.session) {
+        setErr("Verify your email. Click the link we sent, then sign in again.");
+        return;
       }
-
-      if (!j?.session?.access_token || !j?.session?.refresh_token) {
-        throw new Error("Login succeeded but session tokens were missing.");
-      }
-
-      const { error: setErr2 } = await supabase.auth.setSession({
-        access_token: j.session.access_token,
-        refresh_token: j.session.refresh_token,
-      });
-
-      if (setErr2) throw setErr2;
 
       await track("login_success", {});
       router.push("/app");
     } catch (e: any) {
-      setErr(e?.message ?? "Login failed.");
-      setTurnstileToken(null);
-      await track("login_error", { message: e?.message ?? "Login failed" });
+      const friendly = normalizeAuthMessage(e);
+      const msg = String(friendly || e?.message || "").trim();
+
+      setErr(msg || "Something went wrong.");
+
+      // Only reset Turnstile on actual bot/token failures
+      const lower = msg.toLowerCase();
+      const looksLikeBot =
+        lower.includes("bot") ||
+        lower.includes("turnstile") ||
+        lower.includes("captcha") ||
+        lower.includes("complete the check");
+
+      if (looksLikeBot) resetTurnstile();
+
+      await track("login_error", { message: msg || "login failed" });
     } finally {
       setLoading(false);
     }
@@ -73,10 +94,9 @@ export default function LoginClient() {
 
   return (
     <main
-  className="min-h-screen bg-white text-gray-900"
-  style={{ paddingTop: "var(--early-access-banner-h)" }}
->
-
+      className="min-h-screen bg-white text-gray-900"
+      style={{ paddingTop: "var(--early-access-banner-h)" }}
+    >
       <SiteHeader rightLabel="Create account" rightHref="/signup" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
@@ -116,12 +136,20 @@ export default function LoginClient() {
           </div>
 
           <div className="pt-2">
-            <Turnstile
-              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-              onSuccess={(token) => setTurnstileToken(token)}
-              onExpire={() => setTurnstileToken(null)}
-              options={{ appearance: "always" }}
-            />
+            {!siteKey ? (
+              <div className="text-xs text-red-700">
+                Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
+              </div>
+            ) : (
+              <Turnstile
+                key={turnstileKey}
+                siteKey={siteKey}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => resetTurnstile()}
+                onError={() => resetTurnstile()}
+                options={turnstileOptions}
+              />
+            )}
           </div>
 
           {err && (

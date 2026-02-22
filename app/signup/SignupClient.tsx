@@ -1,10 +1,11 @@
 // app/signup/SignupClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/SiteHeader";
+import { normalizeAuthMessage } from "@/lib/authErrors";
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -20,13 +21,28 @@ async function track(event: string, payload: Record<string, any> = {}) {
 
 export default function SignupClient() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
+
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+  const turnstileOptions = useMemo(() => {
+    return { appearance: "always" as const };
+  }, []);
+
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    setTurnstileKey((k) => k + 1);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,6 +50,7 @@ export default function SignupClient() {
     setLoading(true);
 
     try {
+      if (!siteKey) throw new Error("Bot check is not configured.");
       if (!turnstileToken) throw new Error("Please complete the bot check.");
 
       await track("signup_submit", {
@@ -56,15 +73,28 @@ export default function SignupClient() {
         }),
       });
 
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Signup failed.");
 
       setSent(true);
       await track("signup_success", {});
     } catch (e: any) {
-      setErr(e?.message ?? "Signup failed.");
-      setTurnstileToken(null);
-      await track("signup_error", { message: e?.message ?? "Signup failed" });
+      const friendly = normalizeAuthMessage(e);
+      const msg = String(friendly || e?.message || "").trim();
+
+      setErr(msg || "Signup failed.");
+
+      // Only reset Turnstile on actual bot/token failures
+      const lower = msg.toLowerCase();
+      const looksLikeBot =
+        lower.includes("bot") ||
+        lower.includes("turnstile") ||
+        lower.includes("captcha") ||
+        lower.includes("complete the check");
+
+      if (looksLikeBot) resetTurnstile();
+
+      await track("signup_error", { message: msg || "signup failed" });
     } finally {
       setLoading(false);
     }
@@ -72,10 +102,9 @@ export default function SignupClient() {
 
   return (
     <main
-  className="min-h-screen bg-white text-gray-900"
-  style={{ paddingTop: "var(--early-access-banner-h)" }}
->
-
+      className="min-h-screen bg-white text-gray-900"
+      style={{ paddingTop: "var(--early-access-banner-h)" }}
+    >
       <SiteHeader rightLabel="Log in" rightHref="/login" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
@@ -91,9 +120,9 @@ export default function SignupClient() {
 
         {sent ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
-            <p className="font-medium">Check your email</p>
+            <p className="font-medium">Verify your email</p>
             <p className="mt-2 text-sm text-gray-600">
-              We sent you a confirmation link. Click it to finish creating your account.
+              We sent you a confirmation link. Click it to finish creating your account — then come back and sign in.
             </p>
             <p className="mt-4 text-sm text-gray-600">
               Already confirmed?{" "}
@@ -144,12 +173,20 @@ export default function SignupClient() {
             </div>
 
             <div className="pt-2">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken(null)}
-                options={{ appearance: "always" }}
-              />
+              {!siteKey ? (
+                <div className="text-xs text-red-700">
+                  Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
+                </div>
+              ) : (
+                <Turnstile
+                  key={turnstileKey}
+                  siteKey={siteKey}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onExpire={() => resetTurnstile()}
+                  onError={() => resetTurnstile()}
+                  options={turnstileOptions}
+                />
+              )}
             </div>
 
             {err && (
