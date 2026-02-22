@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type GateState = {
   loading: boolean;
@@ -12,13 +12,14 @@ type GateState = {
   reason?: string | null;
 };
 
+// NOTE: We intentionally support a fallback path:
+// - primary: chiefos_portal_users (portal membership)
+// - fallback: chiefos_user_identities (whatsapp identity mapping)
+// This prevents the portal from bricking during migration / partial onboarding.
+
 export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
   const router = useRouter();
-  const pathname = usePathname();
   const requireWhatsApp = !!opts?.requireWhatsApp;
-
-  const redirectedRef = useRef<string | null>(null); // prevents bounce loops
-  const inFlightRef = useRef(false);
 
   const [state, setState] = useState<GateState>({
     loading: true,
@@ -31,87 +32,103 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
   useEffect(() => {
     let cancelled = false;
 
-    const safeSet = (next: Partial<GateState>) => {
+    function safeSet(next: Partial<GateState>) {
       if (cancelled) return;
       setState((s) => ({ ...s, ...next }));
-    };
+    }
 
-    const safePush = (to: string) => {
-      // ✅ Don’t push to the page you’re already on
-      if (pathname === to) return;
+    async function resolveTenantId(userId: string): Promise<string | null> {
+      // 1) Preferred: portal membership table
+      const { data: pu, error: puErr } = await supabase
+        .from("chiefos_portal_users")
+        .select("tenant_id")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-      // ✅ Don’t push the same redirect repeatedly (loop breaker)
-      if (redirectedRef.current === to) return;
-      redirectedRef.current = to;
+      if (!puErr && pu?.tenant_id) return String(pu.tenant_id);
 
-      router.push(to);
-    };
+      // 2) Fallback: identity table (your SQL shows this exists)
+      // Uses: public.chiefos_user_identities (tenant_id, user_id, kind, identifier)
+      const { data: idRows, error: idErr } = await supabase
+        .from("chiefos_user_identities")
+        .select("tenant_id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (idErr) return null;
+      const tenantId = idRows?.[0]?.tenant_id ?? null;
+      return tenantId ? String(tenantId) : null;
+    }
+
+    async function checkWhatsApp(tenantId: string): Promise<boolean> {
+      // You used chiefos_identity_map in the old code.
+      // Your actual table (from your SQL) is chiefos_user_identities.
+      // We'll check both safely.
+
+      // A) preferred: chiefos_user_identities(kind='whatsapp')
+      const { data: wRows, error: wErr } = await supabase
+        .from("chiefos_user_identities")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("kind", "whatsapp")
+        .limit(1);
+
+      if (!wErr && wRows && wRows.length > 0) return true;
+
+      // B) fallback (if you still have this older view/table)
+      const { data: mapRows, error: mapErr } = await supabase
+        .from("chiefos_identity_map")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("kind", "whatsapp")
+        .limit(1);
+
+      if (!mapErr && mapRows && mapRows.length > 0) return true;
+
+      return false;
+    }
 
     async function run() {
-      if (inFlightRef.current) return; // avoid double-run races
-      inFlightRef.current = true;
-
       try {
-        // ✅ Wait for session (don’t redirect prematurely during hydration)
-        const { data: s } = await supabase.auth.getSession();
-        const token = s?.session?.access_token || null;
+        const { data: auth, error: authErr } = await supabase.auth.getUser();
+        if (authErr) throw authErr;
 
-        if (!token) {
-          safeSet({ loading: false, reason: "no-session" });
-          safePush("/login");
+        if (!auth.user) {
+          safeSet({ loading: false, reason: "no-auth" });
+          router.push("/login");
           return;
         }
 
-        const r = await fetch("/api/whoami", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
+        const userId = auth.user.id;
+
+        const tenantId = await resolveTenantId(userId);
+        if (!tenantId) {
+          safeSet({ loading: false, userId, tenantId: null, reason: "no-tenant" });
+          router.push("/finish-signup");
+          return;
+        }
+
+        let hasWhatsApp = false;
+        if (requireWhatsApp) {
+          hasWhatsApp = await checkWhatsApp(tenantId);
+          if (!hasWhatsApp) {
+            safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, reason: "no-whatsapp" });
+            router.push("/app/connect-whatsapp");
+            return;
+          }
+        }
+
+        safeSet({
+          loading: false,
+          userId,
+          tenantId,
+          hasWhatsApp,
+          reason: null,
         });
-
-        const j = await r.json().catch(() => ({}));
-
-        if (!r.ok) {
-          const msg = String(j?.error || "gate-failed");
-          safeSet({ loading: false, reason: msg });
-
-          // ✅ IMPORTANT: if we’re already on finish-signup, DON’T keep pushing.
-          if (r.status === 401) safePush("/login");
-          else safePush("/finish-signup");
-          return;
-        }
-
-        const userId = j?.userId ? String(j.userId) : "";
-        const tenantId = j?.tenantId ? String(j.tenantId) : "";
-        const hasWhatsApp = !!j?.hasWhatsApp;
-
-        if (!userId || !tenantId) {
-          safeSet({ loading: false, reason: "missing-identity" });
-          safePush("/finish-signup");
-          return;
-        }
-
-        if (requireWhatsApp && !hasWhatsApp) {
-          safeSet({
-            loading: false,
-            userId,
-            tenantId,
-            hasWhatsApp: false,
-            reason: "no-whatsapp",
-          });
-          safePush("/app/connect-whatsapp");
-          return;
-        }
-
-        // ✅ Success: clear redirect lock so future navigations are allowed
-        redirectedRef.current = null;
-
-        safeSet({ loading: false, userId, tenantId, hasWhatsApp, reason: null });
-      } catch (e: any) {
-        safeSet({ loading: false, reason: e?.message || "error" });
-
-        // ✅ Don’t bounce: only send to login if not already on a “setup” page
-        if (!pathname.startsWith("/finish-signup")) safePush("/login");
-      } finally {
-        inFlightRef.current = false;
+      } catch {
+        safeSet({ loading: false, reason: "error" });
+        router.push("/login");
       }
     }
 
@@ -119,7 +136,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [router, pathname, requireWhatsApp]);
+  }, [router, requireWhatsApp]);
 
   return state;
 }
