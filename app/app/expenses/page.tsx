@@ -1427,7 +1427,7 @@ export default function ExpensesPage() {
   {e.transaction_id && e.media_asset_id ? (
   <ReceiptActions
     transactionId={e.transaction_id}
-    mediaAssetId={e.media_asset_id ?? null}
+    mediaAssetId={e.media_asset_id}
     contentType={e.content_type ?? null}
   />
 ) : (

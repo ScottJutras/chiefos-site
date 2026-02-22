@@ -1,7 +1,5 @@
 // app/api/receipts/[transactionId]/route.ts
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
 
 function mustEnv(name: string) {
   const v = process.env[name];
@@ -18,58 +16,27 @@ function bearerFromReq(req: Request) {
   return authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
 }
 
-async function getCookieSessionAccessToken() {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-
-  // ✅ Next version: cookies() is async
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(url, anon, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: any) {
-        cookieStore.set({ name, value: "", ...options });
-      },
-    },
-  });
-
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token || "";
-}
-
 export async function GET(req: Request, ctx: { params: { transactionId: string } }) {
   try {
-    const transactionId = String(ctx.params.transactionId || "").trim();
-    if (!transactionId) return jsonErr("BAD_REQUEST", "Missing transactionId.", 400);
+    // ✅ Param validation (core wants an int)
+    const raw = String(ctx.params.transactionId || "").trim();
+    const txId = Number(raw);
+    if (!Number.isInteger(txId) || txId <= 0) {
+      return jsonErr("BAD_REQUEST", "Invalid transaction id.", 400);
+    }
 
     const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
 
-    // 1) Cookie session token (Option A)
-    let accessToken = "";
-    try {
-      accessToken = await getCookieSessionAccessToken();
-    } catch {
-      // ignore; fallback to Bearer
-    }
-
-    // 2) Bearer fallback (works with your ReceiptActions fetch())
-    if (!accessToken) accessToken = bearerFromReq(req);
-
+    // ✅ Use bearer (ReceiptActions provides it)
+    const accessToken = bearerFromReq(req);
     if (!accessToken) {
       return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
     }
 
-    // Preserve ?download=1
+    // Preserve ?download=1 etc.
     const url = new URL(req.url);
     const qs = url.searchParams.toString();
-    const upstreamUrl =
-      `${core}/api/receipts/${encodeURIComponent(transactionId)}` + (qs ? `?${qs}` : "");
+    const upstreamUrl = `${core}/api/receipts/${txId}${qs ? `?${qs}` : ""}`;
 
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
@@ -78,10 +45,7 @@ export async function GET(req: Request, ctx: { params: { transactionId: string }
     try {
       upstream = await fetch(upstreamUrl, {
         method: "GET",
-        headers: {
-          // ✅ Forward *computed* token, NOT whatever the browser sent
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
         signal: ac.signal,
       });
