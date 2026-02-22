@@ -1,7 +1,7 @@
 // app/api/whoami/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 
-export const runtime = "nodejs"; // ✅ force Node (not Edge)
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -12,6 +12,10 @@ function missingEnv(names: string[]) {
 function getBearer(req: Request) {
   const auth = req.headers.get("authorization") || "";
   return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+}
+
+function jsonErr(code: string, message: string, status: number) {
+  return NextResponse.json({ ok: false, code, message }, { status });
 }
 
 async function getSupabaseUserId(accessToken: string): Promise<string | null> {
@@ -28,14 +32,25 @@ async function getSupabaseUserId(accessToken: string): Promise<string | null> {
   return j?.id ?? null;
 }
 
-async function firstTenantForUser(userId: string): Promise<string | null> {
+/**
+ * IMPORTANT:
+ * This uses the *user's* JWT and relies on RLS.
+ * Your existing policies:
+ * - portal_users_select_own
+ * - user_identities_select_own
+ * make these reads safe and tenant-scoped.
+ */
+async function firstTenantForUser(userId: string, accessToken: string): Promise<string | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   // 1) Portal membership (preferred)
   const r1 = await fetch(
     `${url}/rest/v1/chiefos_portal_users?select=tenant_id,role&user_id=eq.${userId}&limit=1`,
-    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
+    {
+      headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
   );
 
   if (r1.ok) {
@@ -44,10 +59,13 @@ async function firstTenantForUser(userId: string): Promise<string | null> {
     if (tid) return String(tid);
   }
 
-  // 2) Fallback: identity mapping
+  // 2) Fallback: identity mapping (still RLS-safe if policy is "select own")
   const r2 = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=tenant_id&user_id=eq.${userId}&order=created_at.asc&limit=1`,
-    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
+    {
+      headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
   );
 
   if (!r2.ok) return null;
@@ -56,13 +74,20 @@ async function firstTenantForUser(userId: string): Promise<string | null> {
   return tid2 ? String(tid2) : null;
 }
 
-async function hasWhatsAppIdentity(tenantId: string): Promise<boolean> {
+/**
+ * Check WhatsApp identity for *this user* (not by tenant),
+ * so it works with your "select_own" RLS policy.
+ */
+async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): Promise<boolean> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const r = await fetch(
-    `${url}/rest/v1/chiefos_user_identities?select=id&tenant_id=eq.${tenantId}&kind=eq.whatsapp&limit=1`,
-    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
+    `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=eq.whatsapp&limit=1`,
+    {
+      headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    }
   );
 
   if (!r.ok) return false;
@@ -71,59 +96,26 @@ async function hasWhatsAppIdentity(tenantId: string): Promise<boolean> {
 }
 
 export async function GET(req: NextRequest) {
-  // ✅ hard-check config but don’t throw
-  const miss = missingEnv([
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-  ]);
+  // ✅ Only require public supabase envs (server can read them; client also has them)
+  const miss = missingEnv(["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
   if (miss.length) {
-    return NextResponse.json(
-      { ok: false, code: "CONFIG_ERROR", message: `Missing env vars: ${miss.join(", ")}` },
-      { status: 500 }
-    );
+    return jsonErr("CONFIG_ERROR", `Missing env vars: ${miss.join(", ")}`, 500);
   }
-  // --- DEBUG: prove what arrives in production (remove after)
-  const rawAuth = req.headers.get("authorization");
-  const hasAuthHeader = !!rawAuth;
-  const authPreview = rawAuth ? rawAuth.slice(0, 18) + "..." : null;
 
-  // If you're behind a proxy/CDN, sometimes auth headers get stripped.
-  // This will tell us definitively.
-  console.log("[whoami] auth header present:", hasAuthHeader, "preview:", authPreview);
   try {
     const accessToken = getBearer(req);
-    if (!accessToken) {
-      return NextResponse.json(
-        { ok: false, code: "AUTH_REQUIRED", message: "Missing auth token." },
-        { status: 401 }
-      );
-    }
+    if (!accessToken) return jsonErr("AUTH_REQUIRED", "Missing auth token.", 401);
 
     const userId = await getSupabaseUserId(accessToken);
-    if (!userId) {
-      return NextResponse.json(
-        { ok: false, code: "AUTH_REQUIRED", message: "Invalid session." },
-        { status: 401 }
-      );
-    }
+    if (!userId) return jsonErr("AUTH_REQUIRED", "Invalid session.", 401);
 
-    const tenantId = await firstTenantForUser(userId);
-    if (!tenantId) {
-      return NextResponse.json(
-        { ok: false, code: "NO_TENANT", message: "No tenant found for this user." },
-        { status: 403 }
-      );
-    }
+    const tenantId = await firstTenantForUser(userId, accessToken);
+    if (!tenantId) return jsonErr("NO_TENANT", "No tenant found for this user.", 403);
 
-    const hasWhatsApp = await hasWhatsAppIdentity(tenantId);
+    const hasWhatsApp = await hasWhatsAppIdentityForUser(userId, accessToken);
 
     return NextResponse.json({ ok: true, userId, tenantId, hasWhatsApp }, { status: 200 });
   } catch (e: any) {
-    // ✅ return the error message so we can fix it fast
-    return NextResponse.json(
-      { ok: false, code: "WHOAMI_ERROR", message: e?.message || "whoami failed" },
-      { status: 500 }
-    );
+    return jsonErr("WHOAMI_ERROR", e?.message || "whoami failed", 500);
   }
 }
