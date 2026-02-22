@@ -1,24 +1,20 @@
-import { NextResponse } from "next/server";
+// app/api/whoami/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 
-/**
- * /api/whoami
- * - Expects Authorization: Bearer <supabase_access_token>
- * - Resolves userId via Supabase Auth API
- * - Resolves tenantId (portal membership first, identities fallback)
- * - Computes hasWhatsApp (identity exists for tenant)
- *
- * Uses SUPABASE_SERVICE_ROLE_KEY server-side (never exposed to client).
- */
+export const runtime = "nodejs"; // ✅ force Node (not Edge)
 
-function mustEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
+function missingEnv(names: string[]) {
+  return names.filter((n) => !process.env[n]);
+}
+
+function getBearer(req: Request) {
+  const auth = req.headers.get("authorization") || "";
+  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
 
 async function getSupabaseUserId(accessToken: string): Promise<string | null> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const r = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
@@ -31,14 +27,15 @@ async function getSupabaseUserId(accessToken: string): Promise<string | null> {
 }
 
 async function firstTenantForUser(userId: string): Promise<string | null> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const service = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   // 1) Portal membership (preferred)
   const r1 = await fetch(
     `${url}/rest/v1/chiefos_portal_users?select=tenant_id,role&user_id=eq.${userId}&limit=1`,
     { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
   );
+
   if (r1.ok) {
     const rows = await r1.json().catch(() => []);
     const tid = rows?.[0]?.tenant_id;
@@ -50,16 +47,16 @@ async function firstTenantForUser(userId: string): Promise<string | null> {
     `${url}/rest/v1/chiefos_user_identities?select=tenant_id&user_id=eq.${userId}&order=created_at.asc&limit=1`,
     { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
   );
-  if (!r2.ok) return null;
 
+  if (!r2.ok) return null;
   const rows2 = await r2.json().catch(() => []);
   const tid2 = rows2?.[0]?.tenant_id ?? null;
   return tid2 ? String(tid2) : null;
 }
 
 async function hasWhatsAppIdentity(tenantId: string): Promise<boolean> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const service = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
   const r = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=id&tenant_id=eq.${tenantId}&kind=eq.whatsapp&limit=1`,
@@ -71,28 +68,53 @@ async function hasWhatsAppIdentity(tenantId: string): Promise<boolean> {
   return Array.isArray(rows) && rows.length > 0;
 }
 
-export async function GET(req: Request) {
-  try {
-    const auth = req.headers.get("authorization") || "";
-    const accessToken = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+export async function GET(req: NextRequest) {
+  // ✅ hard-check config but don’t throw
+  const miss = missingEnv([
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ]);
+  if (miss.length) {
+    return NextResponse.json(
+      { ok: false, code: "CONFIG_ERROR", message: `Missing env vars: ${miss.join(", ")}` },
+      { status: 500 }
+    );
+  }
 
+  try {
+    const accessToken = getBearer(req);
     if (!accessToken) {
-      return NextResponse.json({ error: "Missing auth token." }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, code: "AUTH_REQUIRED", message: "Missing auth token." },
+        { status: 401 }
+      );
     }
 
     const userId = await getSupabaseUserId(accessToken);
     if (!userId) {
-      return NextResponse.json({ error: "Invalid session." }, { status: 401 });
+      return NextResponse.json(
+        { ok: false, code: "AUTH_REQUIRED", message: "Invalid session." },
+        { status: 401 }
+      );
     }
 
     const tenantId = await firstTenantForUser(userId);
     if (!tenantId) {
-      return NextResponse.json({ error: "No tenant found for this user." }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, code: "NO_TENANT", message: "No tenant found for this user." },
+        { status: 403 }
+      );
     }
 
     const hasWhatsApp = await hasWhatsAppIdentity(tenantId);
-    return NextResponse.json({ ok: true, userId, tenantId, hasWhatsApp });
+
+    return NextResponse.json({ ok: true, userId, tenantId, hasWhatsApp }, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Server error." }, { status: 500 });
+    // ✅ return the error message so we can fix it fast
+    return NextResponse.json(
+      { ok: false, code: "WHOAMI_ERROR", message: e?.message || "whoami failed" },
+      { status: 500 }
+    );
   }
 }

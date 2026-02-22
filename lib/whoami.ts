@@ -31,7 +31,7 @@ export async function fetchWhoami(): Promise<{
   hasWhatsApp?: boolean;
   error?: string;
 }> {
-  // ✅ Key fix: allow brief hydration time after setSession + navigation
+  // ✅ allow brief hydration time after setSession + navigation
   const token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
 
   if (!token) return { ok: false, error: "no-session-token" };
@@ -42,8 +42,19 @@ export async function fetchWhoami(): Promise<{
     cache: "no-store",
   });
 
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) return { ok: false, error: j?.error || `whoami_${r.status}` };
+  const j: any = await r.json().catch(() => ({}));
+
+  // ✅ normalize server error shapes:
+  // - old: { error: "..." }
+  // - new: { ok:false, code:"...", message:"..." }
+  if (!r.ok || !j?.ok) {
+    const msg =
+      j?.message ||
+      j?.error ||
+      (j?.code ? `${j.code}` : "") ||
+      `whoami_${r.status}`;
+    return { ok: false, error: msg };
+  }
 
   return j;
 }
