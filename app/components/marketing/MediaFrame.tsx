@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type MediaFrameProps = {
   label?: string;
@@ -15,6 +15,9 @@ type MediaFrameProps = {
   posterSrc?: string; // e.g. "/loops/hero.jpg"
   videoClassName?: string;
   aspect?: "auto" | "16/9" | "4/3" | "1/1";
+
+  // Optional: custom fallback label inside placeholder
+  fallbackHint?: string;
 };
 
 function aspectClass(aspect: MediaFrameProps["aspect"]) {
@@ -39,8 +42,39 @@ export default function MediaFrame({
   posterSrc,
   videoClassName,
   aspect = "auto",
+  fallbackHint = "Preview coming soon",
 }: MediaFrameProps) {
   const [ready, setReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
+
+  const hasVideo = Boolean(videoSrc && String(videoSrc).trim());
+  const hasPoster = Boolean(posterSrc && String(posterSrc).trim());
+  const usePoster = hasPoster && !posterFailed;
+
+  const showVideo = hasVideo && !videoFailed;
+
+  // If caller didn’t provide children, we render a default placeholder
+  const fallback = useMemo(() => {
+    if (children) return children;
+
+    return (
+      <div
+        className={[
+          "grid h-full w-full place-items-center",
+          "rounded-2xl border border-white/10 bg-black/40",
+          "text-center px-6 py-10",
+        ].join(" ")}
+      >
+        <div>
+          <div className="text-sm font-semibold text-white/85">{fallbackHint}</div>
+          <div className="mt-2 text-xs text-white/55">
+            This panel will show a short demo when media is available.
+          </div>
+        </div>
+      </div>
+    );
+  }, [children, fallbackHint]);
 
   return (
     <div className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
@@ -52,7 +86,7 @@ export default function MediaFrame({
         </div>
       )}
 
-      {videoSrc ? (
+      {showVideo ? (
         <div
           className={[
             "relative overflow-hidden rounded-2xl border border-white/10 bg-black/50",
@@ -76,19 +110,47 @@ export default function MediaFrame({
               "transition-opacity duration-500",
               ready ? "opacity-100" : "opacity-0",
               videoClassName || "",
-            ].join(" ").trim()}
+            ]
+              .join(" ")
+              .trim()}
             src={videoSrc}
-            poster={posterSrc}
+            // ✅ Only set poster if we have one and it hasn’t failed
+            {...(usePoster ? { poster: posterSrc } : {})}
             muted
             playsInline
             autoPlay
             loop
             preload="metadata"
             onCanPlay={() => setReady(true)}
+            onError={() => {
+              // ✅ If video fails (404 etc), fall back cleanly and stop trying to “warm up”
+              setVideoFailed(true);
+              setReady(false);
+            }}
+            onLoadedData={() => setReady(true)}
           />
+
+          {/* If the poster fails to load, browsers don’t reliably tell us.
+              We can still avoid *setting* a poster when it's missing.
+              But if you want to detect poster failures too, we do a lightweight check below. */}
+          {hasPoster && !posterFailed ? (
+            <img
+              src={posterSrc}
+              alt=""
+              className="hidden"
+              onError={() => setPosterFailed(true)}
+            />
+          ) : null}
         </div>
       ) : (
-        children
+        <div
+          className={[
+            "relative overflow-hidden",
+            aspectClass(aspect) || "",
+          ].join(" ")}
+        >
+          {fallback}
+        </div>
       )}
     </div>
   );
