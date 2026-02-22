@@ -1,5 +1,5 @@
 // app/api/receipts/[transactionId]/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 function mustEnv(name: string) {
   const v = process.env[name];
@@ -16,10 +16,16 @@ function bearerFromReq(req: Request) {
   return authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
 }
 
-export async function GET(req: Request, ctx: { params: { transactionId: string } }) {
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ transactionId: string }> }
+) {
   try {
+    // ✅ Next 16 expects params as a Promise
+    const { transactionId } = await ctx.params;
+
     // ✅ Param validation (core wants an int)
-    const raw = String(ctx.params.transactionId || "").trim();
+    const raw = String(transactionId || "").trim();
     const txId = Number(raw);
     if (!Number.isInteger(txId) || txId <= 0) {
       return jsonErr("BAD_REQUEST", "Invalid transaction id.", 400);
