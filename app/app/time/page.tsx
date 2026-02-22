@@ -198,10 +198,7 @@ export default function TimePage() {
     dtLocal: string; // datetime-local value
   } | null>(null);
 
-  const slideoverBusy = useMemo(() => {
-    if (!draft) return false;
-    return busyId === draft.id;
-  }, [busyId, draft]);
+  const slideoverBusy = !!draft && busyId === draft.id;
 
   function sortArrow(active: boolean, dir: "asc" | "desc") {
     if (!active) return <span className="ml-1 text-white/30">↕</span>;
@@ -300,33 +297,43 @@ useEffect(() => {
 }, [exportOpen]);
 
 
-  useEffect(() => {
-    let cancelled = false;
+ useEffect(() => {
+  let cancelled = false;
 
-    async function load() {
-      try {
+  // ✅ wait until tenant gate finishes
+  if (gateLoading) return;
+
+  async function load() {
+    try {
+      if (!cancelled) {
+        setLoading(true);
         setError(null);
-
-        const { data, error } = await supabase
-          .from("time_entries")
-          .select("*")
-          .is("deleted_at", null)
-          .order("timestamp", { ascending: false });
-
-        if (error) throw error;
-        if (!cancelled) setRows((data ?? []) as TimeEntry[]);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "Failed to load time entries.");
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      // ✅ make sure session exists (avoids weird 401/redirect races)
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess?.session) throw new Error("Missing session. Please log in again.");
+
+      const { data, error } = await supabase
+        .from("time_entries")
+        .select("*")
+        .is("deleted_at", null)
+        .order("timestamp", { ascending: false });
+
+      if (error) throw error;
+      if (!cancelled) setRows((data ?? []) as TimeEntry[]);
+    } catch (e: any) {
+      if (!cancelled) setError(e?.message ?? "Failed to load time entries.");
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  }
+
+  load();
+  return () => {
+    cancelled = true;
+  };
+}, [gateLoading]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
