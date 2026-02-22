@@ -1,5 +1,4 @@
 // lib/authErrors.ts
-
 export function normalizeAuthMessage(err: any): string | null {
   const msg = String(err?.message || err || "").toLowerCase();
 
@@ -23,10 +22,9 @@ export function normalizeAuthMessage(err: any): string | null {
   }
 
   const rateLimited = msg.includes("too many requests") || msg.includes("rate limit");
-
   if (rateLimited) {
     return "Too many attempts. Wait a minute and try again.";
   }
 
-  return null; // means: show your default fallback
+  return null; // means: show default fallback
 }

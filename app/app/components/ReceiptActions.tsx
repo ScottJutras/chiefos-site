@@ -1,13 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 function labelFor(contentType?: string | null) {
   const ct = String(contentType || "").toLowerCase();
-  // ✅ UX tweak you asked for:
-  // image/pdf => Receipt
-  // everything else (audio/ogg etc) => Attachment
+  // image/pdf => Receipt, everything else => Attachment
   if (!ct) return "Receipt";
   if (ct.includes("image/") || ct.includes("pdf")) return "Receipt";
   return "Attachment";
@@ -30,9 +28,7 @@ async function getAccessToken() {
 
 async function fetchReceiptBlob(transactionId: number, download: boolean) {
   const token = await getAccessToken();
-  if (!token) {
-    throw new Error("Missing session. Please log in again.");
-  }
+  if (!token) throw new Error("Missing session. Please log in again.");
 
   const url = `/api/receipts/${transactionId}${download ? "?download=1" : ""}`;
 
@@ -43,16 +39,12 @@ async function fetchReceiptBlob(transactionId: number, download: boolean) {
 
   const ct = res.headers.get("content-type") || "";
 
-  // If JSON error, surface message cleanly
   if (ct.includes("application/json")) {
     const j = await res.json().catch(() => null);
-    const msg = j?.message || j?.error || "Receipt failed.";
-    throw new Error(msg);
+    throw new Error(j?.message || j?.error || "Receipt failed.");
   }
 
-  if (!res.ok) {
-    throw new Error(`Receipt failed (${res.status}).`);
-  }
+  if (!res.ok) throw new Error(`Receipt failed (${res.status}).`);
 
   const blob = await res.blob();
   const contentType = res.headers.get("content-type") || blob.type || "";
@@ -68,10 +60,12 @@ export default function ReceiptActions({
   mediaAssetId?: string | null;
   contentType?: string | null;
 }) {
-  if (!mediaAssetId) return null;
-
+  // ✅ Hooks must run unconditionally
   const [busy, setBusy] = useState<null | "view" | "download">(null);
   const label = labelFor(contentType);
+
+  // ✅ Safe early-return AFTER hooks
+  if (!mediaAssetId) return null;
 
   const onView = async () => {
     if (busy) return;
@@ -80,7 +74,6 @@ export default function ReceiptActions({
       const { blob } = await fetchReceiptBlob(transactionId, false);
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank", "noopener,noreferrer");
-      // best-effort cleanup (delayed so the new tab can load it)
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (e: any) {
       alert(e?.message || "Receipt failed.");

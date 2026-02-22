@@ -1,12 +1,13 @@
 // app/login/LoginClient.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/SiteHeader";
 import { normalizeAuthMessage } from "@/lib/authErrors";
+
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -20,24 +21,39 @@ async function track(event: string, payload: Record<string, any> = {}) {
   }
 }
 
+function EyeIcon({ off }: { off?: boolean }) {
+  return off ? (
+    // eye-off
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 3l18 18" />
+      <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58" />
+      <path d="M9.88 5.47A10.94 10.94 0 0 1 12 5c7 0 10 7 10 7a17.4 17.4 0 0 1-4.27 5.01" />
+      <path d="M6.61 6.61A17.4 17.4 0 0 0 2 12s3 7 10 7a10.8 10.8 0 0 0 4.12-.8" />
+    </svg>
+  ) : (
+    // eye
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export default function LoginClient() {
   const router = useRouter();
 
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-
-  // keep options stable to avoid re-render loops
-  const turnstileOptions = useMemo(() => {
-    return { appearance: "always" as const };
-  }, []);
 
   function resetTurnstile() {
     setTurnstileToken(null);
@@ -62,7 +78,7 @@ export default function LoginClient() {
 
       if (error) throw error;
 
-      // Some email-confirm setups can produce no session yet.
+      // Some configs can yield no session until email is confirmed
       if (!data?.session) {
         setErr("Verify your email. Click the link we sent, then sign in again.");
         return;
@@ -72,31 +88,27 @@ export default function LoginClient() {
       router.push("/app");
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
-      const msg = String(friendly || e?.message || "").trim();
+      const message = friendly || e?.message || "Something went wrong.";
 
-      setErr(msg || "Something went wrong.");
+      setErr(message);
+      await track("login_error", { message });
 
-      // Only reset Turnstile on actual bot/token failures
-      const lower = msg.toLowerCase();
+      // Only reset Turnstile for bot/token-ish failures (not email verification)
+      const msg = String(message).toLowerCase();
       const looksLikeBot =
-        lower.includes("bot") ||
-        lower.includes("turnstile") ||
-        lower.includes("captcha") ||
-        lower.includes("complete the check");
+        msg.includes("bot") ||
+        msg.includes("turnstile") ||
+        msg.includes("captcha") ||
+        msg.includes("complete the check");
 
       if (looksLikeBot) resetTurnstile();
-
-      await track("login_error", { message: msg || "login failed" });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main
-      className="min-h-screen bg-white text-gray-900"
-      style={{ paddingTop: "var(--early-access-banner-h)" }}
-    >
+    <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
       <SiteHeader rightLabel="Create account" rightHref="/signup" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
@@ -125,21 +137,31 @@ export default function LoginClient() {
 
           <div>
             <label className="block text-sm font-medium">Password</label>
-            <input
-              className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              required
-              autoComplete="current-password"
-            />
+
+            <div className="relative mt-1">
+              <input
+                className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeIcon off /> : <EyeIcon />}
+              </button>
+            </div>
           </div>
 
           <div className="pt-2">
             {!siteKey ? (
-              <div className="text-xs text-red-700">
-                Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY
-              </div>
+              <div className="text-xs text-red-600">Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY</div>
             ) : (
               <Turnstile
                 key={turnstileKey}
@@ -147,7 +169,7 @@ export default function LoginClient() {
                 onSuccess={(token) => setTurnstileToken(token)}
                 onExpire={() => resetTurnstile()}
                 onError={() => resetTurnstile()}
-                options={turnstileOptions}
+                options={{ appearance: "always" }}
               />
             )}
           </div>
