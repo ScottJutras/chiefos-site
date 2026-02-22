@@ -1,5 +1,29 @@
 import { supabase } from "@/lib/supabase";
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?: number }) {
+  const timeoutMs = opts?.timeoutMs ?? 2000;
+  const intervalMs = opts?.intervalMs ?? 150;
+
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (token) return token;
+    } catch {
+      // ignore and retry
+    }
+    await sleep(intervalMs);
+  }
+
+  return "";
+}
+
 export async function fetchWhoami(): Promise<{
   ok: boolean;
   userId?: string;
@@ -7,8 +31,8 @@ export async function fetchWhoami(): Promise<{
   hasWhatsApp?: boolean;
   error?: string;
 }> {
-  const { data: sess } = await supabase.auth.getSession();
-  const token = sess?.session?.access_token || "";
+  // ✅ Key fix: allow brief hydration time after setSession + navigation
+  const token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
 
   if (!token) return { ok: false, error: "no-session-token" };
 

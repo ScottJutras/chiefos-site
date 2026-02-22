@@ -45,11 +45,21 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       try {
         const w = await fetchWhoami();
 
-        if (!w?.ok) {
-          safeSet({ loading: false, reason: w?.error || "whoami-failed" });
-          safePush("/login");
-          return;
-        }
+       if (!w?.ok) {
+  // ✅ Tomorrow-safe: "no-session-token" is often just hydration delay right after login
+  if (w?.error === "no-session-token") {
+    safeSet({ loading: true, reason: "waiting-session" });
+    // retry once shortly (don’t loop forever)
+    setTimeout(() => {
+      if (!cancelled) run();
+    }, 350);
+    return;
+  }
+
+  safeSet({ loading: false, reason: w?.error || "whoami-failed" });
+  safePush("/login");
+  return;
+}
 
         const userId = w.userId ? String(w.userId) : null;
         const tenantId = w.tenantId ? String(w.tenantId) : null;

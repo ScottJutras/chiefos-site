@@ -1424,15 +1424,15 @@ export default function ExpensesPage() {
                                 <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
 
 <td className="py-3 pr-4">
-  {e.transaction_id ? (
-    <ReceiptActions
-      transactionId={e.transaction_id}
-      mediaAssetId={e.media_asset_id ?? null}
-      contentType={e.content_type ?? null}
-    />
-  ) : (
-    <span className="text-xs text-white/35">—</span>
-  )}
+  {e.transaction_id && e.media_asset_id ? (
+  <ReceiptActions
+    transactionId={e.transaction_id}
+    mediaAssetId={e.media_asset_id ?? null}
+    contentType={e.content_type ?? null}
+  />
+) : (
+  <span className="text-xs text-white/35">—</span>
+)}
 </td>
 
 <td className="py-3 pr-4">
