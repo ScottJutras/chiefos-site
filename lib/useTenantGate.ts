@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { fetchWhoami } from "@/lib/whoami";
+import { supabase } from "@/lib/supabase";
 
 type GateState = {
   loading: boolean;
@@ -47,12 +48,25 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       return `${basePath}?returnTo=${rt}`;
     }
 
+    async function verifyWhatsAppLink(tenantId: string) {
+      // tenant-scoped check (should be allowed by RLS)
+      const { data, error } = await supabase
+        .from("chiefos_identity_map")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("kind", "whatsapp")
+        .limit(1);
+
+      if (error) throw error;
+      return Array.isArray(data) && data.length > 0;
+    }
+
     async function run() {
       try {
         const w = await fetchWhoami();
 
         if (!w?.ok) {
-          // "no-session-token" can happen briefly during hydration right after login
+          // hydration/login race (session cookie not ready yet)
           if (w?.error === "no-session-token") {
             safeSet({ loading: true, reason: "waiting-session" });
 
@@ -76,7 +90,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
         const userId = w.userId ? String(w.userId) : null;
         const tenantId = w.tenantId ? String(w.tenantId) : null;
-        const hasWhatsApp = !!w.hasWhatsApp;
+        let hasWhatsApp = !!w.hasWhatsApp;
 
         if (!userId) {
           safeSet({ loading: false, reason: "no-auth" });
@@ -86,9 +100,21 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
         if (!tenantId) {
           safeSet({ loading: false, userId, tenantId: null, hasWhatsApp, reason: "no-tenant" });
-          // (optional) also pass returnTo here if you want:
           safePush(withReturnTo("/finish-signup"));
           return;
+        }
+
+        // ✅ Self-heal mismatch:
+        // If whoami says "not linked" but identity_map shows linked, trust identity_map.
+        if (requireWhatsApp && !hasWhatsApp) {
+          try {
+            const linked = await verifyWhatsAppLink(tenantId);
+            if (linked) {
+              hasWhatsApp = true;
+            }
+          } catch {
+            // ignore; we'll fall back to redirect below
+          }
         }
 
         if (requireWhatsApp && !hasWhatsApp) {
