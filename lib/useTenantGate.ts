@@ -9,7 +9,7 @@ type GateState = {
   userId: string | null;
   tenantId: string | null;
   hasWhatsApp: boolean;
-  role?: string | null; // currently not returned by whoami route (keep for future)
+  role?: string | null;
   reason?: string | null;
 };
 
@@ -29,7 +29,8 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
   useEffect(() => {
     let cancelled = false;
-        let attempts = 0;
+    let attempts = 0;
+
     function safeSet(next: Partial<GateState>) {
       if (cancelled) return;
       setState((s) => ({ ...s, ...next }));
@@ -41,32 +42,37 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       router.push(target);
     }
 
+    function withReturnTo(basePath: string) {
+      const rt = encodeURIComponent(pathname || "/app/expenses");
+      return `${basePath}?returnTo=${rt}`;
+    }
+
     async function run() {
       try {
         const w = await fetchWhoami();
 
-       if (!w?.ok) {
-  // ✅ Tomorrow-safe: "no-session-token" is often just hydration delay right after login
-  if (w?.error === "no-session-token") {
-    safeSet({ loading: true, reason: "waiting-session" });
-    // retry once shortly (don’t loop forever)
-        attempts++;
-    if (attempts > 6) {
-      safeSet({ loading: false, reason: "no-session-token" });
-      safePush("/login");
-      return;
-    }
+        if (!w?.ok) {
+          // "no-session-token" can happen briefly during hydration right after login
+          if (w?.error === "no-session-token") {
+            safeSet({ loading: true, reason: "waiting-session" });
 
-    setTimeout(() => {
-      if (!cancelled) run();
-    }, 350);
-    return;
-  }
+            attempts++;
+            if (attempts > 6) {
+              safeSet({ loading: false, reason: "no-session-token" });
+              safePush("/login");
+              return;
+            }
 
-  safeSet({ loading: false, reason: w?.error || "whoami-failed" });
-  safePush("/login");
-  return;
-}
+            setTimeout(() => {
+              if (!cancelled) run();
+            }, 350);
+            return;
+          }
+
+          safeSet({ loading: false, reason: w?.error || "whoami-failed" });
+          safePush("/login");
+          return;
+        }
 
         const userId = w.userId ? String(w.userId) : null;
         const tenantId = w.tenantId ? String(w.tenantId) : null;
@@ -80,13 +86,14 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
         if (!tenantId) {
           safeSet({ loading: false, userId, tenantId: null, hasWhatsApp, reason: "no-tenant" });
-          safePush("/finish-signup");
+          // (optional) also pass returnTo here if you want:
+          safePush(withReturnTo("/finish-signup"));
           return;
         }
 
         if (requireWhatsApp && !hasWhatsApp) {
           safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, reason: "no-whatsapp" });
-          safePush("/app/connect-whatsapp");
+          safePush(withReturnTo("/app/connect-whatsapp"));
           return;
         }
 

@@ -3,7 +3,7 @@
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type LinkCodeRow = {
   id: string;
@@ -28,7 +28,7 @@ function digitsOnly(code: string | null | undefined) {
 
 function safeReturnTo(input: string | null | undefined) {
   const s = String(input || "").trim();
-  // Only allow internal paths
+  // Allow only internal paths (no protocol / host)
   if (!s) return "/app/expenses";
   if (!s.startsWith("/")) return "/app/expenses";
   if (s.startsWith("//")) return "/app/expenses";
@@ -38,17 +38,12 @@ function safeReturnTo(input: string | null | undefined) {
 
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const returnTo = useMemo(
-    () => safeReturnTo(searchParams?.get("returnTo")),
-    [searchParams]
-  );
 
   // Gate (auth + tenant)
-  const { loading: gateLoading, userId, tenantId } = useTenantGate({
-    requireWhatsApp: false,
-  });
+  const { loading: gateLoading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
+
+  // returnTo (read client-side to avoid Next Suspense requirement)
+  const [returnTo, setReturnTo] = useState<string>("/app/expenses");
 
   // Page state
   const [pageLoading, setPageLoading] = useState(true);
@@ -59,15 +54,24 @@ export default function ConnectWhatsAppPage() {
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // ✅ hooks must run unconditionally — no early return above this line
+  const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
+  const has6Digits = codeDigits.length === 6;
+
+  // Read returnTo once on mount (client-only)
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      setReturnTo(safeReturnTo(sp.get("returnTo")));
+    } catch {
+      setReturnTo("/app/expenses");
+    }
+  }, []);
+
   // RPC
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
 
-  const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
-  const has6Digits = codeDigits.length === 6;
-
-  // IMPORTANT:
-  // chiefos_link_codes.portal_user_id == auth user id in your schema/data.
   async function fetchLatestUnexpiredUnusedCode(portalUserId: string) {
     const { data, error } = await supabase
       .from("chiefos_link_codes")
@@ -131,7 +135,7 @@ export default function ConnectWhatsAppPage() {
     try {
       if (!userId || !tenantId) return;
 
-      // If already linked, immediately go where the user intended to go
+      // If already linked, go back to where user wanted
       const linked = await isLinkedNow();
       if (linked) {
         router.replace(returnTo);
@@ -164,7 +168,6 @@ export default function ConnectWhatsAppPage() {
         return;
       }
 
-      // Not linked yet — refresh code display (may still be valid)
       await load();
     } catch (e: any) {
       setError(e?.message ?? "Unknown error checking link status.");
@@ -173,7 +176,7 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
-  // ✅ wait for gate, then load
+  // ✅ wait for gate to finish
   useEffect(() => {
     if (gateLoading) return;
     load();
@@ -199,7 +202,7 @@ export default function ConnectWhatsAppPage() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  // ✅ Early returns after hooks
+  // ✅ early returns AFTER hooks
   if (gateLoading) return <div className="p-8 text-gray-600">Loading…</div>;
   if (pageLoading) return <div className="p-8 text-gray-600">Loading…</div>;
 
