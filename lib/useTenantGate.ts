@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type GateState = {
   loading: boolean;
@@ -14,7 +14,11 @@ type GateState = {
 
 export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
   const requireWhatsApp = !!opts?.requireWhatsApp;
+
+  const redirectedRef = useRef<string | null>(null); // prevents bounce loops
+  const inFlightRef = useRef(false);
 
   const [state, setState] = useState<GateState>({
     loading: true,
@@ -26,53 +30,88 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
   useEffect(() => {
     let cancelled = false;
+
     const safeSet = (next: Partial<GateState>) => {
       if (cancelled) return;
       setState((s) => ({ ...s, ...next }));
     };
 
+    const safePush = (to: string) => {
+      // ✅ Don’t push to the page you’re already on
+      if (pathname === to) return;
+
+      // ✅ Don’t push the same redirect repeatedly (loop breaker)
+      if (redirectedRef.current === to) return;
+      redirectedRef.current = to;
+
+      router.push(to);
+    };
+
     async function run() {
+      if (inFlightRef.current) return; // avoid double-run races
+      inFlightRef.current = true;
+
       try {
+        // ✅ Wait for session (don’t redirect prematurely during hydration)
         const { data: s } = await supabase.auth.getSession();
         const token = s?.session?.access_token || null;
 
         if (!token) {
           safeSet({ loading: false, reason: "no-session" });
-          router.push("/login");
+          safePush("/login");
           return;
         }
 
         const r = await fetch("/api/whoami", {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
         });
 
         const j = await r.json().catch(() => ({}));
+
         if (!r.ok) {
-          safeSet({ loading: false, reason: j?.error || "gate-failed" });
-          router.push(r.status === 401 ? "/login" : "/finish-signup");
+          const msg = String(j?.error || "gate-failed");
+          safeSet({ loading: false, reason: msg });
+
+          // ✅ IMPORTANT: if we’re already on finish-signup, DON’T keep pushing.
+          if (r.status === 401) safePush("/login");
+          else safePush("/finish-signup");
           return;
         }
 
-        const userId = String(j?.userId || "");
-        const tenantId = String(j?.tenantId || "");
+        const userId = j?.userId ? String(j.userId) : "";
+        const tenantId = j?.tenantId ? String(j.tenantId) : "";
         const hasWhatsApp = !!j?.hasWhatsApp;
 
         if (!userId || !tenantId) {
           safeSet({ loading: false, reason: "missing-identity" });
-          router.push("/finish-signup");
+          safePush("/finish-signup");
           return;
         }
 
         if (requireWhatsApp && !hasWhatsApp) {
-          safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, reason: "no-whatsapp" });
-          router.push("/app/connect-whatsapp");
+          safeSet({
+            loading: false,
+            userId,
+            tenantId,
+            hasWhatsApp: false,
+            reason: "no-whatsapp",
+          });
+          safePush("/app/connect-whatsapp");
           return;
         }
 
+        // ✅ Success: clear redirect lock so future navigations are allowed
+        redirectedRef.current = null;
+
         safeSet({ loading: false, userId, tenantId, hasWhatsApp, reason: null });
-      } catch {
-        safeSet({ loading: false, reason: "error" });
-        router.push("/login");
+      } catch (e: any) {
+        safeSet({ loading: false, reason: e?.message || "error" });
+
+        // ✅ Don’t bounce: only send to login if not already on a “setup” page
+        if (!pathname.startsWith("/finish-signup")) safePush("/login");
+      } finally {
+        inFlightRef.current = false;
       }
     }
 
@@ -80,7 +119,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [router, requireWhatsApp]);
+  }, [router, pathname, requireWhatsApp]);
 
   return state;
 }
