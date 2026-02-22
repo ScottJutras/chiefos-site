@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { supabase } from "@/lib/supabase";
-
+import { fetchRevenueList } from "@/lib/revenue";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -93,7 +93,7 @@ function startOfWeekMondayLocal(d: Date) {
 }
 
 export default function RevenuePage() {
-  const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
 
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<RevenueRow[]>([]);
@@ -198,33 +198,30 @@ export default function RevenuePage() {
   }, [exportOpen]);
 
   useEffect(() => {
-    (async () => {
-      if (gateLoading) return;
-      if (!tenantId) return;
+  let cancelled = false;
 
-      setErr(null);
-      setLoading(true);
+  async function load() {
+    if (gateLoading) return;
 
-      try {
-        const { data } = await supabase.auth.getSession();
-        const token = data?.session?.access_token;
-        if (!token) throw new Error("Missing session token.");
+    setErr(null);
+    setLoading(true);
 
-        const r = await fetch(`/api/revenue/list?tenantId=${encodeURIComponent(tenantId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+    try {
+      const r = await fetchRevenueList();
+      if (!r.ok) throw new Error(r.error || "Failed to load revenue.");
+      if (!cancelled) setRows((r.rows || []) as RevenueRow[]);
+    } catch (e: any) {
+      if (!cancelled) setErr(e?.message || "Failed to load revenue.");
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  }
 
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || "Failed to load revenue.");
-
-        setRows((j.rows || []) as RevenueRow[]);
-      } catch (e: any) {
-        setErr(e?.message || "Failed to load revenue.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [gateLoading, tenantId]);
+  load();
+  return () => {
+    cancelled = true;
+  };
+}, [gateLoading]);
 
   const jobs = useMemo(() => {
     const set = new Set<string>();
