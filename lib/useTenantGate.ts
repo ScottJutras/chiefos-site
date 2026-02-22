@@ -1,24 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type GateState = {
   loading: boolean;
   userId: string | null;
   tenantId: string | null;
   hasWhatsApp: boolean;
+  role?: string | null;
   reason?: string | null;
 };
 
-// NOTE: We intentionally support a fallback path:
-// - primary: chiefos_portal_users (portal membership)
-// - fallback: chiefos_user_identities (whatsapp identity mapping)
-// This prevents the portal from bricking during migration / partial onboarding.
-
 export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
   const requireWhatsApp = !!opts?.requireWhatsApp;
 
   const [state, setState] = useState<GateState>({
@@ -26,6 +22,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     userId: null,
     tenantId: null,
     hasWhatsApp: false,
+    role: null,
     reason: null,
   });
 
@@ -37,86 +34,53 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       setState((s) => ({ ...s, ...next }));
     }
 
-    async function resolveTenantId(userId: string): Promise<string | null> {
-      // 1) Preferred: portal membership table
-      const { data: pu, error: puErr } = await supabase
-        .from("chiefos_portal_users")
-        .select("tenant_id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (!puErr && pu?.tenant_id) return String(pu.tenant_id);
-
-      // 2) Fallback: identity table (your SQL shows this exists)
-      // Uses: public.chiefos_user_identities (tenant_id, user_id, kind, identifier)
-      const { data: idRows, error: idErr } = await supabase
-        .from("chiefos_user_identities")
-        .select("tenant_id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true })
-        .limit(1);
-
-      if (idErr) return null;
-      const tenantId = idRows?.[0]?.tenant_id ?? null;
-      return tenantId ? String(tenantId) : null;
-    }
-
-    async function checkWhatsApp(tenantId: string): Promise<boolean> {
-      // You used chiefos_identity_map in the old code.
-      // Your actual table (from your SQL) is chiefos_user_identities.
-      // We'll check both safely.
-
-      // A) preferred: chiefos_user_identities(kind='whatsapp')
-      const { data: wRows, error: wErr } = await supabase
-        .from("chiefos_user_identities")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("kind", "whatsapp")
-        .limit(1);
-
-      if (!wErr && wRows && wRows.length > 0) return true;
-
-      // B) fallback (if you still have this older view/table)
-      const { data: mapRows, error: mapErr } = await supabase
-        .from("chiefos_identity_map")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("kind", "whatsapp")
-        .limit(1);
-
-      if (!mapErr && mapRows && mapRows.length > 0) return true;
-
-      return false;
+    // ✅ Prevent redirect ping-pong:
+    // Do not redirect if we're already on the target page.
+    function safePush(target: string) {
+      if (!target) return;
+      if (pathname === target) return;
+      router.push(target);
     }
 
     async function run() {
       try {
-        const { data: auth, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
+        const res = await fetch("/api/whoami", {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
 
-        if (!auth.user) {
+        if (res.status === 401) {
           safeSet({ loading: false, reason: "no-auth" });
-          router.push("/login");
+          safePush("/login");
           return;
         }
 
-        const userId = auth.user.id;
+        const json = await res.json().catch(() => null);
 
-        const tenantId = await resolveTenantId(userId);
+        if (!res.ok || !json?.ok) {
+          safeSet({ loading: false, reason: json?.reason || "error" });
+          // If server says finish-signup, respect it
+          if (json?.redirect) safePush(String(json.redirect));
+          else safePush("/login");
+          return;
+        }
+
+        const userId = String(json.userId || "");
+        const tenantId = json.tenantId ? String(json.tenantId) : null;
+        const hasWhatsApp = !!json.hasWhatsApp;
+        const role = json.role ? String(json.role) : null;
+
         if (!tenantId) {
-          safeSet({ loading: false, userId, tenantId: null, reason: "no-tenant" });
-          router.push("/finish-signup");
+          safeSet({ loading: false, userId, tenantId: null, hasWhatsApp, role, reason: "no-tenant" });
+          safePush("/finish-signup");
           return;
         }
 
-        let hasWhatsApp = false;
-        if (requireWhatsApp) {
-          hasWhatsApp = await checkWhatsApp(tenantId);
-          if (!hasWhatsApp) {
-            safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, reason: "no-whatsapp" });
-            router.push("/app/connect-whatsapp");
-            return;
-          }
+        if (requireWhatsApp && !hasWhatsApp) {
+          safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, role, reason: "no-whatsapp" });
+          safePush("/app/connect-whatsapp");
+          return;
         }
 
         safeSet({
@@ -124,11 +88,12 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
           userId,
           tenantId,
           hasWhatsApp,
+          role,
           reason: null,
         });
       } catch {
         safeSet({ loading: false, reason: "error" });
-        router.push("/login");
+        safePush("/login");
       }
     }
 
@@ -136,7 +101,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [router, requireWhatsApp]);
+  }, [router, pathname, requireWhatsApp]);
 
   return state;
 }
