@@ -1,8 +1,9 @@
 "use client";
+
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type LinkCodeRow = {
   id: string;
@@ -12,20 +13,10 @@ type LinkCodeRow = {
   created_at: string;
 };
 
-type PortalUserRow = {
-  user_id: string;
-  tenant_id: string | null;
-  role: string | null;
-  created_at: string | null;
-};
-
 function fmtTime(ts: string | null) {
   if (!ts) return "";
   try {
-    return new Date(ts).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   } catch {
     return "";
   }
@@ -35,15 +26,31 @@ function digitsOnly(code: string | null | undefined) {
   return String(code || "").replace(/\D/g, "");
 }
 
+function safeReturnTo(input: string | null | undefined) {
+  const s = String(input || "").trim();
+  // Only allow internal paths
+  if (!s) return "/app/expenses";
+  if (!s.startsWith("/")) return "/app/expenses";
+  if (s.startsWith("//")) return "/app/expenses";
+  if (s.toLowerCase().startsWith("/api")) return "/app/expenses";
+  return s;
+}
+
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // 1) Gate (auth + tenant)
+  const returnTo = useMemo(
+    () => safeReturnTo(searchParams?.get("returnTo")),
+    [searchParams]
+  );
+
+  // Gate (auth + tenant)
   const { loading: gateLoading, userId, tenantId } = useTenantGate({
     requireWhatsApp: false,
   });
 
-  // 2) Page state (only for link-code operations)
+  // Page state
   const [pageLoading, setPageLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -52,34 +59,12 @@ export default function ConnectWhatsAppPage() {
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // ✅ Your RPC name (confirmed)
+  // RPC
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
 
-  // ✅ Hooks must be called unconditionally (no early returns above this)
   const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
   const has6Digits = codeDigits.length === 6;
-
-  async function requireAuth() {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    if (!data.user) {
-      router.push("/login");
-      return null;
-    }
-    return data.user;
-  }
-
-  async function getPortalUserRow(authUserId: string) {
-    const { data, error } = await supabase
-      .from("chiefos_portal_users")
-      .select("user_id, tenant_id, role, created_at")
-      .eq("user_id", authUserId)
-      .maybeSingle();
-
-    if (error) throw error;
-    return (data as PortalUserRow | null) ?? null;
-  }
 
   // IMPORTANT:
   // chiefos_link_codes.portal_user_id == auth user id in your schema/data.
@@ -98,28 +83,37 @@ export default function ConnectWhatsAppPage() {
     return (data as LinkCodeRow | null) ?? null;
   }
 
+  async function isLinkedNow() {
+    if (!tenantId) return false;
+
+    const { data, error } = await supabase
+      .from("chiefos_identity_map")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("kind", "whatsapp")
+      .limit(1);
+
+    if (error) throw error;
+    return Array.isArray(data) && data.length > 0;
+  }
+
   async function createNewCode() {
     setError(null);
     setCreating(true);
     setCopied(false);
 
     try {
-      if (!userId || !tenantId) return; // gate should guarantee these, but stay safe
+      if (!userId || !tenantId) return;
 
-      // 1) Create code via RPC (SECURITY DEFINER)
-      const { error: rpcErr } = await supabase.rpc(
-        LINK_CODE_RPC_NAME,
-        LINK_CODE_RPC_ARGS
-      );
+      const { error: rpcErr } = await supabase.rpc(LINK_CODE_RPC_NAME, LINK_CODE_RPC_ARGS);
       if (rpcErr) throw rpcErr;
 
-      // 2) Fetch latest code for THIS user_id (portal_user_id == auth user id)
       const latest = await fetchLatestUnexpiredUnusedCode(userId);
       setCodeRow(latest);
 
       if (!latest) {
         setError(
-          `No link code found after RPC. That usually means the RPC wrote a code for a different portal_user_id, or RLS blocked the insert.`
+          "No link code found after RPC. That usually means the RPC wrote a code for a different portal_user_id, or RLS blocked the insert."
         );
       }
     } catch (e: any) {
@@ -136,6 +130,13 @@ export default function ConnectWhatsAppPage() {
 
     try {
       if (!userId || !tenantId) return;
+
+      // If already linked, immediately go where the user intended to go
+      const linked = await isLinkedNow();
+      if (linked) {
+        router.replace(returnTo);
+        return;
+      }
 
       const latest = await fetchLatestUnexpiredUnusedCode(userId);
       setCodeRow(latest);
@@ -157,17 +158,9 @@ export default function ConnectWhatsAppPage() {
     try {
       if (!userId || !tenantId) return;
 
-      const { data, error } = await supabase
-        .from("chiefos_identity_map")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("kind", "whatsapp")
-        .limit(1);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        router.push("/app/expenses");
+      const linked = await isLinkedNow();
+      if (linked) {
+        router.replace(returnTo);
         return;
       }
 
@@ -180,12 +173,12 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
-  // ✅ Don’t load until gate finishes (prevents null user/tenant races)
+  // ✅ wait for gate, then load
   useEffect(() => {
     if (gateLoading) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateLoading, userId, tenantId]);
+  }, [gateLoading, userId, tenantId, returnTo]);
 
   // ✅ auto-check every 1.5s once we have a code
   useEffect(() => {
@@ -197,7 +190,7 @@ export default function ConnectWhatsAppPage() {
 
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codeRow?.code, userId, tenantId]);
+  }, [codeRow?.code, userId, tenantId, returnTo]);
 
   // Reset "Copied!" after a moment
   useEffect(() => {
@@ -206,14 +199,9 @@ export default function ConnectWhatsAppPage() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  // ✅ Early returns must be AFTER all hooks
-  if (gateLoading) {
-    return <div className="p-8 text-gray-600">Loading…</div>;
-  }
-
-  if (pageLoading) {
-    return <div className="p-8 text-gray-600">Loading…</div>;
-  }
+  // ✅ Early returns after hooks
+  if (gateLoading) return <div className="p-8 text-gray-600">Loading…</div>;
+  if (pageLoading) return <div className="p-8 text-gray-600">Loading…</div>;
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -233,8 +221,7 @@ export default function ConnectWhatsAppPage() {
         </div>
 
         <p className="mt-4 text-gray-600">
-          This links your portal account to the phone number you use in WhatsApp
-          so expenses flow in automatically.
+          This links your portal account to the phone number you use in WhatsApp so expenses flow in automatically.
         </p>
 
         {error ? (
@@ -247,8 +234,7 @@ export default function ConnectWhatsAppPage() {
         <div className="mt-8 rounded-lg border p-5">
           <div className="text-sm font-semibold">Step 1</div>
           <div className="mt-2 text-gray-700 text-sm">
-            Send <span className="font-semibold">only this 6-digit code</span>{" "}
-            to ChiefOS on WhatsApp:
+            Send <span className="font-semibold">only this 6-digit code</span> to ChiefOS on WhatsApp:
           </div>
 
           <div className="mt-4 rounded-md bg-gray-50 border px-4 py-3 font-mono text-2xl tracking-widest text-center">
@@ -256,9 +242,7 @@ export default function ConnectWhatsAppPage() {
           </div>
 
           {codeRow?.expires_at ? (
-            <div className="mt-2 text-xs text-gray-500">
-              Expires at {fmtTime(codeRow.expires_at)}.
-            </div>
+            <div className="mt-2 text-xs text-gray-500">Expires at {fmtTime(codeRow.expires_at)}.</div>
           ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -295,11 +279,7 @@ export default function ConnectWhatsAppPage() {
             </button>
 
             <a
-              href={
-                has6Digits
-                  ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}`
-                  : undefined
-              }
+              href={has6Digits ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}` : undefined}
               className={`rounded-md border px-4 py-2 text-sm hover:bg-gray-50 inline-flex items-center ${
                 !has6Digits ? "pointer-events-none opacity-50" : ""
               }`}
@@ -309,8 +289,8 @@ export default function ConnectWhatsAppPage() {
           </div>
 
           <div className="mt-4 text-sm text-gray-600">
-            Once you send the code, this page will auto-detect the link and take
-            you to Expenses.
+            Once you send the code, this page will auto-detect the link and take you back to{" "}
+            <span className="font-semibold">{returnTo}</span>.
           </div>
         </div>
       </div>
