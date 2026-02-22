@@ -83,7 +83,7 @@ async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): 
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const r = await fetch(
-    `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=eq.whatsapp&limit=1`,
+   `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=in.(whatsapp,wa,WhatsApp)&limit=1`,
     {
       headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
       cache: "no-store",

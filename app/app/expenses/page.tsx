@@ -126,7 +126,7 @@ function startOfWeekMondayLocal(d: Date) {
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  const { loading: gateLoading } = useTenantGate();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -231,35 +231,38 @@ export default function ExpensesPage() {
   }, [exportOpen]);
 
   useEffect(() => {
-    let cancelled = false;
+  let cancelled = false;
 
-    async function load() {
-      try {
-        const { data, error } = await supabase
-          .from("chiefos_expenses_receipts")
-          .select("*")
-          .is("deleted_at", null)
-          .order("expense_date", { ascending: false });
+  // ✅ wait until tenant gate finishes
+  if (gateLoading) return;
 
-        if (error) throw error;
-        if (!cancelled) setExpenses((data ?? []) as Expense[]);
+  async function load() {
+    try {
+      const { data, error } = await supabase
+        .from("chiefos_expenses_receipts")
+        .select("*")
+        .is("deleted_at", null)
+        .order("expense_date", { ascending: false });
 
-        const { data: vData, error: vErr } = await supabase.rpc(
-          "chiefos_list_saved_views"
-        );
-        if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      if (error) throw error;
+      if (!cancelled) setExpenses((data ?? []) as Expense[]);
+
+      const { data: vData, error: vErr } = await supabase.rpc(
+        "chiefos_list_saved_views"
+      );
+      if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
+    } catch (e: any) {
+      if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
+    } finally {
+      if (!cancelled) setLoading(false);
     }
+  }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  load();
+  return () => {
+    cancelled = true;
+  };
+}, [gateLoading]);
 
   const jobs = useMemo(() => {
     const set = new Set<string>();
