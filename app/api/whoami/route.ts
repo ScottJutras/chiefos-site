@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 
 /**
  * /api/whoami
- * - Takes the user's Supabase access token (Bearer)
- * - Resolves userId (via Supabase Auth API)
+ * - Expects Authorization: Bearer <supabase_access_token>
+ * - Resolves userId via Supabase Auth API
  * - Resolves tenantId (portal membership first, identities fallback)
  * - Computes hasWhatsApp (identity exists for tenant)
  *
- * NOTE:
- * This route uses SUPABASE_SERVICE_ROLE_KEY server-side (never exposed to client),
- * so it does NOT rely on client RLS policies to function.
+ * Uses SUPABASE_SERVICE_ROLE_KEY server-side (never exposed to client).
  */
 
 function mustEnv(name: string): string {
@@ -39,12 +37,8 @@ async function firstTenantForUser(userId: string): Promise<string | null> {
   // 1) Portal membership (preferred)
   const r1 = await fetch(
     `${url}/rest/v1/chiefos_portal_users?select=tenant_id,role&user_id=eq.${userId}&limit=1`,
-    {
-      headers: { apikey: service, Authorization: `Bearer ${service}` },
-      cache: "no-store",
-    }
+    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
   );
-
   if (r1.ok) {
     const rows = await r1.json().catch(() => []);
     const tid = rows?.[0]?.tenant_id;
@@ -54,13 +48,10 @@ async function firstTenantForUser(userId: string): Promise<string | null> {
   // 2) Fallback: identity mapping
   const r2 = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=tenant_id&user_id=eq.${userId}&order=created_at.asc&limit=1`,
-    {
-      headers: { apikey: service, Authorization: `Bearer ${service}` },
-      cache: "no-store",
-    }
+    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
   );
-
   if (!r2.ok) return null;
+
   const rows2 = await r2.json().catch(() => []);
   const tid2 = rows2?.[0]?.tenant_id ?? null;
   return tid2 ? String(tid2) : null;
@@ -72,10 +63,7 @@ async function hasWhatsAppIdentity(tenantId: string): Promise<boolean> {
 
   const r = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=id&tenant_id=eq.${tenantId}&kind=eq.whatsapp&limit=1`,
-    {
-      headers: { apikey: service, Authorization: `Bearer ${service}` },
-      cache: "no-store",
-    }
+    { headers: { apikey: service, Authorization: `Bearer ${service}` }, cache: "no-store" }
   );
 
   if (!r.ok) return false;
@@ -87,6 +75,7 @@ export async function GET(req: Request) {
   try {
     const auth = req.headers.get("authorization") || "";
     const accessToken = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+
     if (!accessToken) {
       return NextResponse.json({ error: "Missing auth token." }, { status: 401 });
     }
@@ -98,19 +87,12 @@ export async function GET(req: Request) {
 
     const tenantId = await firstTenantForUser(userId);
     if (!tenantId) {
-      return NextResponse.json(
-        { error: "No tenant found for this user." },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "No tenant found for this user." }, { status: 403 });
     }
 
     const hasWhatsApp = await hasWhatsAppIdentity(tenantId);
-
     return NextResponse.json({ ok: true, userId, tenantId, hasWhatsApp });
   } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Server error." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message || "Server error." }, { status: 500 });
   }
 }

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { fetchWhoami } from "@/lib/whoami";
 
 type GateState = {
   loading: boolean;
   userId: string | null;
   tenantId: string | null;
   hasWhatsApp: boolean;
-  role?: string | null;
+  role?: string | null; // currently not returned by whoami route (keep for future)
   reason?: string | null;
 };
 
@@ -34,8 +35,6 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       setState((s) => ({ ...s, ...next }));
     }
 
-    // ✅ Prevent redirect ping-pong:
-    // Do not redirect if we're already on the target page.
     function safePush(target: string) {
       if (!target) return;
       if (pathname === target) return;
@@ -44,41 +43,32 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
     async function run() {
       try {
-        const res = await fetch("/api/whoami", {
-          method: "GET",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
+        const w = await fetchWhoami();
 
-        if (res.status === 401) {
+        if (!w?.ok) {
+          safeSet({ loading: false, reason: w?.error || "whoami-failed" });
+          safePush("/login");
+          return;
+        }
+
+        const userId = w.userId ? String(w.userId) : null;
+        const tenantId = w.tenantId ? String(w.tenantId) : null;
+        const hasWhatsApp = !!w.hasWhatsApp;
+
+        if (!userId) {
           safeSet({ loading: false, reason: "no-auth" });
           safePush("/login");
           return;
         }
 
-        const json = await res.json().catch(() => null);
-
-        if (!res.ok || !json?.ok) {
-          safeSet({ loading: false, reason: json?.reason || "error" });
-          // If server says finish-signup, respect it
-          if (json?.redirect) safePush(String(json.redirect));
-          else safePush("/login");
-          return;
-        }
-
-        const userId = String(json.userId || "");
-        const tenantId = json.tenantId ? String(json.tenantId) : null;
-        const hasWhatsApp = !!json.hasWhatsApp;
-        const role = json.role ? String(json.role) : null;
-
         if (!tenantId) {
-          safeSet({ loading: false, userId, tenantId: null, hasWhatsApp, role, reason: "no-tenant" });
+          safeSet({ loading: false, userId, tenantId: null, hasWhatsApp, reason: "no-tenant" });
           safePush("/finish-signup");
           return;
         }
 
         if (requireWhatsApp && !hasWhatsApp) {
-          safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, role, reason: "no-whatsapp" });
+          safeSet({ loading: false, userId, tenantId, hasWhatsApp: false, reason: "no-whatsapp" });
           safePush("/app/connect-whatsapp");
           return;
         }
@@ -88,7 +78,6 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
           userId,
           tenantId,
           hasWhatsApp,
-          role,
           reason: null,
         });
       } catch {
