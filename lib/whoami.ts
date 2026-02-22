@@ -5,7 +5,7 @@ function sleep(ms: number) {
 }
 
 async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?: number }) {
-  const timeoutMs = opts?.timeoutMs ?? 2000;
+  const timeoutMs = opts?.timeoutMs ?? 2500;
   const intervalMs = opts?.intervalMs ?? 150;
 
   const started = Date.now();
@@ -31,22 +31,39 @@ export async function fetchWhoami(): Promise<{
   hasWhatsApp?: boolean;
   error?: string;
 }> {
-  // ✅ allow brief hydration time after setSession + navigation
-  const token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
-
+  // ✅ allow brief hydration time after login + navigation
+  let token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) return { ok: false, error: "no-session-token" };
 
-  const r = await fetch("/api/whoami", {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
+  async function callWhoami(t: string) {
+    const r = await fetch("/api/whoami", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${t}` },
+      cache: "no-store",
+    });
 
-  const j: any = await r.json().catch(() => ({}));
+    const j: any = await r.json().catch(() => ({}));
+    return { r, j };
+  }
+
+  // 1) First attempt
+  let { r, j } = await callWhoami(token);
+
+  // 2) If 401, try a single refresh (covers token drift / stale session)
+  if (r.status === 401) {
+    try {
+      const refreshed = await supabase.auth.refreshSession();
+      const freshToken = refreshed?.data?.session?.access_token || "";
+      if (freshToken) {
+        token = freshToken;
+        ({ r, j } = await callWhoami(token));
+      }
+    } catch {
+      // ignore, fall through to normalized error
+    }
+  }
 
   // ✅ normalize server error shapes:
-  // - old: { error: "..." }
-  // - new: { ok:false, code:"...", message:"..." }
   if (!r.ok || !j?.ok) {
     const msg =
       j?.message ||

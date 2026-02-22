@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
@@ -16,7 +16,14 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  _client = createClient(url, anon);
+  _client = createClient(url, anon, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
   return _client;
 }
 
@@ -29,4 +36,3 @@ export const supabase = new Proxy({} as SupabaseClient, {
     return typeof v === "function" ? v.bind(c) : v;
   },
 });
-

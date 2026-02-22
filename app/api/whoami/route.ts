@@ -2,6 +2,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs"; // ✅ force Node (not Edge)
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function missingEnv(names: string[]) {
   return names.filter((n) => !process.env[n]);
@@ -81,7 +83,14 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+  // --- DEBUG: prove what arrives in production (remove after)
+  const rawAuth = req.headers.get("authorization");
+  const hasAuthHeader = !!rawAuth;
+  const authPreview = rawAuth ? rawAuth.slice(0, 18) + "..." : null;
 
+  // If you're behind a proxy/CDN, sometimes auth headers get stripped.
+  // This will tell us definitively.
+  console.log("[whoami] auth header present:", hasAuthHeader, "preview:", authPreview);
   try {
     const accessToken = getBearer(req);
     if (!accessToken) {

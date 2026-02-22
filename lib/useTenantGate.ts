@@ -29,7 +29,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
   useEffect(() => {
     let cancelled = false;
-
+        let attempts = 0;
     function safeSet(next: Partial<GateState>) {
       if (cancelled) return;
       setState((s) => ({ ...s, ...next }));
@@ -50,6 +50,13 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
   if (w?.error === "no-session-token") {
     safeSet({ loading: true, reason: "waiting-session" });
     // retry once shortly (don’t loop forever)
+        attempts++;
+    if (attempts > 6) {
+      safeSet({ loading: false, reason: "no-session-token" });
+      safePush("/login");
+      return;
+    }
+
     setTimeout(() => {
       if (!cancelled) run();
     }, 350);
