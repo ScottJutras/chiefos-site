@@ -112,10 +112,9 @@ async function getBetaRowByEmail(email: string): Promise<{
   _debug?: any;
 } | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceMaybe = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Don’t crash whoami if service role is missing; omit beta info.
-  if (!service) {
+  if (!serviceMaybe) {
     return {
       status: null,
       entitlementPlan: null,
@@ -124,53 +123,82 @@ async function getBetaRowByEmail(email: string): Promise<{
     };
   }
 
-  const q = new URLSearchParams();
-  q.set("select", "status,entitlement_plan,plan,approved_at,created_at");
-  q.set("email", `eq."${email}"`);
-  q.set("order", "created_at.desc");
-  q.set("limit", "1");
+  // ✅ Narrow type so TS knows it's a string
+  const service: string = serviceMaybe;
 
-  const endpoint = `${url.replace(/\/$/, "")}/rest/v1/chiefos_beta_signups?${q.toString()}`;
+  const clean = String(email || "").trim().toLowerCase();
+  if (!clean) return null;
 
-  const r = await fetch(endpoint, {
-    headers: {
-      apikey: service,
-      Authorization: `Bearer ${service}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  async function runQuery(filterKey: string, filterVal: string) {
+    const q = new URLSearchParams();
+    q.set("select", "status,entitlement_plan,plan,approved_at,created_at,email");
+    q.set(filterKey, filterVal);
+    q.set("order", "created_at.desc");
+    q.set("limit", "1");
 
-  const rawText = await r.text().catch(() => "");
-  let parsed: any = null;
-  try {
-    parsed = rawText ? JSON.parse(rawText) : null;
-  } catch {
-    parsed = rawText;
+    const endpoint = `${url.replace(/\/$/, "")}/rest/v1/chiefos_beta_signups?${q.toString()}`;
+
+    // ✅ Use Headers so TS is happy + avoids weird object typing
+    const headers = new Headers();
+    headers.set("apikey", service);
+    headers.set("Authorization", `Bearer ${service}`);
+    headers.set("Accept", "application/json");
+
+    const r = await fetch(endpoint, {
+      headers,
+      cache: "no-store",
+    });
+
+    const rawText = await r.text().catch(() => "");
+    let parsed: any = null;
+    try {
+      parsed = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      parsed = rawText;
+    }
+
+    const dbg: any = {
+      endpointHost: (() => {
+        try {
+          return new URL(endpoint).host;
+        } catch {
+          return null;
+        }
+      })(),
+      status: r.status,
+      ok: r.ok,
+      filterKey,
+      filterValPreview: String(filterVal).slice(0, 160),
+      isArray: Array.isArray(parsed),
+      bodyPreview: typeof rawText === "string" ? rawText.slice(0, 240) : null,
+    };
+
+    const rows = Array.isArray(parsed) ? (parsed as any[]) : [];
+    return { rows, dbg };
   }
 
-  const _debug = {
-    endpointHost: (() => {
-      try {
-        return new URL(endpoint).host;
-      } catch {
-        return null;
-      }
-    })(),
-    status: r.status,
-    ok: r.ok,
-    isArray: Array.isArray(parsed),
-    bodyPreview: typeof rawText === "string" ? rawText.slice(0, 220) : null,
-  };
+  // IMPORTANT:
+  // PostgREST filter values should NOT be pre-encodeURIComponent()'d inside URLSearchParams.
+  // URLSearchParams will encode it for you. Double-encoding can cause zero-row matches.
+  const r1 = await runQuery("email", `ilike.${clean}`);
+  let rows = r1.rows;
+  let dbg: any = r1.dbg;
 
-  if (!r.ok) {
-    // Return "null-like" beta but include debug so you can see the real error
-    return { status: null, entitlementPlan: null, approvedPlan: null, _debug };
+  if (!rows?.[0]) {
+    const r2 = await runQuery("email", `eq.${clean}`);
+    rows = r2.rows;
+    dbg = { first: r1.dbg, second: r2.dbg };
   }
 
-  const rows = Array.isArray(parsed) ? (parsed as any[]) : [];
   const row = rows?.[0];
-  if (!row) return { status: null, entitlementPlan: null, approvedPlan: null, _debug: { ..._debug, rows: 0 } };
+  if (!row) {
+    return {
+      status: null,
+      entitlementPlan: null,
+      approvedPlan: null,
+      _debug: { ...dbg, rows: 0 },
+    };
+  }
 
   const rawStatus = String(row.status || "").trim().toLowerCase();
   const status: BetaStatus | null =
@@ -181,7 +209,12 @@ async function getBetaRowByEmail(email: string): Promise<{
   const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
 
-  return { status, entitlementPlan, approvedPlan, _debug: { ..._debug, rows: rows.length } };
+  return {
+    status,
+    entitlementPlan,
+    approvedPlan,
+    _debug: { ...dbg, rows: 1, matchedEmail: row.email },
+  };
 }
 
 export async function GET(req: NextRequest) {
