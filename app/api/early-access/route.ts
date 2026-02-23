@@ -16,17 +16,27 @@ const ratelimit = new Ratelimit({
 
 type Plan = "free" | "starter" | "pro" | "unknown";
 
+function mustEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
+}
+
 function normalizePlan(v: any): Plan {
-  const s = String(v || "")
-    .trim()
-    .toLowerCase();
+  const s = String(v || "").trim().toLowerCase();
   if (s === "free" || s === "starter" || s === "pro") return s;
   return "unknown";
 }
 
+function planLabel(plan: Plan) {
+  if (plan === "free") return "Free — Field Capture";
+  if (plan === "starter") return "Starter — Owner Mode";
+  if (plan === "pro") return "Pro — Crew + Control";
+  return "Unknown";
+}
+
 async function verifyTurnstile(token: string, ip?: string | null) {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) throw new Error("Missing TURNSTILE_SECRET_KEY");
+  const secret = mustEnv("TURNSTILE_SECRET_KEY");
 
   const form = new FormData();
   form.append("secret", secret);
@@ -38,16 +48,13 @@ async function verifyTurnstile(token: string, ip?: string | null) {
     body: form,
   });
 
-  const data = await r.json();
+  const data = await r.json().catch(() => ({}));
   return !!data?.success;
 }
 
-async function sendPostmarkEmail(subject: string, textBody: string) {
-  const token = process.env.POSTMARK_SERVER_TOKEN;
-  if (!token) throw new Error("Missing POSTMARK_SERVER_TOKEN");
-
-  const from = process.env.POSTMARK_FROM;
-  if (!from) throw new Error("Missing POSTMARK_FROM (must be a verified sender in Postmark)");
+async function sendPostmarkEmail(opts: { to: string; subject: string; textBody: string }) {
+  const token = mustEnv("POSTMARK_SERVER_TOKEN");
+  const from = mustEnv("POSTMARK_FROM");
 
   const r = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
@@ -57,16 +64,51 @@ async function sendPostmarkEmail(subject: string, textBody: string) {
     },
     body: JSON.stringify({
       From: from,
-      To: "scott@scottjutras.com",
-      Subject: subject,
-      TextBody: textBody,
+      To: opts.to,
+      Subject: opts.subject,
+      TextBody: opts.textBody,
       MessageStream: "outbound",
     }),
   });
 
   if (!r.ok) {
-    const err = await r.text();
+    const err = await r.text().catch(() => "");
     throw new Error(`Postmark error: ${err}`);
+  }
+}
+
+async function serviceFetch(path: string) {
+  const supabaseUrl = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceKey = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  const r = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+    cache: "no-store",
+  });
+
+  if (!r.ok) return null;
+  return await r.json().catch(() => null);
+}
+
+async function serviceUpsertBetaSignup(row: any) {
+  const supabaseUrl = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceKey = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  const r = await fetch(`${supabaseUrl}/rest/v1/chiefos_beta_signups?on_conflict=email`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+      // merge duplicates so name/phone/plan update; we prevent approval overwrite by not sending those fields
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify([row]),
+  });
+
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`Supabase upsert failed: ${t}`);
   }
 }
 
@@ -77,7 +119,7 @@ export async function POST(req: Request) {
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       null;
 
-    const { name, email, phone, plan, turnstileToken } = await req.json();
+    const { name, email, phone, plan, turnstileToken } = await req.json().catch(() => ({}));
 
     const cleanName = String(name || "").trim();
     const cleanEmail = String(email || "").trim().toLowerCase();
@@ -102,40 +144,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Bot check failed. Try again." }, { status: 400 });
     }
 
-    // Insert lead into Supabase using Service Role
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    // Read existing so we NEVER downgrade approvals
+    const existing = await serviceFetch(
+      `chiefos_beta_signups?select=email,status,entitlement_plan,approved_at,plan&email=eq.${encodeURIComponent(
+        cleanEmail
+      )}&limit=1`
+    );
+    const row0 = Array.isArray(existing) ? existing[0] : null;
 
-    // ✅ IMPORTANT: This assumes your table has a "plan" column.
-    // If it doesn't, Supabase will error. Add the column OR remove "plan" from this payload.
+    const existingStatus = String(row0?.status || "").toLowerCase();
+    const lockedStatus = existingStatus === "approved" || existingStatus === "denied";
+
+    // Upsert payload: always safe lead fields
     const payload: Record<string, any> = {
       email: cleanEmail,
       name: cleanName,
       phone: cleanPhone,
       ip,
-      source: "pricing_or_site", // you can refine later (ex: "pricing", "homepage")
+      source: "pricing_or_site",
       plan: cleanPlan,
     };
 
-    const insert = await fetch(`${supabaseUrl}/rest/v1/chiefos_beta_signups`, {
-      method: "POST",
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify([payload]),
-    });
-
-    if (!insert.ok) {
-      const t = await insert.text();
-      throw new Error(`Supabase insert failed: ${t}`);
+    // Only set requested/entitlement on non-locked rows
+    if (!lockedStatus) {
+      payload.status = "requested";
+      // set entitlement_plan only if missing (otherwise preserve whatever admin set)
+      if (!row0?.entitlement_plan) payload.entitlement_plan = cleanPlan;
+      // approved_at stays null until manual approval
     }
 
-    await sendPostmarkEmail(
-      `ChiefOS Early Access (${cleanPlan}): ${cleanName}`,
-      [
+    await serviceUpsertBetaSignup(payload);
+
+    // Internal email to you
+    await sendPostmarkEmail({
+      to: "scott@scottjutras.com",
+      subject: `ChiefOS Early Access (${cleanPlan}): ${cleanName}`,
+      textBody: [
         "New early access request:",
         "",
         `Plan: ${cleanPlan}`,
@@ -144,8 +188,36 @@ export async function POST(req: Request) {
         `Phone: ${cleanPhone || "—"}`,
         `IP: ${ip || "—"}`,
         "",
-      ].join("\n")
-    );
+        row0 ? `Existing status: ${existingStatus || "unknown"}` : "New email (first request).",
+        "",
+        "Next: approve in Supabase when ready (status=approved).",
+      ].join("\n"),
+    });
+
+    // Requester next-steps email
+    const appBase = process.env.APP_BASE_URL || "https://app.usechiefos.com";
+    const base = String(appBase).replace(/\/+$/, "");
+    const signupUrl = `${base}/signup?plan=${encodeURIComponent(cleanPlan === "unknown" ? "starter" : cleanPlan)}`;
+    const loginUrl = `${base}/login`;
+
+    await sendPostmarkEmail({
+      to: cleanEmail,
+      subject: `ChiefOS — ${planLabel(cleanPlan)} request received`,
+      textBody: [
+        `Hey ${cleanName},`,
+        "",
+        `We got your request for: ${planLabel(cleanPlan)}.`,
+        "",
+        "Next steps:",
+        `1) Create your account (use this same email): ${signupUrl}`,
+        "2) Verify your email (check inbox / spam).",
+        `3) Sign in: ${loginUrl}`,
+        "",
+        "Once you're approved, your account will unlock automatically.",
+        "",
+        "— ChiefOS",
+      ].join("\n"),
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

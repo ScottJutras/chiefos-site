@@ -7,7 +7,6 @@ function sleep(ms: number) {
 async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?: number }) {
   const timeoutMs = opts?.timeoutMs ?? 2500;
   const intervalMs = opts?.intervalMs ?? 150;
-
   const started = Date.now();
 
   while (Date.now() - started < timeoutMs) {
@@ -24,13 +23,16 @@ async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?:
   return "";
 }
 
-export async function fetchWhoami(): Promise<{
-  ok: boolean;
-  userId?: string;
-  tenantId?: string;
-  hasWhatsApp?: boolean;
-  error?: string;
-}> {
+export type WhoamiOk = {
+  ok: true;
+  userId: string;
+  tenantId: string;
+  hasWhatsApp: boolean;
+  email?: string | null;
+  betaPlan?: "free" | "starter" | "pro" | null;
+};
+
+export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string }> {
   // ✅ allow brief hydration time after login + navigation
   let token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) return { ok: false, error: "no-session-token" };
@@ -41,7 +43,6 @@ export async function fetchWhoami(): Promise<{
       headers: { Authorization: `Bearer ${t}` },
       cache: "no-store",
     });
-
     const j: any = await r.json().catch(() => ({}));
     return { r, j };
   }
@@ -59,19 +60,24 @@ export async function fetchWhoami(): Promise<{
         ({ r, j } = await callWhoami(token));
       }
     } catch {
-      // ignore, fall through to normalized error
+      // ignore
     }
   }
 
-  // ✅ normalize server error shapes:
+  // normalize server error shapes: { ok:false, code, message } OR { error }
   if (!r.ok || !j?.ok) {
-    const msg =
-      j?.message ||
-      j?.error ||
-      (j?.code ? `${j.code}` : "") ||
-      `whoami_${r.status}`;
-    return { ok: false, error: msg };
+    const code = j?.code ? String(j.code) : "";
+    const message = j?.message ? String(j.message) : "";
+    const fallback = j?.error ? String(j.error) : `whoami_${r.status}`;
+    return { ok: false, error: code || message || fallback };
   }
 
-  return j;
+  return {
+    ok: true,
+    userId: String(j.userId || ""),
+    tenantId: String(j.tenantId || ""),
+    hasWhatsApp: !!j.hasWhatsApp,
+    email: j.email ?? null,
+    betaPlan: j.betaPlan ?? null,
+  };
 }

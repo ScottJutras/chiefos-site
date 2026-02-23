@@ -113,7 +113,7 @@ export default function LoginClient() {
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
-          <span className="h-2 w-2 rounded-full bg-black/50" />
+          <span className="h-2 w-2 rounded-full bg-emerald-400" />
           Early access portal
         </div>
 

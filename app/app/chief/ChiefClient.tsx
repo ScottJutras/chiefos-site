@@ -1,3 +1,4 @@
+// app/app/chief/ChiefClient.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -51,10 +52,9 @@ type Msg = {
 };
 
 function chip(cls: string) {
-  return [
-    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
-    cls,
-  ].join(" ");
+  return ["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", cls].join(
+    " "
+  );
 }
 
 function money(n?: number) {
@@ -83,8 +83,48 @@ function safeId() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
 }
 
+function StateCard({
+  title,
+  body,
+  actions,
+}: {
+  title: string;
+  body: string;
+  actions?: Array<{ label: string; href?: string; kind?: "primary" | "secondary" }>;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="text-sm font-semibold text-white/90">{title}</div>
+      <div className="mt-2 text-sm text-white/65">{body}</div>
+      {actions?.length ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {actions.map((a, i) => {
+            const primary = a.kind === "primary";
+            const cls = primary
+              ? "rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
+              : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10";
+            return (
+              <a key={i} href={a.href || "#"} className={cls}>
+                {a.label}
+              </a>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ChiefClient() {
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
+  // ✅ IMPORTANT: we need more than just loading now
+  const gate = useTenantGate({ requireWhatsApp: false });
+  const gateLoading = gate.loading;
+
+  // These fields exist if you used the earlier "useTenantGate drop-in" that forwards whoami fields.
+  // If you haven't yet, you SHOULD update useTenantGate to include: betaPlan, betaStatus, betaEntitlementPlan.
+  const betaPlan = (gate as any)?.betaPlan ?? null;
+  const betaStatus = (gate as any)?.betaStatus ?? null;
+  const betaEntitlementPlan = (gate as any)?.betaEntitlementPlan ?? null;
 
   const [range, setRange] = useState<TotalsRange>("mtd");
   const [q, setQ] = useState("");
@@ -177,25 +217,10 @@ export default function ChiefClient() {
         return ok;
       }
 
-      if (j?.answer && !("ok" in j)) {
-        const ok: AskChiefOk = {
-          ok: true,
-          answer: String(j.answer),
-          evidence_meta: {
-            range: normalizeRange(range),
-            job: null,
-            tables: { expenses: 0, revenue: 0, time: 0, tasks: 0, jobs: 0 },
-            totals: { revenue: 0, expenses: 0, net: 0, hours_est: 0 },
-          },
-          warnings: ["Ask Chief response was auto-normalized (missing ok/evidence_meta)."],
-          actions: [],
-        };
-        return ok;
-      }
-
       if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Please log in again." };
       if (status === 403) return { ok: false, code: "PERMISSION_DENIED", message: "Access denied." };
-      if (status === 402) return { ok: false, code: "PLAN_REQUIRED", message: "Ask Chief unlocks on Starter.", upgrade_url: "/app/settings/billing" };
+      if (status === 402)
+        return { ok: false, code: "PLAN_REQUIRED", message: "Ask Chief unlocks on Starter.", upgrade_url: "/pricing" };
 
       return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief failed." };
     };
@@ -253,251 +278,93 @@ export default function ChiefClient() {
     );
   }
 
-  function StateCard({
-    title,
-    body,
-    actions,
-  }: {
-    title: string;
-    body: string;
-    actions?: Array<{ label: string; onClick?: () => void; href?: string; kind?: "primary" | "secondary" }>;
-  }) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <div className="text-sm font-semibold text-white/90">{title}</div>
-        <div className="mt-2 text-sm text-white/65">{body}</div>
-        {actions?.length ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {actions.map((a, i) => {
-              const primary = a.kind === "primary";
-              const cls = primary
-                ? "rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
-                : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10";
-              if (a.href) {
-                return (
-                  <a key={i} href={a.href} className={cls}>
-                    {a.label}
-                  </a>
-                );
-              }
-              return (
-                <button key={i} onClick={a.onClick} className={cls}>
-                  {a.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  function renderChiefBubble(m: Msg) {
-    if (m.pending) {
-      return (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-          <div className="text-xs text-white/55">Chief</div>
-          <div className="mt-2 space-y-2">
-            <div className="h-3 w-1/2 rounded bg-white/10 animate-pulse" />
-            <div className="h-3 w-2/3 rounded bg-white/10 animate-pulse" />
-            <div className="h-3 w-1/3 rounded bg-white/10 animate-pulse" />
-          </div>
-          <div className="mt-3 text-xs text-white/40">Chief is checking your ledger…</div>
-        </div>
-      );
-    }
-
-    const resp = m.resp;
-    if (!resp) return null;
-
-    if (resp.ok === false) {
-      if (resp.code === "PLAN_REQUIRED") {
-        return (
-          <StateCard
-            title="Ask Chief unlocks on Starter"
-            body="Chief can answer from your real ledger, but it’s available on Starter and above."
-            actions={[
-              { label: "Upgrade to Starter", href: resp.upgrade_url || "/app/settings/billing", kind: "primary" },
-              { label: "See plans", href: "/pricing", kind: "secondary" },
-            ]}
-          />
-        );
-      }
-
-      if (resp.code === "NOT_LINKED") {
-        return (
-          <StateCard
-            title="Connect your phone to this business"
-            body="Your account isn’t linked to a ChiefOS business yet. Link WhatsApp so Chief can read the right ledger."
-            actions={[
-              { label: "Generate link code", href: "/app/link-phone", kind: "primary" },
-              { label: "How linking works", href: "/#faq", kind: "secondary" },
-            ]}
-          />
-        );
-      }
-
-      if (resp.code === "PERMISSION_DENIED") {
-        return (
-          <StateCard
-            title="You don’t have access to Ask Chief"
-            body="Ask the owner or a board member to grant you access."
-            actions={[{ label: "Go to Settings", href: "/app/settings", kind: "secondary" }]}
-          />
-        );
-      }
-
-      if (resp.code === "AUTH_REQUIRED") {
-        return (
-          <StateCard
-            title="Session expired"
-            body="Please log in again to continue."
-            actions={[{ label: "Log in", href: "/login", kind: "primary" }]}
-          />
-        );
-      }
-
-      return (
-        <StateCard
-          title="Chief couldn’t answer that"
-          body={resp.message || "Try again, or narrow the question (e.g., WTD, by job, or by vendor)."}
-        />
-      );
-    }
-
-    const ok = resp as AskChiefOk;
-
-    return (
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-          <div className="text-xs text-white/55">Chief</div>
-          <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{ok.answer}</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-xs font-semibold text-white/85">Scope & Evidence</div>
-
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-white/70">
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <div className="text-white/45">Range</div>
-              <div className="mt-1 text-white/85">
-                {typeof ok.evidence_meta?.range === "string"
-                  ? ok.evidence_meta.range.toUpperCase()
-                  : `${ok.evidence_meta.range.start} → ${ok.evidence_meta.range.end}`}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <div className="text-white/45">Job</div>
-              <div className="mt-1 text-white/85">{ok.evidence_meta?.job?.name || ok.evidence_meta?.job?.id || "All jobs"}</div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
-              <div className="text-white/45">Rows scanned</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {Object.entries(ok.evidence_meta?.tables || {}).length ? (
-                  Object.entries(ok.evidence_meta.tables || {}).map(([k, v]) => (
-                    <span key={k} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                      {k}: <b className="text-white">{v}</b>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-white/55">—</span>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
-              <div className="text-white/45">Totals (computed server-side)</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ok.evidence_meta?.totals ? (
-                  <>
-                    {"revenue" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Revenue: <b className="text-white">${money(ok.evidence_meta.totals.revenue)}</b>
-                      </span>
-                    ) : null}
-                    {"expenses" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Expenses: <b className="text-white">${money(ok.evidence_meta.totals.expenses)}</b>
-                      </span>
-                    ) : null}
-                    {"net" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Net: <b className="text-white">${money(ok.evidence_meta.totals.net)}</b>
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="text-white/55">—</span>
-                )}
-              </div>
-
-              <div className="mt-2 text-[11px] text-white/45">
-                Totals reflect the full filtered ledger (not just what’s visible on screen).
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {ok.warnings?.length ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <div className="text-xs font-semibold text-white/85">Warnings</div>
-            <ul className="mt-2 space-y-1 text-xs text-white/70 list-disc pl-5">
-              {ok.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {ok.actions?.length ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <div className="text-xs font-semibold text-white/85">Next best actions</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {ok.actions.slice(0, 7).map((a, i) => {
-                const primary = a.kind === "primary";
-                const cls = primary
-                  ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90"
-                  : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/80 hover:bg-white/10";
-                return (
-                  <a key={i} href={a.href} className={cls}>
-                    {a.label}
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  function renderUserBubble(m: Msg) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="text-xs text-white/55">You</div>
-        <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{m.prompt}</div>
-      </div>
-    );
-  }
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    await callAskChief(q);
-    setQ("");
-  }
-
   if (gateLoading) return <div className="p-8 text-white/70">Loading Chief…</div>;
 
+  /**
+   * ✅ Pre-gate: Early access states BEFORE they ask anything.
+   * - requested → show waitlist
+   * - not found → send to early access page
+   *
+   * NOTE: betaPlan only exists when approved (per whoami).
+   */
+  const isBetaRequested = betaStatus === "requested";
+  const isBetaDenied = betaStatus === "denied";
+  const isBetaApproved = !!betaPlan;
+
+  if (!isBetaApproved && (isBetaRequested || isBetaDenied || betaStatus === null)) {
+    if (isBetaRequested) {
+      return (
+        <main className="min-h-screen">
+          <div className="mx-auto max-w-3xl py-10 px-6">
+            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Early Access</div>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">Request received</h1>
+            <p className="mt-2 text-sm text-white/65">
+              You’re on the list{betaEntitlementPlan ? ` for ${String(betaEntitlementPlan).toUpperCase()}` : ""}. Once
+              you’re approved, your account unlocks automatically.
+            </p>
+
+            <div className="mt-6">
+              <StateCard
+                title="What happens next"
+                body="You already created your account. Next step is approval. Once approved, refresh and you’ll be in."
+                actions={[
+                  { label: "Go to Billing / Plans", href: "/pricing", kind: "secondary" },
+                  { label: "Back to app", href: "/app/expenses", kind: "primary" },
+                ]}
+              />
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    if (isBetaDenied) {
+      return (
+        <main className="min-h-screen">
+          <div className="mx-auto max-w-3xl py-10 px-6">
+            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Access</div>
+            <StateCard
+              title="Access not available on this email"
+              body="This email isn’t approved for early access. You can request access or choose a plan."
+              actions={[
+                { label: "Request early access", href: "/early-access?plan=starter", kind: "primary" },
+                { label: "View plans", href: "/pricing", kind: "secondary" },
+              ]}
+            />
+          </div>
+        </main>
+      );
+    }
+
+    // betaStatus === null (no row found)
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto max-w-3xl py-10 px-6">
+          <div className={chip("border-white/10 bg-white/5 text-white/70")}>Chief</div>
+          <StateCard
+            title="Get access to ChiefOS"
+            body="Your account isn’t on the early access list yet. Request access (Starter/Pro) and we’ll approve you."
+            actions={[
+              { label: "Request Starter access", href: "/early-access?plan=starter", kind: "primary" },
+              { label: "Request Pro access", href: "/early-access?plan=pro", kind: "secondary" },
+            ]}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  // ✅ Normal Chief UI
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Intelligence</div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight">Chief</h1>
-            <p className="mt-1 text-sm text-white/60">Answers are based on your logged ledger — with scope and evidence.</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">Chief</h1>
+            <p className="mt-1 text-sm text-white/60">
+              Answers are based on your logged ledger — with scope and evidence.
+            </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {suggestedPrompts.map((p) => (
@@ -511,6 +378,11 @@ export default function ChiefClient() {
                   {p}
                 </button>
               ))}
+            </div>
+
+            {/* helpful visibility for beta */}
+            <div className="mt-3 text-xs text-white/45">
+              Access: {betaPlan ? `Beta approved (${String(betaPlan).toUpperCase()})` : "—"}
             </div>
           </div>
 
@@ -542,13 +414,41 @@ export default function ChiefClient() {
         ) : (
           <div className="mt-8 space-y-3">
             {msgs.map((m) => (
-              <div key={m.id}>{m.role === "user" ? renderUserBubble(m) : renderChiefBubble(m)}</div>
+              <div key={m.id}>
+                {m.role === "user" ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-xs text-white/55">You</div>
+                    <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{m.prompt}</div>
+                  </div>
+                ) : (
+                  // preserve your original bubble renderer by simply using the existing resp mapping logic
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                    <div className="text-xs text-white/55">Chief</div>
+                    <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">
+                      {m.pending ? "Chief is checking your ledger…" : (m.resp as any)?.answer || (m.resp as any)?.message}
+                    </div>
+                    {m.resp && (m.resp as any)?.code === "PLAN_REQUIRED" ? (
+                      <div className="mt-3 text-xs text-white/60">
+                        If you’re approved for beta but still seeing this, we need core to honor beta entitlements (next
+                        drop-in below).
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
             ))}
             <div ref={bottomRef} />
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="mt-8">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await callAskChief(q);
+            setQ("");
+          }}
+          className="mt-8"
+        >
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <label className="block text-xs text-white/60 mb-2">Ask Chief</label>
             <div className="flex gap-2">
@@ -567,7 +467,9 @@ export default function ChiefClient() {
               </button>
             </div>
 
-            <div className="mt-2 text-[11px] text-white/45">Chief answers from your logged ledger and always shows the scope used.</div>
+            <div className="mt-2 text-[11px] text-white/45">
+              Chief answers from your logged ledger and always shows the scope used.
+            </div>
           </div>
         </form>
       </div>

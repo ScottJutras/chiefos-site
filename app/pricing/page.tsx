@@ -227,7 +227,7 @@ export default function PricingPage() {
         <div className="max-w-3xl">
           <div className="text-sm font-semibold text-white/90">Pricing FAQ</div>
           <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            Plans don’t exist to gate your work — they unlock speed, structure, and control as your operation grows.
+            Plan tiers help you grow as your business needs expand. They unlock speed, structure, and overall data reasoning.
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">

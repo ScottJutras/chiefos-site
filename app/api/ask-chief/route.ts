@@ -18,6 +18,48 @@ function jsonErr(code: string, message: string, status = 200, extra?: Record<str
   return NextResponse.json({ ok: false, code, message, ...(extra || {}) }, { status });
 }
 
+async function getEmailFromToken(accessToken: string): Promise<string | null> {
+  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  const r = await fetch(`${url}/auth/v1/user`, {
+    headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+
+  if (!r.ok) return null;
+  const j = await r.json().catch(() => null);
+  const email = j?.email ? String(j.email).trim().toLowerCase() : null;
+  return email || null;
+}
+
+async function getApprovedBetaPlanByEmail(email: string): Promise<"free" | "starter" | "pro" | null> {
+  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const service = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  const q = new URLSearchParams();
+  q.set("select", "status,entitlement_plan,plan");
+  q.set("email", `eq.${email}`);
+  q.set("limit", "1");
+
+  const r = await fetch(`${url}/rest/v1/chiefos_beta_signups?${q.toString()}`, {
+    headers: { apikey: service, Authorization: `Bearer ${service}` },
+    cache: "no-store",
+  });
+
+  if (!r.ok) return null;
+
+  const rows = (await r.json().catch(() => [])) as any[];
+  const row = rows?.[0];
+  if (!row) return null;
+
+  if (String(row.status || "").toLowerCase() !== "approved") return null;
+
+  const p = String(row.entitlement_plan || row.plan || "").toLowerCase();
+  if (p === "free" || p === "starter" || p === "pro") return p;
+  return null;
+}
+
 export async function POST(req: Request) {
   try {
     const token = getBearerToken(req);
@@ -34,11 +76,15 @@ export async function POST(req: Request) {
       body = {};
     }
 
-    // Forward request to core. Core is source of truth for:
-    // - tenant isolation
-    // - plan gating (digits-based billing identity)
-    // - permissions
-    // - deterministic codes + evidence contract
+    // ✅ Attach beta entitlement hint (core can choose to honor it)
+    let betaPlan: string | null = null;
+    try {
+      const email = await getEmailFromToken(token);
+      betaPlan = email ? await getApprovedBetaPlanByEmail(email) : null;
+    } catch {
+      betaPlan = null; // never block ask-chief
+    }
+
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
 
@@ -49,6 +95,7 @@ export async function POST(req: Request) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          ...(betaPlan ? { "x-chiefos-beta-plan": betaPlan } : {}),
         },
         body: JSON.stringify(body),
         signal: ac.signal,
@@ -65,21 +112,15 @@ export async function POST(req: Request) {
 
     const text = await upstream.text();
 
-    // Attempt JSON pass-through
     try {
       const json = JSON.parse(text);
 
-      // If core returns nonstandard errors, normalize minimal contract:
-      // UI expects ok:boolean + code on gate failures.
       if (typeof json?.ok !== "boolean") {
-        return jsonErr("ERROR", "Ask Chief core returned an invalid response shape.", 502, {
-          raw: json,
-        });
+        return jsonErr("ERROR", "Ask Chief core returned an invalid response shape.", 502, { raw: json });
       }
 
       return NextResponse.json(json, { status: upstream.status });
     } catch {
-      // Non-JSON response from core
       return jsonErr("ERROR", "Ask Chief core returned a non-JSON response.", 502, {
         raw: text?.slice(0, 500),
       });

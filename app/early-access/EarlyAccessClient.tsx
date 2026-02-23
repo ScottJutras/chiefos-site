@@ -84,7 +84,7 @@ export default function EarlyAccessClient() {
     if (selectedPlan === "starter") {
       return {
         title: "Request Starter access",
-        sub: "Owner Mode for job truth: OCR + voice + Ask Chief (owner-only).",
+        sub: "Starter-Owner Mode gives you: OCR(Images) + Voice Logs + Ask Chief: Ai Reasoning over all of your submitted data.",
       };
     }
     if (selectedPlan === "pro") {
