@@ -52,15 +52,7 @@ type Msg = {
 };
 
 function chip(cls: string) {
-  return ["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", cls].join(
-    " "
-  );
-}
-
-function money(n?: number) {
-  const x = Number(n ?? 0);
-  if (!Number.isFinite(x)) return "—";
-  return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return ["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", cls].join(" ");
 }
 
 function rangeLabel(r: TotalsRange) {
@@ -116,14 +108,11 @@ function StateCard({
 }
 
 export default function ChiefClient() {
-  // ✅ IMPORTANT: we need more than just loading now
   const gate = useTenantGate({ requireWhatsApp: false });
   const gateLoading = gate.loading;
 
-  // These fields exist if you used the earlier "useTenantGate drop-in" that forwards whoami fields.
-  // If you haven't yet, you SHOULD update useTenantGate to include: betaPlan, betaStatus, betaEntitlementPlan.
-  const betaPlan = (gate as any)?.betaPlan ?? null;
-  const betaStatus = (gate as any)?.betaStatus ?? null;
+  const betaPlan = (gate as any)?.betaPlan ?? null; // only when approved
+  const betaStatus = (gate as any)?.betaStatus ?? null; // requested|approved|denied|null
   const betaEntitlementPlan = (gate as any)?.betaEntitlementPlan ?? null;
 
   const [range, setRange] = useState<TotalsRange>("mtd");
@@ -178,6 +167,7 @@ export default function ChiefClient() {
       url.searchParams.delete("q");
       window.history.replaceState({}, "", url.toString());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, gateLoading]);
 
   useEffect(() => {
@@ -282,25 +272,31 @@ export default function ChiefClient() {
 
   /**
    * ✅ Pre-gate: Early access states BEFORE they ask anything.
-   * - requested → show waitlist
-   * - not found → send to early access page
-   *
-   * NOTE: betaPlan only exists when approved (per whoami).
+   * requested → pending card
+   * denied → denied card
+   * null → request access
+   * approved → allowed (betaPlan exists when approved per whoami)
    */
+
   const isBetaRequested = betaStatus === "requested";
   const isBetaDenied = betaStatus === "denied";
-  const isBetaApproved = !!betaPlan;
+  const isBetaApproved = betaStatus === "approved" && !!betaPlan;
 
-  if (!isBetaApproved && (isBetaRequested || isBetaDenied || betaStatus === null)) {
+  // If status says approved but plan isn't coming through, something is miswired.
+  const isApprovedButMissingPlan = betaStatus === "approved" && !betaPlan;
+
+  if (!isBetaApproved) {
     if (isBetaRequested) {
       return (
         <main className="min-h-screen">
           <div className="mx-auto max-w-3xl py-10 px-6">
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Early Access</div>
             <h1 className="mt-4 text-3xl font-bold tracking-tight text-white">Request received</h1>
+
             <p className="mt-2 text-sm text-white/65">
-              You’re on the list{betaEntitlementPlan ? ` for ${String(betaEntitlementPlan).toUpperCase()}` : ""}. Once
-              you’re approved, your account unlocks automatically.
+              You’re on the list
+              {betaEntitlementPlan ? <> for {String(betaEntitlementPlan).toUpperCase()}</> : null}. Once you’re
+              approved, your account unlocks automatically.
             </p>
 
             <div className="mt-6">
@@ -336,7 +332,25 @@ export default function ChiefClient() {
       );
     }
 
-    // betaStatus === null (no row found)
+    if (isApprovedButMissingPlan) {
+      return (
+        <main className="min-h-screen">
+          <div className="mx-auto max-w-3xl py-10 px-6">
+            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Access</div>
+            <StateCard
+              title="Approved, but plan not loading"
+              body="Your beta status is approved, but the app can’t read your plan. This is usually an environment mismatch (wrong Supabase URL/keys) or service role missing on the whoami route."
+              actions={[
+                { label: "Refresh", href: "/app/chief", kind: "primary" },
+                { label: "Back to app", href: "/app/expenses", kind: "secondary" },
+              ]}
+            />
+          </div>
+        </main>
+      );
+    }
+
+    // betaStatus === null (no row found) OR anything unexpected
     return (
       <main className="min-h-screen">
         <div className="mx-auto max-w-3xl py-10 px-6">
@@ -354,7 +368,7 @@ export default function ChiefClient() {
     );
   }
 
-  // ✅ Normal Chief UI
+  // ✅ Normal Chief UI (approved)
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
@@ -362,9 +376,7 @@ export default function ChiefClient() {
           <div>
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Intelligence</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">Chief</h1>
-            <p className="mt-1 text-sm text-white/60">
-              Answers are based on your logged ledger — with scope and evidence.
-            </p>
+            <p className="mt-1 text-sm text-white/60">Answers are based on your logged ledger — with scope and evidence.</p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {suggestedPrompts.map((p) => (
@@ -421,7 +433,6 @@ export default function ChiefClient() {
                     <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{m.prompt}</div>
                   </div>
                 ) : (
-                  // preserve your original bubble renderer by simply using the existing resp mapping logic
                   <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                     <div className="text-xs text-white/55">Chief</div>
                     <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">
@@ -429,8 +440,7 @@ export default function ChiefClient() {
                     </div>
                     {m.resp && (m.resp as any)?.code === "PLAN_REQUIRED" ? (
                       <div className="mt-3 text-xs text-white/60">
-                        If you’re approved for beta but still seeing this, we need core to honor beta entitlements (next
-                        drop-in below).
+                        If you’re approved for beta but still seeing this, core must honor beta entitlements.
                       </div>
                     ) : null}
                   </div>

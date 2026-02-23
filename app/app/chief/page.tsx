@@ -1,6 +1,9 @@
 // app/app/chief/page.tsx
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import ChiefClient from "./ChiefClient";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function ChiefPage() {
   return (

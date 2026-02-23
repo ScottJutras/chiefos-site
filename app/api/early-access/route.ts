@@ -82,29 +82,30 @@ function escapeHtml(s: string) {
   });
 }
 
-function buildSignupUrl(appBase: string, opts: { plan: "free" | "starter" | "pro"; email: string; name?: string | null }) {
+function buildSignupUrl(opts: { plan: "free" | "starter" | "pro"; email: string; name?: string | null }) {
+  // Prefer explicit site base URL (marketing domain). Falls back to www.
+  const siteBase = (getEnv("NEXT_PUBLIC_SITE_BASE_URL") || "https://www.usechiefos.com").replace(/\/$/, "");
+
   const qp = new URLSearchParams();
   qp.set("plan", opts.plan);
   qp.set("email", opts.email);
-  if (opts.name && String(opts.name).trim()) qp.set("name", String(opts.name).trim());
-  return `${appBase.replace(/\/$/, "")}/signup?${qp.toString()}`;
+  if (opts.name?.trim()) qp.set("name", opts.name.trim());
+
+  return `${siteBase}/signup?${qp.toString()}`;
 }
 
 async function sendPostmarkEmail(opts: { to: string; name?: string | null; plan: "free" | "starter" | "pro" }) {
   const token = getEnv("POSTMARK_SERVER_TOKEN");
   const from = getEnv("POSTMARK_FROM");
   if (!token || !from) {
-    // Don’t crash early-access if email isn't configured
     return { ok: false as const, skipped: true as const, reason: "missing-postmark-env" };
   }
 
   const stream = getEnv("POSTMARK_MESSAGE_STREAM") || "outbound";
-  const appBase = getEnv("NEXT_PUBLIC_APP_BASE_URL") || "https://app.usechiefos.com";
   const safeName = (opts.name || "").trim();
 
-  // ✅ Correct CTA: create owner account (prefilled) instead of /login
-  const signupUrl = buildSignupUrl(appBase, { plan: opts.plan, email: opts.to, name: safeName || null });
-  const loginUrl = `${appBase.replace(/\/$/, "")}/login`;
+  const signupUrl = buildSignupUrl({ plan: opts.plan, email: opts.to, name: opts.name });
+  const loginUrl = ((getEnv("NEXT_PUBLIC_APP_BASE_URL") || "https://app.usechiefos.com").replace(/\/$/, "")) + "/login";
 
   const subject = `ChiefOS early access request received (${opts.plan.toUpperCase()})`;
 
@@ -112,9 +113,10 @@ async function sendPostmarkEmail(opts: { to: string; name?: string | null; plan:
     `Hey${safeName ? ` ${safeName}` : ""},`,
     ``,
     `We received your ChiefOS early access request for ${opts.plan.toUpperCase()}.`,
-    `Next step: create your owner account so we can attach approval to the right login.`,
     ``,
+    `Next step: Create your owner account so we can attach approval to the right login.`,
     `Create owner account: ${signupUrl}`,
+    ``,
     `Already have an account? Log in: ${loginUrl}`,
     ``,
     `— ChiefOS`,
@@ -139,9 +141,8 @@ async function sendPostmarkEmail(opts: { to: string; name?: string | null; plan:
         </a>
       </p>
 
-      <p style="margin-top:10px; font-size:13px; color:#555;">
-        Already have an account?
-        <a href="${loginUrl}" style="color:#111; text-decoration:underline;">Log in</a>
+      <p style="margin-top:14px; color:#555; font-size:13px;">
+        Already have an account? <a href="${loginUrl}" style="color:#111;">Log in</a>
       </p>
 
       <p style="margin-top:18px; color:#555; font-size:13px;">
@@ -168,12 +169,7 @@ async function sendPostmarkEmail(opts: { to: string; name?: string | null; plan:
 
   const text = await r.text();
   if (!r.ok) {
-    return {
-      ok: false as const,
-      skipped: false as const,
-      reason: `postmark-${r.status}`,
-      raw: text.slice(0, 300),
-    };
+    return { ok: false as const, skipped: false as const, reason: `postmark-${r.status}`, raw: text.slice(0, 300) };
   }
 
   return { ok: true as const };
@@ -222,7 +218,6 @@ export async function POST(req: Request) {
       entitlement_plan: plan,
     };
 
-    // Only set requested if not locked; never touch approved_at
     if (!lockedStatus) payload.status = "requested";
 
     const upserted = await serviceFetch(`chiefos_beta_signups?on_conflict=email`, {
@@ -236,7 +231,7 @@ export async function POST(req: Request) {
 
     const out = Array.isArray(upserted) ? upserted[0] : upserted;
 
-    // 3) Send confirmation email (does not block success if Postmark misconfigured)
+    // 3) Send confirmation email (non-blocking if misconfigured)
     const mail = await sendPostmarkEmail({ to: email, name, plan });
 
     return json(200, {
