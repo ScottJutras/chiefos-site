@@ -1,8 +1,13 @@
+// app/api/early-access/route.ts
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+function json(status: number, body: any) {
+  return NextResponse.json(body, { status });
+}
 
 function mustEnv(name: string) {
   const v = process.env[name];
@@ -10,18 +15,14 @@ function mustEnv(name: string) {
   return v;
 }
 
-function json(status: number, body: any) {
-  return NextResponse.json(body, { status });
+function cleanEmail(x: any) {
+  return String(x || "").trim().toLowerCase();
 }
 
-function normalizeEmail(raw: any): string {
-  return String(raw || "").trim().toLowerCase();
-}
-
-function normalizePlan(raw: any): "free" | "starter" | "pro" | null {
-  const s = String(raw || "").trim().toLowerCase();
+function cleanPlan(x: any): "free" | "starter" | "pro" {
+  const s = String(x || "").trim().toLowerCase();
   if (s === "free" || s === "starter" || s === "pro") return s;
-  return null;
+  return "starter";
 }
 
 async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
@@ -33,13 +34,13 @@ async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
     headers: {
       apikey: service,
       Authorization: `Bearer ${service}`,
-      "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
     cache: "no-store",
   });
 
   const text = await r.text();
+
   let data: any = null;
   try {
     data = text ? JSON.parse(text) : null;
@@ -49,8 +50,9 @@ async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
 
   if (!r.ok) {
     const msg =
-      (data && (data.message || data.error || data.hint)) ||
-      `Supabase request failed (${r.status}).`;
+      typeof data === "string"
+        ? data
+        : data?.message || data?.error || data?.hint || `Supabase request failed (${r.status}).`;
     throw new Error(msg);
   }
 
@@ -61,18 +63,26 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
 
-    const cleanEmail = normalizeEmail(body?.email);
-    if (!cleanEmail) return json(400, { ok: false, error: "Missing email." });
+    const email = cleanEmail(body?.email);
+    const name = String(body?.name || "").trim() || null;
+    const phone = String(body?.phone || "").trim() || null;
+    const source = String(body?.source || "").trim() || "pricing_or_site";
+    const plan = cleanPlan(body?.plan);
 
-    const requestedPlan = normalizePlan(body?.plan) || "starter";
-    const entitlementPlan = normalizePlan(body?.entitlementPlan) || requestedPlan;
+    const ip =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      null;
 
-    // ---------------------------
-    // ✅ Read existing so we NEVER downgrade approvals
-    // ---------------------------
+    if (!email || !email.includes("@")) {
+      return json(400, { ok: false, error: "Missing or invalid email." });
+    }
+
+    // 1) Read existing row (safe columns only — NO updated_at)
     const q = new URLSearchParams();
-    q.set("select", "email,status,entitlement_plan,approved_at,plan");
-    q.set("email", `eq."${cleanEmail}"`);
+    q.set("select", "id,email,status,entitlement_plan,approved_at,plan,created_at");
+    q.set("email", `eq."${email}"`);
+    q.set("order", "created_at.desc");
     q.set("limit", "1");
 
     const existing = await serviceFetch(`chiefos_beta_signups?${q.toString()}`);
@@ -81,47 +91,40 @@ export async function POST(req: Request) {
     const existingStatus = String(row0?.status || "").toLowerCase();
     const lockedStatus = existingStatus === "approved" || existingStatus === "denied";
 
-    // ---------------------------
-    // Upsert payload: always safe lead fields
-    // ---------------------------
-    const nowIso = new Date().toISOString();
-
-    // If locked, do NOT change status/approved_at/plan. Only allow harmless fields.
-    const payload: any = {
-      email: cleanEmail,
-      updated_at: nowIso,
+    // 2) Upsert payload (only uses existing columns)
+    const payload: Record<string, any> = {
+      email,
+      name,
+      phone,
+      ip,
+      source,
+      plan,
+      entitlement_plan: plan,
     };
 
-    if (!lockedStatus) {
-      // Status is only set to requested if not locked
-      payload.status = "requested";
-      payload.plan = requestedPlan;
-      payload.entitlement_plan = entitlementPlan;
-    } else {
-      // Keep entitlement_plan/plan untouched when locked
-      // (optional: still allow updating entitlement_plan if you want — but safest is NO)
-    }
+    // Only set requested if not locked; never touch approved_at
+    if (!lockedStatus) payload.status = "requested";
 
-    // ---------------------------
-    // Upsert by unique email index
-    // ---------------------------
-    const upsertPath = `chiefos_beta_signups?on_conflict=email`;
-    const result = await serviceFetch(upsertPath, {
+    // 3) Upsert by unique email
+    const upserted = await serviceFetch(`chiefos_beta_signups?on_conflict=email`, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         Prefer: "resolution=merge-duplicates,return=representation",
       },
       body: JSON.stringify(payload),
     });
 
+    const out = Array.isArray(upserted) ? upserted[0] : upserted;
+
     return json(200, {
       ok: true,
-      email: cleanEmail,
-      locked: lockedStatus,
       status: lockedStatus ? existingStatus : "requested",
-      row: Array.isArray(result) ? result[0] : result,
+      email: out?.email || email,
+      plan,
+      locked: lockedStatus,
     });
   } catch (e: any) {
-    return json(500, { ok: false, error: e?.message || "early-access failed" });
+    return json(500, { ok: false, error: e?.message || "Early access failed." });
   }
 }

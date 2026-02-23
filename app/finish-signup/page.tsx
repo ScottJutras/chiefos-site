@@ -2,10 +2,8 @@
 import { Suspense } from "react";
 import FinishSignupClient from "./FinishSignupClient";
 
-export const metadata = {
-  title: "ChiefOS — Finishing signup",
-  description: "Creating your ChiefOS workspace.",
-};
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function FinishSignupPage() {
   return (
