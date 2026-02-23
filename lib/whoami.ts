@@ -1,3 +1,4 @@
+// lib/whoami.ts
 import { supabase } from "@/lib/supabase";
 
 function sleep(ms: number) {
@@ -23,17 +24,26 @@ async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?:
   return "";
 }
 
+export type BetaPlan = "free" | "starter" | "pro";
+export type BetaStatus = "requested" | "approved" | "denied";
+
 export type WhoamiOk = {
   ok: true;
   userId: string;
-  tenantId: string;
+  tenantId: string | null;
   hasWhatsApp: boolean;
-  email?: string | null;
-  betaPlan?: "free" | "starter" | "pro" | null;
+  email: string | null;
+
+  // ✅ these were being dropped before
+  betaPlan: BetaPlan | null; // only when approved
+  betaStatus: BetaStatus | null;
+  betaEntitlementPlan: BetaPlan | null;
+
+  // ✅ allow server debugging to flow through
+  debug?: any;
 };
 
-export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string }> {
-  // ✅ allow brief hydration time after login + navigation
+export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string; status?: number; debug?: any }> {
   let token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) return { ok: false, error: "no-session-token" };
 
@@ -50,7 +60,7 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
   // 1) First attempt
   let { r, j } = await callWhoami(token);
 
-  // 2) If 401, try a single refresh (covers token drift / stale session)
+  // 2) If 401, try a single refresh
   if (r.status === 401) {
     try {
       const refreshed = await supabase.auth.refreshSession();
@@ -64,20 +74,25 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
     }
   }
 
-  // normalize server error shapes: { ok:false, code, message } OR { error }
   if (!r.ok || !j?.ok) {
     const code = j?.code ? String(j.code) : "";
     const message = j?.message ? String(j.message) : "";
     const fallback = j?.error ? String(j.error) : `whoami_${r.status}`;
-    return { ok: false, error: code || message || fallback };
+    return { ok: false, error: code || message || fallback, status: r.status, debug: j?.debug };
   }
 
+  // ✅ IMPORTANT: return the full contract (do not “pick” fields)
   return {
     ok: true,
     userId: String(j.userId || ""),
-    tenantId: String(j.tenantId || ""),
+    tenantId: j.tenantId ? String(j.tenantId) : null,
     hasWhatsApp: !!j.hasWhatsApp,
     email: j.email ?? null,
+
     betaPlan: j.betaPlan ?? null,
+    betaStatus: j.betaStatus ?? null,
+    betaEntitlementPlan: j.betaEntitlementPlan ?? null,
+
+    debug: j.debug ?? undefined,
   };
 }
