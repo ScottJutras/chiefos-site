@@ -218,14 +218,14 @@ function IconGlyph({ label }: { label: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
-      <SiteHeader />
-      
+     <SiteHeader /> 
+
          {/* HERO (Simple tools + clear modules) */}
+{/* HERO (Simple tools + clear modules) */}
 <Section id="top" className="pt-8 md:pt-10 pb-12 md:pb-16">
   <div className="max-w-5xl mx-auto text-center">
-    
-
-    <h1 className="mt-6 text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
+    {/* Headline */}
+    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
       Simple tools. Simple pricing.
       <br />
       Outstanding performance.
@@ -238,9 +238,15 @@ export default function Home() {
     <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto">
       ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
     </p>
-       
+
+    {/* Move the WhatsApp hint BELOW the hero copy */}
+    <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
+      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      Add Chief to WhatsApp and say 'Hi' to get started
+    </div>
+
     {/* CTAs */}
-    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+    <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center items-center">
       <TooltipChip tip="No app download. Works inside WhatsApp.">
         <a
           href="/wa?t=hero"
@@ -273,69 +279,71 @@ export default function Home() {
     <div className="mt-4 text-xs text-white/50">
       Owners can ask questions. Crew capture is plan-dependent — you stay in control.
     </div>
-  </div>
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
-      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-      Add Chief to WhatsApp and say 'Hi' to get started
+
+    {/* ✅ New: simplified header moved BELOW hero */}
+    <div className="mt-8">
+      
     </div>
+  </div>
+
   {/* Wide cards (page-width feel) */}
-  <div className="mt-10 grid gap-4">
+  <div className="mt-10 grid gap-4 md:grid-cols-2">
     <ToolCard
-  title="Expenses"
-  icon={<ExpensesIcon className="h-6 w-6 text-white/80" />}
-  blurb="Snap a receipt, text a vendor + amount..."
-/>
+      title="Expenses"
+      icon={<ExpensesIcon className="h-6 w-6 text-white/80" />}
+      blurb="Snap a receipt, text a vendor + amount..."
+    />
 
     <ToolCard
-  title="Time Clock"
-  icon={<TimeIcon className="h-6 w-6 text-white/80" />}
-  blurb="Clock in/out, break..."
-/>
+      title="Time Clock"
+      icon={<TimeIcon className="h-6 w-6 text-white/80" />}
+      blurb="Clock in/out, break..."
+    />
 
     <ToolCard
-  title="Tasks"
-  icon={<TasksIcon className="h-6 w-6 text-white/80" />}
-  blurb="Capture what’s open..."
-/>
-
-   <ToolCard
-  title="Reminders"
-  badge="Coming soon"
-  icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
-  blurb="Lightweight reminders..."
-/>
+      title="Tasks"
+      icon={<TasksIcon className="h-6 w-6 text-white/80" />}
+      blurb="Capture what’s open..."
+    />
 
     <ToolCard
-  title="Quotes"
-  badge="Coming soon"
-  icon={<QuotesIcon className="h-6 w-6 text-white/80" />}
-  blurb="Create and track quotes..."
-/>
+      title="Reminders"
+      badge="Coming soon"
+      icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
+      blurb="Lightweight reminders..."
+    />
 
     <ToolCard
-  title="Docs"
-  icon={<DocsIcon className="h-6 w-6 text-white/80" />}
-  blurb="Keep your paperwork in one place..."
-/>
+      title="Quotes"
+      badge="Coming soon"
+      icon={<QuotesIcon className="h-6 w-6 text-white/80" />}
+      blurb="Create and track quotes..."
+    />
 
     <ToolCard
-  title="Jobs"
-  icon={<JobsIcon className="h-6 w-6 text-white/80" />}
-  blurb="Jobs are the spine..."
-/>
+      title="Docs"
+      icon={<DocsIcon className="h-6 w-6 text-white/80" />}
+      blurb="Keep your paperwork in one place..."
+    />
 
     <ToolCard
-  title="Chief"
-  featured
-  icon={<ChiefIcon className="h-7 w-7 text-white" />}
-  blurb={
-    "Chief is the layer that turns messy inputs into usable records — then answers questions from your data.\n\n" +
-    "• Text messages\n" +
-    "• Audio notes\n" +
-    "• Receipt photos\n\n" +
-    "Chief doesn’t hallucinate numbers. It can only answer based on what you’ve logged and confirmed."
-  }
-/>
+      title="Jobs"
+      icon={<JobsIcon className="h-6 w-6 text-white/80" />}
+      blurb="Jobs are the spine..."
+    />
+
+    <ToolCard
+      title="Chief"
+      featured
+      icon={<ChiefIcon className="h-7 w-7 text-white" />}
+      blurb={
+        "Chief is the layer that turns messy inputs into usable records — then answers questions from your data.\n\n" +
+        "• Text messages\n" +
+        "• Audio notes\n" +
+        "• Receipt photos\n\n" +
+        "Chief doesn’t hallucinate numbers. It can only answer based on what you’ve logged and confirmed."
+      }
+    />
   </div>
 </Section>
 
