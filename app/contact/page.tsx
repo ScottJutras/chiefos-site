@@ -31,6 +31,10 @@ export default function ContactPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // ✅ Hard guard to prevent double submits
+    if (status === "sending") return;
+
     setErr(null);
     setStatus("sending");
 
@@ -38,10 +42,17 @@ export default function ContactPage() {
       if (!siteKey) throw new Error("Bot check misconfigured (missing site key).");
       if (!turnstileToken) throw new Error("Please complete the bot check.");
 
+      const payload = {
+        name: name.trim(),
+        email: email.trim(),
+        message: message.trim(),
+        turnstileToken,
+      };
+
       const r = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message, turnstileToken }),
+        body: JSON.stringify(payload),
       });
 
       const j = await r.json().catch(() => ({}));
@@ -68,21 +79,17 @@ export default function ContactPage() {
           WhatsApp-first support. Real replies. No spam.
         </div>
 
-        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">
-          Contact ChiefOS
-        </h1>
+        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">Contact ChiefOS</h1>
 
         <p className="mt-3 text-white/70 leading-relaxed">
-          If you’re trying to start, the fastest path is WhatsApp — that’s where ChiefOS lives.
-          If you’d rather email, drop a note here.
+          If you’re trying to start, the fastest path is WhatsApp — that’s where ChiefOS lives. If
+          you’d rather email, drop a note here.
         </p>
 
         {status === "sent" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="text-sm font-semibold text-white/90">Got it.</div>
-            <p className="mt-2 text-sm text-white/70">
-              Your message is in. We’ll reply as soon as we can.
-            </p>
+            <p className="mt-2 text-sm text-white/70">Your message is in. We’ll reply as soon as we can.</p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <a
@@ -113,7 +120,8 @@ export default function ContactPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name"
-              required />
+                required
+              />
             </div>
 
             <div>
@@ -172,20 +180,9 @@ export default function ContactPage() {
               >
                 {status === "sending" ? "Sending..." : "Send message"}
               </button>
-
-              <a
-                href="/wa?t=support"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
-              >
-                Start on WhatsApp
-              </a>
             </div>
 
-            <p className="text-xs text-white/45">
-              We only use your email to reply. No lists. No marketing blasts.
-            </p>
+            <p className="text-xs text-white/45">We only use your email to reply. No lists. No marketing blasts.</p>
           </form>
         )}
       </div>
