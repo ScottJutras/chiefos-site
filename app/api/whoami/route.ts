@@ -114,7 +114,15 @@ async function getBetaRowByEmail(email: string): Promise<{
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   // Don't crash whoami if service role is missing; omit beta info.
-  if (!service) return null;
+  if (!service) {
+  return {
+    status: null,
+    entitlementPlan: null,
+    approvedPlan: null,
+    // @ts-ignore
+    _debug: { serviceMissing: true },
+  } as any;
+}
 
   const q = new URLSearchParams();
   q.set("select", "status,entitlement_plan,plan,approved_at,created_at");
@@ -129,9 +137,19 @@ async function getBetaRowByEmail(email: string): Promise<{
     cache: "no-store",
   });
 
-  if (!r.ok) return null;
+  if (!service) {
+  return {
+    status: null,
+    entitlementPlan: null,
+    approvedPlan: null,
+    // @ts-ignore
+    _debug: { serviceMissing: true },
+  } as any;
+}
 
   const rows = (await r.json().catch(() => [])) as any[];
+  // @ts-ignore
+const _debug = { rows: Array.isArray(rows) ? rows.length : -1 };
   const row = rows?.[0];
   if (!row) return null;
 
@@ -144,7 +162,7 @@ async function getBetaRowByEmail(email: string): Promise<{
   const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
 
-  return { status, entitlementPlan, approvedPlan };
+  return { status, entitlementPlan, approvedPlan, _debug } as any;
 }
 
 export async function GET(req: NextRequest) {
@@ -180,6 +198,13 @@ export async function GET(req: NextRequest) {
         betaPlan: beta?.approvedPlan || null, // only when approved
         betaStatus: beta?.status || null, // requested|approved|denied|null
         betaEntitlementPlan: beta?.entitlementPlan || null, // requested/entitled plan
+        debug: {
+  supabaseUrlHost: (() => {
+    try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").host; } catch { return null; }
+  })(),
+  hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  betaDebug: (beta as any)?._debug || null,
+},
       },
       { status: 200 }
     );
