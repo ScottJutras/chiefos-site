@@ -15,16 +15,20 @@ function normalizePlan(v: string | null): Plan | null {
   return null;
 }
 
+function setPlanEverywhere(plan: Plan) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("chiefos_selected_plan", plan);
+  }
+}
+
 function planLabel(plan: Plan) {
   if (plan === "free") return "Free — Field Capture";
   if (plan === "starter") return "Starter — Owner Mode";
   return "Pro — Crew + Control";
 }
 
-function planAccent(plan: Plan) {
-  // premium on white, subtle
-  if (plan === "starter") return "border-black/10 bg-black/5 text-black";
-  if (plan === "pro") return "border-black/10 bg-black/5 text-black";
+function planAccent(_plan: Plan) {
+  // subtle on white (keep consistent)
   return "border-black/10 bg-black/5 text-black";
 }
 
@@ -44,7 +48,9 @@ export default function EarlyAccessClient() {
   const params = useSearchParams();
 
   const planFromUrl = useMemo(() => normalizePlan(params.get("plan")), [params]);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+  // ✅ Always have a plan (default starter)
+  const [selectedPlan, setSelectedPlan] = useState<Plan>("starter");
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -54,33 +60,25 @@ export default function EarlyAccessClient() {
   const [ok, setOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // plan selection memory (URL → localStorage fallback)
+  // plan selection memory (URL → localStorage → default)
   useEffect(() => {
     const fromStorage =
       typeof window !== "undefined"
         ? normalizePlan(localStorage.getItem("chiefos_selected_plan"))
         : null;
 
-    const plan = planFromUrl || fromStorage;
+    const plan = planFromUrl || fromStorage || ("starter" as Plan);
     setSelectedPlan(plan);
-
-    if (typeof window !== "undefined" && planFromUrl) {
-      localStorage.setItem("chiefos_selected_plan", planFromUrl);
-    }
+    setPlanEverywhere(plan);
   }, [planFromUrl]);
 
-  // tracking: view (✅ guard localStorage access)
+  // tracking: view (track the effective plan)
   useEffect(() => {
-    const stored =
-      typeof window !== "undefined"
-        ? normalizePlan(localStorage.getItem("chiefos_selected_plan"))
-        : null;
-
     track("early_access_view", {
-      plan: planFromUrl || stored,
+      plan: selectedPlan,
       path: "/early-access",
     });
-  }, [planFromUrl]);
+  }, [selectedPlan]);
 
   const header = useMemo(() => {
     if (selectedPlan === "starter") {
@@ -95,15 +93,9 @@ export default function EarlyAccessClient() {
         sub: "Crew + Control: self-logging crew, approvals, audit depth, and board roles.",
       };
     }
-    if (selectedPlan === "free") {
-      return {
-        title: "Start Free",
-        sub: "Field Capture: build the habit, then upgrade when you want faster capture, exports, and deeper answers.",
-      };
-    }
     return {
-      title: "Request early access",
-      sub: "Leave your details and I’ll reach out when your spot is ready.",
+      title: "Start Free",
+      sub: "Field Capture: build the habit, then upgrade when you want faster capture, exports, and deeper answers.",
     };
   }, [selectedPlan]);
 
@@ -127,7 +119,7 @@ export default function EarlyAccessClient() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || null,
-          plan: selectedPlan,
+          plan: selectedPlan, // ✅ always defined
           turnstileToken,
         }),
       });
@@ -156,9 +148,9 @@ export default function EarlyAccessClient() {
           </div>
         </div>
 
-        {/* Selected plan pill + quick switch */}
-        {selectedPlan && (
-          <div className="mt-5 flex items-center justify-between gap-3">
+        {/* Selected plan pill + inline selection */}
+        <div className="mt-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
             <div
               className={[
                 "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
@@ -170,16 +162,40 @@ export default function EarlyAccessClient() {
             </div>
 
             <a className="text-xs text-gray-600 underline hover:text-gray-900" href="/pricing#plans">
-              Change plan
+              View pricing
             </a>
           </div>
-        )}
+
+          {/* Plan picker */}
+          <div className="grid grid-cols-3 gap-2">
+            {(["free", "starter", "pro"] as Plan[]).map((p) => {
+              const active = selectedPlan === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPlan(p);
+                    setPlanEverywhere(p);
+                  }}
+                  className={[
+                    "rounded-xl border px-3 py-2 text-left text-xs transition",
+                    active ? "border-black bg-black text-white" : "border-black/10 bg-white hover:bg-gray-50",
+                  ].join(" ")}
+                >
+                  <div className="font-semibold">{planLabel(p).split(" — ")[0]}</div>
+                  <div className={active ? "text-white/80" : "text-gray-600"}>{planLabel(p).split(" — ")[1]}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {ok ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
-            <p className="font-medium">Got it.</p>
+            <p className="font-medium">Perfect, we got your request.</p>
             <p className="mt-2 text-sm text-gray-600">
-              You’re on the list{selectedPlan ? ` for ${planLabel(selectedPlan)}` : ""}. Watch your inbox.
+              You’re on the list for {planLabel(selectedPlan)}. Watch your inbox.
             </p>
             <div className="mt-4 flex gap-4">
               <a className="underline text-sm" href="/">
@@ -233,9 +249,7 @@ export default function EarlyAccessClient() {
             </div>
 
             {err && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {err}
-              </div>
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
             )}
 
             <button
@@ -246,9 +260,7 @@ export default function EarlyAccessClient() {
               {loading ? "Submitting..." : selectedPlan === "free" ? "Start free" : "Request access"}
             </button>
 
-            <p className="text-xs text-gray-500">
-              By submitting, you agree to be contacted about early access.
-            </p>
+            <p className="text-xs text-gray-500">By submitting, you agree to be contacted about early access.</p>
           </form>
         )}
       </div>
