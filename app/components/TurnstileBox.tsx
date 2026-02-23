@@ -5,27 +5,29 @@ import { Turnstile } from "@marsidev/react-turnstile";
 
 export default function TurnstileBox(props: {
   onToken: (token: string | null) => void;
+  /** Bump this to force a new widget (only when you *want* to reset) */
   resetKey?: number;
   className?: string;
 }) {
   const { onToken, resetKey = 0, className } = props;
 
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-
-  // This internal key is what forces the widget to fully remount.
-  // We combine resetKey + siteKey so changing either reinitializes deterministically.
-  const widgetKey = useMemo(() => `${resetKey}:${siteKey}`, [resetKey, siteKey]);
-
   const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration weirdness / flicker caused by rendering Turnstile before client mount.
+  // ✅ Stable options object (prevents remount loops)
+  const options = useMemo(() => ({ appearance: "always" as const }), []);
+
+  // ✅ Deterministic widget key: only changes when YOU bump resetKey or siteKey changes
+  const widgetKey = useMemo(() => `${resetKey}:${siteKey}`, [resetKey, siteKey]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // If key missing or not mounted yet, ensure the parent doesn't keep a stale token.
+  // ✅ Clear stale token if we can't render Turnstile
   useEffect(() => {
     if (!mounted || !siteKey) onToken(null);
+    // Intentionally omit onToken from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, siteKey, resetKey]);
 
@@ -54,12 +56,10 @@ export default function TurnstileBox(props: {
       <Turnstile
         key={widgetKey}
         siteKey={siteKey}
-        onSuccess={(token) => onToken(token || null)}
+        options={options}
+        onSuccess={(t) => onToken(t || null)}
         onExpire={() => onToken(null)}
         onError={() => onToken(null)}
-        options={{
-          appearance: "always",
-        }}
       />
     </div>
   );

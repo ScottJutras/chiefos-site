@@ -1,4 +1,3 @@
-// app/api/whoami/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -10,7 +9,7 @@ function missingEnv(names: string[]) {
 }
 
 function getBearer(req: Request) {
-  const auth = req.headers.get("authorization") || "";
+  const auth = req.headers.get("authorization") || req.headers.get("Authorization") || "";
   return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
 
@@ -57,7 +56,7 @@ async function firstTenantForUser(userId: string, accessToken: string): Promise<
 
   if (r1.ok) {
     const rows = await r1.json().catch(() => []);
-    const tid = rows?.[0]?.tenant_id;
+    const tid = (rows as any[])?.[0]?.tenant_id;
     if (tid) return String(tid);
   }
 
@@ -72,7 +71,7 @@ async function firstTenantForUser(userId: string, accessToken: string): Promise<
 
   if (!r2.ok) return null;
   const rows2 = await r2.json().catch(() => []);
-  const tid2 = rows2?.[0]?.tenant_id ?? null;
+  const tid2 = (rows2 as any[])?.[0]?.tenant_id ?? null;
   return tid2 ? String(tid2) : null;
 }
 
@@ -83,6 +82,7 @@ async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+  // NOTE: PostgREST "in" lists are not quoted by default; this is OK for these simple values.
   const r = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=in.(whatsapp,wa,WhatsApp)&limit=1`,
     {
@@ -118,7 +118,8 @@ async function getBetaRowByEmail(email: string): Promise<{
 
   const q = new URLSearchParams();
   q.set("select", "status,entitlement_plan,plan,approved_at");
-  q.set("email", `eq.${email}`);
+  // ✅ Quote value inside PostgREST eq filter
+  q.set("email", `eq."${email}"`);
   q.set("limit", "1");
 
   const r = await fetch(`${url}/rest/v1/chiefos_beta_signups?${q.toString()}`, {
@@ -132,11 +133,14 @@ async function getBetaRowByEmail(email: string): Promise<{
   const row = rows?.[0];
   if (!row) return null;
 
-  const status = (String(row.status || "").trim().toLowerCase() as BetaStatus) || null;
+  const rawStatus = String(row.status || "").trim().toLowerCase();
+  const status: BetaStatus | null =
+    rawStatus === "requested" || rawStatus === "approved" || rawStatus === "denied" ? (rawStatus as BetaStatus) : null;
+
   const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
 
-  return { status: status || null, entitlementPlan, approvedPlan };
+  return { status, entitlementPlan, approvedPlan };
 }
 
 export async function GET(req: NextRequest) {
@@ -156,7 +160,8 @@ export async function GET(req: NextRequest) {
     const email = user.email;
 
     const tenantId = await firstTenantForUser(userId, accessToken);
-    // ✅ CRITICAL: no tenant is NOT an error. It routes to /finish-signup.
+
+    // ✅ CRITICAL: no tenant is NOT an error (routes to /finish-signup)
     const safeTenantId = tenantId ? String(tenantId) : null;
 
     const hasWhatsApp = await hasWhatsAppIdentityForUser(userId, accessToken);

@@ -1,13 +1,26 @@
-// app/finish-signup/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export default function FinishSignupPage() {
   const router = useRouter();
+  const sp = useSearchParams();
+
+  const returnTo = useMemo(() => {
+    const raw = sp.get("returnTo") || "";
+    // Keep it safe: only allow internal paths
+    if (!raw.startsWith("/")) return "/app/expenses";
+    if (raw.startsWith("//")) return "/app/expenses";
+    return raw;
+  }, [sp]);
+
   const [status, setStatus] = useState("Finishing signup…");
   const [isError, setIsError] = useState(false);
 
@@ -17,26 +30,35 @@ export default function FinishSignupPage() {
     async function run() {
       try {
         setIsError(false);
+        setStatus("Finishing signup…");
 
-        const { data: authData, error: authErr } = await supabase.auth.getUser();
-        if (authErr) throw authErr;
+        // ✅ Hydration retry: Supabase session can be briefly unavailable right after auth callback
+        let userId: string | null = null;
+        for (let i = 0; i < 6; i++) {
+          const { data, error } = await supabase.auth.getUser();
+          if (!error && data?.user?.id) {
+            userId = data.user.id;
+            break;
+          }
+          await sleep(250);
+        }
 
-        const user = authData.user;
-        if (!user) {
-          router.replace("/login");
+        if (!userId) {
+          router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
 
+        // If membership already exists, go straight in
         const { data: existing, error: exErr } = await supabase
           .from("chiefos_portal_users")
           .select("tenant_id")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .maybeSingle();
 
         if (exErr) throw exErr;
 
         if (existing?.tenant_id) {
-          router.replace("/app/expenses");
+          router.replace(returnTo);
           return;
         }
 
@@ -51,8 +73,13 @@ export default function FinishSignupPage() {
 
         if (rpcErr) throw rpcErr;
 
+        // Optional cleanup
+        try {
+          if (typeof window !== "undefined") localStorage.removeItem("chiefos_company_name");
+        } catch {}
+
         if (!cancelled) setStatus("Done. Redirecting…");
-        router.replace("/app/expenses");
+        router.replace(returnTo);
       } catch (e: any) {
         const msg = e?.message || "Unknown error";
         if (!cancelled) {
@@ -66,7 +93,7 @@ export default function FinishSignupPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, returnTo]);
 
   return (
     <main className="min-h-screen bg-white text-gray-900">
@@ -84,7 +111,7 @@ export default function FinishSignupPage() {
         {isError && (
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <a
-              href="/login"
+              href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
               className="inline-flex items-center justify-center rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
             >
               Back to login
