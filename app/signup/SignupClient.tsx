@@ -1,4 +1,3 @@
-// app/signup/SignupClient.tsx
 "use client";
 
 import { useState } from "react";
@@ -36,8 +35,6 @@ function EyeIcon({ off }: { off?: boolean }) {
 export default function SignupClient() {
   const router = useRouter();
 
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -62,7 +59,6 @@ export default function SignupClient() {
     setLoading(true);
 
     try {
-      if (!siteKey) throw new Error("Bot check is not configured.");
       if (!turnstileToken) throw new Error("Please complete the bot check.");
 
       await track("signup_submit", { hasCompanyName: Boolean(companyName.trim()) });
@@ -95,7 +91,6 @@ export default function SignupClient() {
       setErr(message);
       await track("signup_error", { message });
 
-      // Only reset Turnstile for bot-ish failures
       const msg = String(message).toLowerCase();
       const looksLikeBot =
         msg.includes("bot") ||
@@ -120,9 +115,7 @@ export default function SignupClient() {
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
-        <p className="mt-2 text-gray-600">
-          This creates the owner login for early access. Crew accounts are added later inside ChiefOS.
-        </p>
+        <p className="mt-2 text-gray-600">This creates the owner login for early access. Crew accounts are added later inside ChiefOS.</p>
 
         {sent ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
@@ -187,19 +180,10 @@ export default function SignupClient() {
             </div>
 
             <div className="pt-2">
-              {!siteKey ? (
-                <div className="text-xs text-red-600">Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY</div>
-              ) : (
-                <TurnstileBox
-                  resetKey={turnstileResetKey}
-                  onToken={(t) => setTurnstileToken(t)}
-                />
-              )}
+              <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
             </div>
 
-            {err && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
-            )}
+            {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
             <button
               className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
