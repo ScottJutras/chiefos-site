@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
+
+type Plan = "free" | "starter" | "pro";
+function cleanPlan(x: string | null): Plan | null {
+  const s = String(x || "").trim().toLowerCase();
+  if (s === "free" || s === "starter" || s === "pro") return s;
+  return null;
+}
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -32,14 +39,41 @@ function EyeIcon({ off }: { off?: boolean }) {
   );
 }
 
+function passwordChecks(pw: string) {
+  const s = pw || "";
+  return {
+    len: s.length >= 10,
+    upper: /[A-Z]/.test(s),
+    lower: /[a-z]/.test(s),
+    num: /\d/.test(s),
+    sym: /[^A-Za-z0-9]/.test(s),
+  };
+}
+
+function CheckRow({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className={["h-2 w-2 rounded-full", ok ? "bg-emerald-500" : "bg-gray-300"].join(" ")} />
+      <span className={ok ? "text-gray-800" : "text-gray-500"}>{label}</span>
+    </div>
+  );
+}
+
 export default function SignupClient() {
   const router = useRouter();
+  const sp = useSearchParams();
+
+  const prefillEmail = useMemo(() => (sp.get("email") || "").trim(), [sp]);
+  const prefillName = useMemo(() => (sp.get("name") || "").trim(), [sp]);
+  const prefillPlan = useMemo(() => cleanPlan(sp.get("plan")), [sp]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
@@ -48,10 +82,25 @@ export default function SignupClient() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
+  useEffect(() => {
+    // Prefill once (URL-driven)
+    if (prefillEmail) setEmail((cur) => cur || prefillEmail);
+    if (prefillName) setCompanyName((cur) => cur || prefillName);
+
+    if (prefillPlan && typeof window !== "undefined") {
+      localStorage.setItem("chiefos_selected_plan", prefillPlan);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillEmail, prefillName, prefillPlan]);
+
   function resetTurnstile() {
     setTurnstileToken(null);
     setTurnstileResetKey((k) => k + 1);
   }
+
+  const checks = useMemo(() => passwordChecks(password), [password]);
+  const pwOk = useMemo(() => Object.values(checks).every(Boolean), [checks]);
+  const matchOk = useMemo(() => password.length > 0 && password === confirmPassword, [password, confirmPassword]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +109,8 @@ export default function SignupClient() {
 
     try {
       if (!turnstileToken) throw new Error("Please complete the bot check.");
+      if (!pwOk) throw new Error("Password does not meet the requirements below.");
+      if (!matchOk) throw new Error("Passwords do not match.");
 
       await track("signup_submit", { hasCompanyName: Boolean(companyName.trim()) });
 
@@ -87,7 +138,6 @@ export default function SignupClient() {
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
       const message = friendly || e?.message || "Signup failed.";
-
       setErr(message);
       await track("signup_error", { message });
 
@@ -115,12 +165,16 @@ export default function SignupClient() {
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
-        <p className="mt-2 text-gray-600">This creates the owner login for early access. Crew accounts are added later inside ChiefOS.</p>
+        <p className="mt-2 text-gray-600">
+          Create the owner login for early access. After you confirm your email, you can log in.
+        </p>
 
         {sent ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
             <p className="font-medium">Check your email</p>
-            <p className="mt-2 text-sm text-gray-600">We sent you a confirmation link. Click it to finish creating your account.</p>
+            <p className="mt-2 text-sm text-gray-600">
+              We sent you a confirmation link. Click it to finish creating your account.
+            </p>
             <p className="mt-4 text-sm text-gray-600">
               Already confirmed?{" "}
               <a className="underline" href="/login">
@@ -156,7 +210,6 @@ export default function SignupClient() {
 
             <div>
               <label className="block text-sm font-medium">Password</label>
-
               <div className="relative mt-1">
                 <input
                   className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
@@ -176,7 +229,39 @@ export default function SignupClient() {
                 </button>
               </div>
 
-              <p className="mt-2 text-xs text-gray-500">Use a strong password. You’ll be storing job-level records and receipts.</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <CheckRow ok={checks.len} label="10+ characters" />
+                <CheckRow ok={checks.num} label="A number" />
+                <CheckRow ok={checks.upper} label="An uppercase" />
+                <CheckRow ok={checks.lower} label="A lowercase" />
+                <CheckRow ok={checks.sym} label="A symbol" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium">Confirm password</label>
+              <div className="relative mt-1">
+                <input
+                  className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  type={showConfirm ? "text" : "password"}
+                  required
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                  aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                >
+                  {showConfirm ? <EyeIcon off /> : <EyeIcon />}
+                </button>
+              </div>
+
+              {confirmPassword.length > 0 && !matchOk ? (
+                <div className="mt-2 text-xs text-red-700">Passwords don’t match.</div>
+              ) : null}
             </div>
 
             <div className="pt-2">
@@ -187,7 +272,7 @@ export default function SignupClient() {
 
             <button
               className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
-              disabled={loading}
+              disabled={loading || !turnstileToken}
               type="submit"
             >
               {loading ? "Sending link..." : "Sign up"}

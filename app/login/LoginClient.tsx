@@ -68,8 +68,9 @@ export default function LoginClient() {
 
       if (error) throw error;
 
+      // Some configs yield no session until email is confirmed
       if (!data?.session) {
-        setErr("Verify your email. Click the link we sent, then sign in again.");
+        setErr("Verify your email. Click the confirmation link we sent, then sign in again.");
         return;
       }
 
@@ -77,17 +78,24 @@ export default function LoginClient() {
       router.push("/app");
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
-      const message = friendly || e?.message || "Something went wrong.";
+      let message = friendly || e?.message || "Something went wrong.";
+
+      const lower = String(message).toLowerCase();
+
+      // Supabase often returns this for wrong pw OR unconfirmed depending on config.
+      if (lower.includes("invalid login credentials")) {
+        message =
+          "That email/password didn’t match. If you’re not sure, use “Forgot password” to reset it. Also make sure you confirmed your email first.";
+      }
 
       setErr(message);
       await track("login_error", { message });
 
-      const msg = String(message).toLowerCase();
       const looksLikeBot =
-        msg.includes("bot") ||
-        msg.includes("turnstile") ||
-        msg.includes("captcha") ||
-        msg.includes("complete the check");
+        lower.includes("bot") ||
+        lower.includes("turnstile") ||
+        lower.includes("captcha") ||
+        lower.includes("complete the check");
 
       if (looksLikeBot) resetTurnstile();
     } finally {
@@ -106,7 +114,7 @@ export default function LoginClient() {
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Log in</h1>
-        <p className="mt-2 text-gray-600">Private, secure access for owners. If you don’t have an account yet, create one.</p>
+        <p className="mt-2 text-gray-600">If you just signed up, confirm your email first — then log in.</p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
@@ -143,6 +151,15 @@ export default function LoginClient() {
                 {showPassword ? <EyeIcon off /> : <EyeIcon />}
               </button>
             </div>
+
+            <div className="mt-2 flex items-center justify-between">
+              <a className="text-xs underline text-gray-700 hover:text-gray-900" href="/reset-password">
+                Forgot password?
+              </a>
+              <a className="text-xs underline text-gray-700 hover:text-gray-900" href="/signup">
+                Create account
+              </a>
+            </div>
           </div>
 
           <div className="pt-2">
@@ -158,13 +175,6 @@ export default function LoginClient() {
           >
             {loading ? "Signing in..." : "Log in"}
           </button>
-
-          <p className="text-sm text-gray-600">
-            New here?{" "}
-            <a className="underline" href="/signup">
-              Create an account
-            </a>
-          </p>
         </form>
       </div>
     </main>
