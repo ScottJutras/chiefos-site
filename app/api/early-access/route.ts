@@ -63,11 +63,34 @@ async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
   return data;
 }
 
-async function sendPostmarkEmail(opts: {
-  to: string;
-  name?: string | null;
-  plan: "free" | "starter" | "pro";
-}) {
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#039;";
+      default:
+        return c;
+    }
+  });
+}
+
+function buildSignupUrl(appBase: string, opts: { plan: "free" | "starter" | "pro"; email: string; name?: string | null }) {
+  const qp = new URLSearchParams();
+  qp.set("plan", opts.plan);
+  qp.set("email", opts.email);
+  if (opts.name && String(opts.name).trim()) qp.set("name", String(opts.name).trim());
+  return `${appBase.replace(/\/$/, "")}/signup?${qp.toString()}`;
+}
+
+async function sendPostmarkEmail(opts: { to: string; name?: string | null; plan: "free" | "starter" | "pro" }) {
   const token = getEnv("POSTMARK_SERVER_TOKEN");
   const from = getEnv("POSTMARK_FROM");
   if (!token || !from) {
@@ -79,15 +102,20 @@ async function sendPostmarkEmail(opts: {
   const appBase = getEnv("NEXT_PUBLIC_APP_BASE_URL") || "https://app.usechiefos.com";
   const safeName = (opts.name || "").trim();
 
+  // ✅ Correct CTA: create owner account (prefilled) instead of /login
+  const signupUrl = buildSignupUrl(appBase, { plan: opts.plan, email: opts.to, name: safeName || null });
+  const loginUrl = `${appBase.replace(/\/$/, "")}/login`;
+
   const subject = `ChiefOS early access request received (${opts.plan.toUpperCase()})`;
 
   const textBody = [
     `Hey${safeName ? ` ${safeName}` : ""},`,
     ``,
     `We received your ChiefOS early access request for ${opts.plan.toUpperCase()}.`,
-    `If you're approved, you'll get a follow-up email with next steps.`,
+    `Next step: create your owner account so we can attach approval to the right login.`,
     ``,
-    `Log in anytime: ${appBase}/login`,
+    `Create owner account: ${signupUrl}`,
+    `Already have an account? Log in: ${loginUrl}`,
     ``,
     `— ChiefOS`,
   ].join("\n");
@@ -95,16 +123,27 @@ async function sendPostmarkEmail(opts: {
   const htmlBody = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height:1.5; color:#111;">
       <p>Hey${safeName ? ` ${escapeHtml(safeName)}` : ""},</p>
+
       <p>
         We received your <b>ChiefOS early access</b> request for
         <b>${opts.plan.toUpperCase()}</b>.
       </p>
-      <p>If you're approved, you'll get a follow-up email with next steps.</p>
+
+      <p style="margin-top:14px;">
+        <b>Next step:</b> Create your <b>owner account</b> so we can attach approval to the right login.
+      </p>
+
       <p style="margin-top:16px;">
-        <a href="${appBase}/login" style="display:inline-block; background:#111; color:#fff; padding:10px 14px; border-radius:10px; text-decoration:none;">
-          Log in
+        <a href="${signupUrl}" style="display:inline-block; background:#111; color:#fff; padding:10px 14px; border-radius:10px; text-decoration:none;">
+          Create owner account
         </a>
       </p>
+
+      <p style="margin-top:10px; font-size:13px; color:#555;">
+        Already have an account?
+        <a href="${loginUrl}" style="color:#111; text-decoration:underline;">Log in</a>
+      </p>
+
       <p style="margin-top:18px; color:#555; font-size:13px;">
         — ChiefOS
       </p>
@@ -129,29 +168,15 @@ async function sendPostmarkEmail(opts: {
 
   const text = await r.text();
   if (!r.ok) {
-    return { ok: false as const, skipped: false as const, reason: `postmark-${r.status}`, raw: text.slice(0, 300) };
+    return {
+      ok: false as const,
+      skipped: false as const,
+      reason: `postmark-${r.status}`,
+      raw: text.slice(0, 300),
+    };
   }
 
   return { ok: true as const };
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      case "'":
-        return "&#039;";
-      default:
-        return c;
-    }
-  });
 }
 
 export async function POST(req: Request) {

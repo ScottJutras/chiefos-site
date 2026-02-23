@@ -1,6 +1,11 @@
+// app/api/auth/signup/route.ts
 import { NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -14,9 +19,39 @@ const ratelimit = new Ratelimit({
   prefix: "chiefos:auth:signup",
 });
 
+function json(status: number, body: any) {
+  return NextResponse.json(body, { status });
+}
+
+function mustEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing ${name}`);
+  return v;
+}
+
+function getClientIp(req: Request) {
+  return (
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    null
+  );
+}
+
+function cleanEmail(x: any) {
+  return String(x || "").trim().toLowerCase();
+}
+
+function cleanPassword(x: any) {
+  return String(x || "");
+}
+
+function canonicalCallbackUrl() {
+  const base = (process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.usechiefos.com").replace(/\/$/, "");
+  return `${base}/auth/callback`;
+}
+
 async function verifyTurnstile(token: string, ip?: string | null) {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) throw new Error("Missing TURNSTILE_SECRET_KEY");
+  const secret = mustEnv("TURNSTILE_SECRET_KEY");
 
   const form = new FormData();
   form.append("secret", secret);
@@ -28,39 +63,45 @@ async function verifyTurnstile(token: string, ip?: string | null) {
     body: form,
   });
 
-  const data = await r.json();
+  const data = await r.json().catch(() => ({}));
   return !!data?.success;
 }
 
 export async function POST(req: Request) {
   try {
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      null;
+    const ip = getClientIp(req);
 
-    const { email, password, turnstileToken, emailRedirectTo } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const email = cleanEmail(body?.email);
+    const password = cleanPassword(body?.password);
+    const turnstileToken = String(body?.turnstileToken || "");
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Missing email or password." }, { status: 400 });
+    if (!email || !email.includes("@")) {
+      return json(400, { ok: false, error: "Missing or invalid email." });
+    }
+    if (!password) {
+      return json(400, { ok: false, error: "Missing password." });
     }
     if (!turnstileToken) {
-      return NextResponse.json({ error: "Bot check required." }, { status: 400 });
+      return json(400, { ok: false, error: "Bot check required." });
     }
 
-    const rlKey = `${String(ip || "noip")}:${String(email).toLowerCase()}`;
+    const rlKey = `${String(ip || "noip")}:${email}`;
     const { success } = await ratelimit.limit(rlKey);
     if (!success) {
-      return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+      return json(429, { ok: false, error: "Too many attempts. Try again later." });
     }
 
-    const ok = await verifyTurnstile(String(turnstileToken), ip);
-    if (!ok) {
-      return NextResponse.json({ error: "Bot check failed. Try again." }, { status: 400 });
+    const tsOk = await verifyTurnstile(turnstileToken, ip);
+    if (!tsOk) {
+      return json(400, { ok: false, error: "Bot check failed. Try again." });
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+    const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+    // ✅ Canonical redirect (do NOT trust window.location.origin)
+    const emailRedirectTo = canonicalCallbackUrl();
 
     const r = await fetch(`${url}/auth/v1/signup`, {
       method: "POST",
@@ -72,20 +113,24 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         email,
         password,
-        options: emailRedirectTo ? { emailRedirectTo } : undefined,
+        options: { emailRedirectTo },
       }),
     });
 
-    const payload = await r.json();
+    const payload = await r.json().catch(() => ({}));
+
     if (!r.ok) {
-      return NextResponse.json(
-        { error: payload?.msg || payload?.error_description || payload?.error || "Signup failed." },
-        { status: 400 }
-      );
+      // Supabase commonly returns { msg } or { error_description } etc.
+      const msg =
+        payload?.msg ||
+        payload?.error_description ||
+        payload?.error ||
+        "Signup failed.";
+      return json(400, { ok: false, error: String(msg) });
     }
 
-    return NextResponse.json({ ok: true });
+    return json(200, { ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Signup error." }, { status: 500 });
+    return json(500, { ok: false, error: e?.message || "Signup error." });
   }
 }

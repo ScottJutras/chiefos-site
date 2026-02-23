@@ -37,10 +37,10 @@ export default function SuccessClient() {
           Request received
         </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">You’re in the queue.</h1>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight">Perfect, just a couple more steps and you're in.</h1>
 
         <p className="mt-3 text-gray-700">
-          We received your early access request{plan ? (
+          Click Create owner account to claim your FREE early access spot for your selected plan: {plan ? (
             <>
               {" "}
               for <b>{plan.toUpperCase()}</b>

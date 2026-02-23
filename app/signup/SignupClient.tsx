@@ -166,7 +166,7 @@ export default function SignupClient() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
         <p className="mt-2 text-gray-600">
-          Create the owner login for early access. After you confirm your email, you can log in.
+          Add your company name and email, create a password, verify then submit!
         </p>
 
         {sent ? (
