@@ -66,7 +66,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     async function run() {
       try {
         const w: any = await fetchWhoami();
-
+        console.log("[whoami]", w);
         if (!w?.ok) {
           // hydration/login race (session token not ready yet)
           if (w?.error === "no-session-token") {
