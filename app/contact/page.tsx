@@ -76,20 +76,23 @@ export default function ContactPage() {
 
       <div className="mx-auto max-w-2xl px-6 pt-28 pb-16">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-          WhatsApp-first support. Real replies. No spam.
+          Contact ChiefOS.
         </div>
 
         <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">Contact ChiefOS</h1>
 
         <p className="mt-3 text-white/70 leading-relaxed">
-          If you’re trying to start, the fastest path is WhatsApp — that’s where ChiefOS lives. If
-          you’d rather email, drop a note here.
+          Please fill out the form, verify, then press <span className="text-white">Send message</span> and we’ll get
+          back to you as soon as possible.
         </p>
 
         {status === "sent" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="text-sm font-semibold text-white/90">Got it.</div>
-            <p className="mt-2 text-sm text-white/70">Your message is in. We’ll reply as soon as we can.</p>
+            <div className="text-sm font-semibold text-white/90">Message delivered.</div>
+            <p className="mt-2 text-sm text-white/70">
+              We’ll reply as soon as we can. If you want to get started in the meantime, request early access and we’ll
+              send you the next steps.
+            </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <a
@@ -98,13 +101,12 @@ export default function ContactPage() {
               >
                 Back to home
               </a>
+
               <a
-                href="/wa?t=support"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/early-access"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
               >
-                Start on WhatsApp
+                Request Early Access
               </a>
             </div>
           </div>
