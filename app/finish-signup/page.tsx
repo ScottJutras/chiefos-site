@@ -1,3 +1,4 @@
+// app/finish-signup/FinishSignupClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,13 +10,13 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export default function FinishSignupPage() {
+export default function FinishSignupClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
   const returnTo = useMemo(() => {
     const raw = sp.get("returnTo") || "";
-    // Keep it safe: only allow internal paths
+    // internal-only safety
     if (!raw.startsWith("/")) return "/app/expenses";
     if (raw.startsWith("//")) return "/app/expenses";
     return raw;
@@ -32,7 +33,7 @@ export default function FinishSignupPage() {
         setIsError(false);
         setStatus("Finishing signup…");
 
-        // ✅ Hydration retry: Supabase session can be briefly unavailable right after auth callback
+        // Session hydration retry
         let userId: string | null = null;
         for (let i = 0; i < 6; i++) {
           const { data, error } = await supabase.auth.getUser();
@@ -48,7 +49,6 @@ export default function FinishSignupPage() {
           return;
         }
 
-        // If membership already exists, go straight in
         const { data: existing, error: exErr } = await supabase
           .from("chiefos_portal_users")
           .select("tenant_id")
@@ -73,7 +73,6 @@ export default function FinishSignupPage() {
 
         if (rpcErr) throw rpcErr;
 
-        // Optional cleanup
         try {
           if (typeof window !== "undefined") localStorage.removeItem("chiefos_company_name");
         } catch {}
