@@ -2,9 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Turnstile } from "@marsidev/react-turnstile";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
+import TurnstileBox from "@/app/components/TurnstileBox";
 
 type Plan = "free" | "starter" | "pro";
 
@@ -28,7 +28,6 @@ function planLabel(plan: Plan) {
 }
 
 function planAccent(_plan: Plan) {
-  // subtle on white (keep consistent)
   return "border-black/10 bg-black/5 text-black";
 }
 
@@ -45,6 +44,7 @@ async function track(event: string, payload: Record<string, any> = {}) {
 }
 
 export default function EarlyAccessClient() {
+  const router = useRouter();
   const params = useSearchParams();
 
   const planFromUrl = useMemo(() => normalizePlan(params.get("plan")), [params]);
@@ -55,10 +55,17 @@ export default function EarlyAccessClient() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+
   const [loading, setLoading] = useState(false);
-  const [ok, setOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  function resetTurnstile() {
+    setTurnstileToken(null);
+    setTurnstileResetKey((k) => k + 1);
+  }
 
   // plan selection memory (URL → localStorage → default)
   useEffect(() => {
@@ -78,13 +85,14 @@ export default function EarlyAccessClient() {
       plan: selectedPlan,
       path: "/early-access",
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan]);
 
   const header = useMemo(() => {
     if (selectedPlan === "starter") {
       return {
         title: "Request Starter access",
-        sub: "Starter-Owner Mode gives you: OCR(Images) + Voice Logs + Ask Chief: Ai Reasoning over all of your submitted data.",
+        sub: "Starter Owner Mode gives you: OCR (Images) + Voice Logs + Ask Chief (AI reasoning over your submitted data).",
       };
     }
     if (selectedPlan === "pro") {
@@ -121,16 +129,34 @@ export default function EarlyAccessClient() {
           phone: phone.trim() || null,
           plan: selectedPlan, // ✅ always defined
           turnstileToken,
+          source: "pricing_or_site",
         }),
       });
 
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Request failed.");
 
-      setOk(true);
+      // ✅ Option A UX: go to success page + prefill signup CTA
+      const qp = new URLSearchParams();
+      qp.set("plan", selectedPlan);
+      qp.set("email", email.trim());
+      if (name.trim()) qp.set("name", name.trim());
+
+      router.push(`/early-access/success?${qp.toString()}`);
     } catch (e: any) {
-      setErr(e?.message ?? "Request failed.");
-      setTurnstileToken(null);
+      const msg = e?.message ?? "Request failed.";
+      setErr(msg);
+
+      // bot-ish errors should reset widget; other errors can keep it
+      const lower = String(msg).toLowerCase();
+      const looksLikeBot =
+        lower.includes("bot") ||
+        lower.includes("turnstile") ||
+        lower.includes("captcha") ||
+        lower.includes("complete the check");
+
+      if (looksLikeBot) resetTurnstile();
+      else setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -191,78 +217,59 @@ export default function EarlyAccessClient() {
           </div>
         </div>
 
-        {ok ? (
-          <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
-            <p className="font-medium">Perfect, we got your request.</p>
-            <p className="mt-2 text-sm text-gray-600">
-              You’re on the list for {planLabel(selectedPlan)}. Watch your inbox.
-            </p>
-            <div className="mt-4 flex gap-4">
-              <a className="underline text-sm" href="/">
-                Back to home
-              </a>
-              <a className="underline text-sm" href="/pricing">
-                View pricing
-              </a>
-            </div>
+        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Name *</label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoComplete="name"
+            />
           </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div>
-              <label className="block text-sm font-medium">Name *</label>
-              <input
-                className="mt-1 w-full rounded-md border px-3 py-2"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium">Email *</label>
-              <input
-                className="mt-1 w-full rounded-md border px-3 py-2"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                required
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium">Email *</label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              required
+              autoComplete="email"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium">Phone (optional)</label>
-              <input
-                className="mt-1 w-full rounded-md border px-3 py-2"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1 555 555 5555"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium">Phone (optional)</label>
+            <input
+              className="mt-1 w-full rounded-md border px-3 py-2"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 555 5555"
+              autoComplete="tel"
+            />
+          </div>
 
-            <div className="pt-2">
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken(null)}
-                options={{ appearance: "always" }}
-              />
-            </div>
+          <div className="pt-2">
+            <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
+          </div>
 
-            {err && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
-            )}
+          {err && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+          )}
 
-            <button
-              className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-800 disabled:opacity-60"
-              disabled={loading}
-              type="submit"
-            >
-              {loading ? "Submitting..." : selectedPlan === "free" ? "Start free" : "Request access"}
-            </button>
+          <button
+            className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-800 disabled:opacity-60"
+            disabled={loading}
+            type="submit"
+          >
+            {loading ? "Submitting..." : selectedPlan === "free" ? "Start free" : "Request access"}
+          </button>
 
-            <p className="text-xs text-gray-500">By submitting, you agree to be contacted about early access.</p>
-          </form>
-        )}
+          <p className="text-xs text-gray-500">By submitting, you agree to be contacted about early access.</p>
+        </form>
       </div>
     </main>
   );
