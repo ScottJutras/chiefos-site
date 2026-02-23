@@ -71,7 +71,9 @@ export default function Section({
           : "",
       ].join(" ")}
     >
-      <div className="mx-auto max-w-6xl px-6">{children}</div>
+            <div className="mx-auto w-[92%] max-w-[1320px] px-0 sm:px-4 md:px-6">
+        {children}
+      </div>
     </section>
   );
 }

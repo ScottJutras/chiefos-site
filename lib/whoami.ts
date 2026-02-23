@@ -38,12 +38,9 @@ export type WhoamiOk = {
   betaPlan: BetaPlan | null; // only when approved
   betaStatus: BetaStatus | null;
   betaEntitlementPlan: BetaPlan | null;
-
-  // ✅ allow server debugging to flow through
-  debug?: any;
 };
 
-export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string; status?: number; debug?: any }> {
+export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string; status?: number; }> {
   let token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) return { ok: false, error: "no-session-token" };
 
@@ -78,7 +75,7 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
     const code = j?.code ? String(j.code) : "";
     const message = j?.message ? String(j.message) : "";
     const fallback = j?.error ? String(j.error) : `whoami_${r.status}`;
-    return { ok: false, error: code || message || fallback, status: r.status, debug: j?.debug };
+    return { ok: false, error: code || message || fallback, status: r.status, };
   }
 
   // ✅ IMPORTANT: return the full contract (do not “pick” fields)
@@ -93,6 +90,6 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
     betaStatus: j.betaStatus ?? null,
     betaEntitlementPlan: j.betaEntitlementPlan ?? null,
 
-    debug: j.debug ?? undefined,
+   
   };
 }

@@ -218,15 +218,10 @@ function IconGlyph({ label }: { label: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
-      <SiteHeader />
-
-     {/* HERO (Simple tools + clear modules) */}
-<Section id="top" className="pt-16 md:pt-20 pb-14 md:pb-20">
+         {/* HERO (Simple tools + clear modules) */}
+<Section id="top" className="pt-8 md:pt-10 pb-12 md:pb-16">
   <div className="max-w-5xl mx-auto text-center">
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
-      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-      Add Chief to WhatsApp and say 'Hi' to get started
-    </div>
+    
 
     <h1 className="mt-6 text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
       Simple tools. Simple pricing.
@@ -241,7 +236,7 @@ export default function Home() {
     <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto">
       ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
     </p>
-
+       <SiteHeader />
     {/* CTAs */}
     <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
       <TooltipChip tip="No app download. Works inside WhatsApp.">
@@ -277,7 +272,10 @@ export default function Home() {
       Owners can ask questions. Crew capture is plan-dependent — you stay in control.
     </div>
   </div>
-
+      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
+      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      Add Chief to WhatsApp and say 'Hi' to get started
+    </div>
   {/* Wide cards (page-width feel) */}
   <div className="mt-10 grid gap-4">
     <ToolCard
