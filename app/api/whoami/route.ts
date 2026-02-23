@@ -5,17 +5,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type BetaPlan = "free" | "starter" | "pro";
-type BetaStatus = "requested" | "approved" | "denied";
-
 function missingEnv(names: string[]) {
   return names.filter((n) => !process.env[n]);
-}
-
-function mustEnv(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
 }
 
 function getBearer(req: Request) {
@@ -27,33 +18,33 @@ function jsonErr(code: string, message: string, status: number) {
   return NextResponse.json({ ok: false, code, message }, { status });
 }
 
-async function getSupabaseUser(accessToken: string): Promise<{ id: string | null; email: string | null }> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+async function getSupabaseUser(accessToken: string): Promise<{ id: string; email: string | null } | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const r = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey: anon, Authorization: `Bearer ${accessToken}` },
     cache: "no-store",
   });
 
-  if (!r.ok) return { id: null, email: null };
-  const j = await r.json().catch(() => null);
+  if (!r.ok) return null;
 
+  const j = await r.json().catch(() => null);
   const id = j?.id ? String(j.id) : null;
   const email = j?.email ? String(j.email).trim().toLowerCase() : null;
 
-  return { id, email };
+  if (!id) return null;
+  return { id, email: email || null };
 }
 
 /**
- * Uses user JWT + RLS.
- * Policies assumed:
- * - chiefos_portal_users_select_own
- * - chiefos_user_identities_select_own
+ * Uses the user's JWT and relies on RLS.
+ * - chiefos_portal_users select own
+ * - chiefos_user_identities select own
  */
 async function firstTenantForUser(userId: string, accessToken: string): Promise<string | null> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   // 1) Portal membership (preferred)
   const r1 = await fetch(
@@ -70,7 +61,7 @@ async function firstTenantForUser(userId: string, accessToken: string): Promise<
     if (tid) return String(tid);
   }
 
-  // 2) Fallback: identity mapping
+  // 2) Fallback: identity mapping (still RLS-safe if policy is select own)
   const r2 = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=tenant_id&user_id=eq.${userId}&order=created_at.asc&limit=1`,
     {
@@ -85,9 +76,12 @@ async function firstTenantForUser(userId: string, accessToken: string): Promise<
   return tid2 ? String(tid2) : null;
 }
 
+/**
+ * User-scoped WhatsApp identity check (works with "select own" RLS)
+ */
 async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): Promise<boolean> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const r = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=in.(whatsapp,wa,WhatsApp)&limit=1`,
@@ -102,13 +96,25 @@ async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): 
   return Array.isArray(rows) && rows.length > 0;
 }
 
+type BetaStatus = "requested" | "approved" | "denied";
+type BetaPlan = "free" | "starter" | "pro";
+
+function normalizeBetaPlan(v: any): BetaPlan | null {
+  const s = String(v || "").trim().toLowerCase();
+  if (s === "free" || s === "starter" || s === "pro") return s;
+  return null;
+}
+
 async function getBetaRowByEmail(email: string): Promise<{
   status: BetaStatus | null;
   entitlementPlan: BetaPlan | null;
-  approvedPlan: BetaPlan | null; // only if status=approved
+  approvedPlan: BetaPlan | null; // only when status=approved
 } | null> {
-  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const service = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // ✅ IMPORTANT: do not crash whoami if service role is missing
+  if (!service) return null;
 
   const q = new URLSearchParams();
   q.set("select", "status,entitlement_plan,plan,approved_at");
@@ -126,34 +132,32 @@ async function getBetaRowByEmail(email: string): Promise<{
   const row = rows?.[0];
   if (!row) return null;
 
-  const statusRaw = String(row.status || "").toLowerCase();
-  const status: BetaStatus | null =
-    statusRaw === "requested" || statusRaw === "approved" || statusRaw === "denied"
-      ? (statusRaw as BetaStatus)
-      : null;
-
-  const planRaw = String(row.entitlement_plan || row.plan || "").toLowerCase();
-  const entitlementPlan: BetaPlan | null =
-    planRaw === "free" || planRaw === "starter" || planRaw === "pro" ? (planRaw as BetaPlan) : null;
-
+  const status = (String(row.status || "").trim().toLowerCase() as BetaStatus) || null;
+  const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
 
-  return { status, entitlementPlan, approvedPlan };
+  return { status: status || null, entitlementPlan, approvedPlan };
 }
 
 export async function GET(req: NextRequest) {
   const miss = missingEnv(["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
-  if (miss.length) return jsonErr("CONFIG_ERROR", `Missing env vars: ${miss.join(", ")}`, 500);
+  if (miss.length) {
+    return jsonErr("CONFIG_ERROR", `Missing env vars: ${miss.join(", ")}`, 500);
+  }
 
   try {
     const accessToken = getBearer(req);
     if (!accessToken) return jsonErr("AUTH_REQUIRED", "Missing auth token.", 401);
 
-    const { id: userId, email } = await getSupabaseUser(accessToken);
-    if (!userId) return jsonErr("AUTH_REQUIRED", "Invalid session.", 401);
+    const user = await getSupabaseUser(accessToken);
+    if (!user?.id) return jsonErr("AUTH_REQUIRED", "Invalid session.", 401);
+
+    const userId = user.id;
+    const email = user.email;
 
     const tenantId = await firstTenantForUser(userId, accessToken);
-    if (!tenantId) return jsonErr("NO_TENANT", "No tenant found for this user.", 403);
+    // ✅ CRITICAL: no tenant is NOT an error. It routes to /finish-signup.
+    const safeTenantId = tenantId ? String(tenantId) : null;
 
     const hasWhatsApp = await hasWhatsAppIdentityForUser(userId, accessToken);
 
@@ -163,19 +167,12 @@ export async function GET(req: NextRequest) {
       {
         ok: true,
         userId,
-        tenantId,
+        tenantId: safeTenantId,
         hasWhatsApp,
-
         email: email || null,
-
-        // ✅ if approved, this is the effective beta entitlement
-        betaPlan: beta?.approvedPlan || null,
-
-        // ✅ useful for UI: show waitlist state
-        betaStatus: beta?.status || null,
-
-        // ✅ what they requested / what you’ll approve them into
-        betaEntitlementPlan: beta?.entitlementPlan || null,
+        betaPlan: beta?.approvedPlan || null, // only when approved
+        betaStatus: beta?.status || null, // requested|approved|denied|null
+        betaEntitlementPlan: beta?.entitlementPlan || null, // what they requested / entitlement
       },
       { status: 200 }
     );

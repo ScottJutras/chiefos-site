@@ -145,15 +145,18 @@ export async function POST(req: Request) {
     }
 
     // Read existing so we NEVER downgrade approvals
-    const existing = await serviceFetch(
-      `chiefos_beta_signups?select=email,status,entitlement_plan,approved_at,plan&email=eq.${encodeURIComponent(
-        cleanEmail
-      )}&limit=1`
-    );
-    const row0 = Array.isArray(existing) ? existing[0] : null;
+const q = new URLSearchParams();
+q.set("select", "email,status,entitlement_plan,approved_at,plan");
+q.set("email", `eq."${cleanEmail}"`);
+q.set("limit", "1");
 
-    const existingStatus = String(row0?.status || "").toLowerCase();
-    const lockedStatus = existingStatus === "approved" || existingStatus === "denied";
+const existing = await serviceFetch(`chiefos_beta_signups?${q.toString()}`);
+const row0 = Array.isArray(existing) ? existing[0] : null;
+
+const existingStatus = String(row0?.status || "").toLowerCase();
+const lockedStatus = existingStatus === "approved" || existingStatus === "denied";
+
+// Upsert payload: always safe lead fields
 
     // Upsert payload: always safe lead fields
     const payload: Record<string, any> = {

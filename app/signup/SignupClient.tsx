@@ -3,10 +3,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/SiteHeader";
+import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
-
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -20,7 +19,6 @@ async function track(event: string, payload: Record<string, any> = {}) {
 
 function EyeIcon({ off }: { off?: boolean }) {
   return off ? (
-    // eye-off
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 3l18 18" />
       <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58" />
@@ -28,13 +26,13 @@ function EyeIcon({ off }: { off?: boolean }) {
       <path d="M6.61 6.61A17.4 17.4 0 0 0 2 12s3 7 10 7a10.8 10.8 0 0 0 4.12-.8" />
     </svg>
   ) : (
-    // eye
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
+
 export default function SignupClient() {
   const router = useRouter();
 
@@ -47,7 +45,7 @@ export default function SignupClient() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileKey, setTurnstileKey] = useState(0);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +53,7 @@ export default function SignupClient() {
 
   function resetTurnstile() {
     setTurnstileToken(null);
-    setTurnstileKey((k) => k + 1);
+    setTurnstileResetKey((k) => k + 1);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -129,9 +127,7 @@ export default function SignupClient() {
         {sent ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
             <p className="font-medium">Check your email</p>
-            <p className="mt-2 text-sm text-gray-600">
-              We sent you a confirmation link. Click it to finish creating your account.
-            </p>
+            <p className="mt-2 text-sm text-gray-600">We sent you a confirmation link. Click it to finish creating your account.</p>
             <p className="mt-4 text-sm text-gray-600">
               Already confirmed?{" "}
               <a className="underline" href="/login">
@@ -187,30 +183,22 @@ export default function SignupClient() {
                 </button>
               </div>
 
-              <p className="mt-2 text-xs text-gray-500">
-                Use a strong password. You’ll be storing job-level records and receipts.
-              </p>
+              <p className="mt-2 text-xs text-gray-500">Use a strong password. You’ll be storing job-level records and receipts.</p>
             </div>
 
             <div className="pt-2">
               {!siteKey ? (
                 <div className="text-xs text-red-600">Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY</div>
               ) : (
-                <Turnstile
-                  key={turnstileKey}
-                  siteKey={siteKey}
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onExpire={() => resetTurnstile()}
-                  onError={() => resetTurnstile()}
-                  options={{ appearance: "always" }}
+                <TurnstileBox
+                  resetKey={turnstileResetKey}
+                  onToken={(t) => setTurnstileToken(t)}
                 />
               )}
             </div>
 
             {err && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {err}
-              </div>
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
             )}
 
             <button

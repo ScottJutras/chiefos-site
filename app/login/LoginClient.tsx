@@ -1,13 +1,11 @@
-// app/login/LoginClient.tsx
 "use client";
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/SiteHeader";
+import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
-
 
 async function track(event: string, payload: Record<string, any> = {}) {
   try {
@@ -16,14 +14,11 @@ async function track(event: string, payload: Record<string, any> = {}) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event, payload }),
     });
-  } catch {
-    // never block UX
-  }
+  } catch {}
 }
 
 function EyeIcon({ off }: { off?: boolean }) {
   return off ? (
-    // eye-off
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M3 3l18 18" />
       <path d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58" />
@@ -31,7 +26,6 @@ function EyeIcon({ off }: { off?: boolean }) {
       <path d="M6.61 6.61A17.4 17.4 0 0 0 2 12s3 7 10 7a10.8 10.8 0 0 0 4.12-.8" />
     </svg>
   ) : (
-    // eye
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z" />
       <circle cx="12" cy="12" r="3" />
@@ -42,22 +36,19 @@ function EyeIcon({ off }: { off?: boolean }) {
 export default function LoginClient() {
   const router = useRouter();
 
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileKey, setTurnstileKey] = useState(0);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   function resetTurnstile() {
     setTurnstileToken(null);
-    setTurnstileKey((k) => k + 1);
+    setTurnstileResetKey((k) => k + 1);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -66,7 +57,6 @@ export default function LoginClient() {
     setLoading(true);
 
     try {
-      if (!siteKey) throw new Error("Bot check is not configured.");
       if (!turnstileToken) throw new Error("Please complete the bot check.");
 
       await track("login_submit", {});
@@ -78,7 +68,6 @@ export default function LoginClient() {
 
       if (error) throw error;
 
-      // Some configs can yield no session until email is confirmed
       if (!data?.session) {
         setErr("Verify your email. Click the link we sent, then sign in again.");
         return;
@@ -93,7 +82,6 @@ export default function LoginClient() {
       setErr(message);
       await track("login_error", { message });
 
-      // Only reset Turnstile for bot/token-ish failures (not email verification)
       const msg = String(message).toLowerCase();
       const looksLikeBot =
         msg.includes("bot") ||
@@ -118,9 +106,7 @@ export default function LoginClient() {
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Log in</h1>
-        <p className="mt-2 text-gray-600">
-          Private, secure access for owners. If you don’t have an account yet, create one.
-        </p>
+        <p className="mt-2 text-gray-600">Private, secure access for owners. If you don’t have an account yet, create one.</p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
@@ -160,25 +146,10 @@ export default function LoginClient() {
           </div>
 
           <div className="pt-2">
-            {!siteKey ? (
-              <div className="text-xs text-red-600">Turnstile misconfigured: missing NEXT_PUBLIC_TURNSTILE_SITE_KEY</div>
-            ) : (
-              <Turnstile
-                key={turnstileKey}
-                siteKey={siteKey}
-                onSuccess={(token) => setTurnstileToken(token)}
-                onExpire={() => resetTurnstile()}
-                onError={() => resetTurnstile()}
-                options={{ appearance: "always" }}
-              />
-            )}
+            <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
           </div>
 
-          {err && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {err}
-            </div>
-          )}
+          {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
 
           <button
             className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
