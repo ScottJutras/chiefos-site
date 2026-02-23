@@ -82,17 +82,13 @@ export default function ContactPage() {
         <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">Contact ChiefOS</h1>
 
         <p className="mt-3 text-white/70 leading-relaxed">
-          Please fill out the form, verify, then press <span className="text-white">Send message</span> and we’ll get
-          back to you as soon as possible.
+          Please fill out the form, verify then press Send message and we'll get back to you as soon as possible. 
         </p>
 
         {status === "sent" ? (
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="text-sm font-semibold text-white/90">Message delivered.</div>
-            <p className="mt-2 text-sm text-white/70">
-              We’ll reply as soon as we can. If you want to get started in the meantime, request early access and we’ll
-              send you the next steps.
-            </p>
+            <div className="text-sm font-semibold text-white/90">Message Delivered.</div>
+            <p className="mt-2 text-sm text-white/70">We’ll reply as soon as we can. Until then, try adding Chief to WhatsApp and say "Hi". For further instructions go to Request Early Access.</p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <a
@@ -101,12 +97,13 @@ export default function ContactPage() {
               >
                 Back to home
               </a>
-
               <a
-                href="/early-access"
+                href="/wa?t=support"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
               >
-                Request Early Access
+                 WhatsApp
               </a>
             </div>
           </div>

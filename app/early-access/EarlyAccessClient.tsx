@@ -165,7 +165,7 @@ export default function EarlyAccessClient() {
                 planAccent(selectedPlan),
               ].join(" ")}
             >
-              <span className="h-2 w-2 rounded-full bg-black/60" />
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Selected: {planLabel(selectedPlan)}
             </div>
 
