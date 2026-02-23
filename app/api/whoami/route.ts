@@ -109,49 +109,68 @@ async function getBetaRowByEmail(email: string): Promise<{
   status: BetaStatus | null;
   entitlementPlan: BetaPlan | null;
   approvedPlan: BetaPlan | null; // only when status=approved
+  _debug?: any;
 } | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Don't crash whoami if service role is missing; omit beta info.
+  // Don’t crash whoami if service role is missing; omit beta info.
   if (!service) {
-  return {
-    status: null,
-    entitlementPlan: null,
-    approvedPlan: null,
-    // @ts-ignore
-    _debug: { serviceMissing: true },
-  } as any;
-}
+    return {
+      status: null,
+      entitlementPlan: null,
+      approvedPlan: null,
+      _debug: { serviceMissing: true },
+    };
+  }
 
   const q = new URLSearchParams();
   q.set("select", "status,entitlement_plan,plan,approved_at,created_at");
-  // ✅ Correct quoted PostgREST filter
   q.set("email", `eq."${email}"`);
-  // ✅ Prefer latest row if duplicates exist
   q.set("order", "created_at.desc");
   q.set("limit", "1");
 
-  const r = await fetch(`${url}/rest/v1/chiefos_beta_signups?${q.toString()}`, {
-    headers: { apikey: service, Authorization: `Bearer ${service}` },
+  const endpoint = `${url.replace(/\/$/, "")}/rest/v1/chiefos_beta_signups?${q.toString()}`;
+
+  const r = await fetch(endpoint, {
+    headers: {
+      apikey: service,
+      Authorization: `Bearer ${service}`,
+      Accept: "application/json",
+    },
     cache: "no-store",
   });
 
-  if (!service) {
-  return {
-    status: null,
-    entitlementPlan: null,
-    approvedPlan: null,
-    // @ts-ignore
-    _debug: { serviceMissing: true },
-  } as any;
-}
+  const rawText = await r.text().catch(() => "");
+  let parsed: any = null;
+  try {
+    parsed = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    parsed = rawText;
+  }
 
-  const rows = (await r.json().catch(() => [])) as any[];
-  // @ts-ignore
-const _debug = { rows: Array.isArray(rows) ? rows.length : -1 };
+  const _debug = {
+    endpointHost: (() => {
+      try {
+        return new URL(endpoint).host;
+      } catch {
+        return null;
+      }
+    })(),
+    status: r.status,
+    ok: r.ok,
+    isArray: Array.isArray(parsed),
+    bodyPreview: typeof rawText === "string" ? rawText.slice(0, 220) : null,
+  };
+
+  if (!r.ok) {
+    // Return "null-like" beta but include debug so you can see the real error
+    return { status: null, entitlementPlan: null, approvedPlan: null, _debug };
+  }
+
+  const rows = Array.isArray(parsed) ? (parsed as any[]) : [];
   const row = rows?.[0];
-  if (!row) return null;
+  if (!row) return { status: null, entitlementPlan: null, approvedPlan: null, _debug: { ..._debug, rows: 0 } };
 
   const rawStatus = String(row.status || "").trim().toLowerCase();
   const status: BetaStatus | null =
@@ -162,7 +181,7 @@ const _debug = { rows: Array.isArray(rows) ? rows.length : -1 };
   const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
 
-  return { status, entitlementPlan, approvedPlan, _debug } as any;
+  return { status, entitlementPlan, approvedPlan, _debug: { ..._debug, rows: rows.length } };
 }
 
 export async function GET(req: NextRequest) {
