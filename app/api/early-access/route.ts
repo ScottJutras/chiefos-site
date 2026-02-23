@@ -15,13 +15,13 @@ function mustEnv(name: string) {
   return v;
 }
 
-function cleanEmail(x: any) {
-  return String(x || "").trim().toLowerCase();
+function getEnv(name: string) {
+  const v = process.env[name];
+  return v ? String(v) : "";
 }
 
-function cleanText(x: any) {
-  const s = String(x || "").trim();
-  return s.length ? s : null;
+function cleanEmail(x: any) {
+  return String(x || "").trim().toLowerCase();
 }
 
 function cleanPlan(x: any): "free" | "starter" | "pro" {
@@ -31,10 +31,10 @@ function cleanPlan(x: any): "free" | "starter" | "pro" {
 }
 
 async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
-  const base = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+  const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
   const service = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
 
-  const r = await fetch(`${base}/rest/v1/${pathAndQuery}`, {
+  const r = await fetch(`${url}/rest/v1/${pathAndQuery}`, {
     ...init,
     headers: {
       apikey: service,
@@ -63,60 +63,95 @@ async function serviceFetch(pathAndQuery: string, init?: RequestInit) {
   return data;
 }
 
-/**
- * Optional: send confirmation email via Resend
- * - If RESEND_API_KEY or EARLY_ACCESS_FROM is missing -> silently skip (do not break UX)
- */
-async function maybeSendConfirmationEmail(opts: {
+async function sendPostmarkEmail(opts: {
   to: string;
-  plan: "free" | "starter" | "pro";
   name?: string | null;
+  plan: "free" | "starter" | "pro";
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EARLY_ACCESS_FROM; // e.g. "ChiefOS <hello@usechiefos.com>"
-  const appBase = (process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.usechiefos.com").replace(/\/$/, "");
+  const token = getEnv("POSTMARK_SERVER_TOKEN");
+  const from = getEnv("POSTMARK_FROM");
+  if (!token || !from) {
+    // Don’t crash early-access if email isn't configured
+    return { ok: false as const, skipped: true as const, reason: "missing-postmark-env" };
+  }
 
-  if (!apiKey || !from) return;
+  const stream = getEnv("POSTMARK_MESSAGE_STREAM") || "outbound";
+  const appBase = getEnv("NEXT_PUBLIC_APP_BASE_URL") || "https://app.usechiefos.com";
+  const safeName = (opts.name || "").trim();
 
-  const { to, plan, name } = opts;
+  const subject = `ChiefOS early access request received (${opts.plan.toUpperCase()})`;
 
-  const subject = `ChiefOS early access request received`;
-  const greeting = name ? `Hey ${name},` : `Hey,`;
+  const textBody = [
+    `Hey${safeName ? ` ${safeName}` : ""},`,
+    ``,
+    `We received your ChiefOS early access request for ${opts.plan.toUpperCase()}.`,
+    `If you're approved, you'll get a follow-up email with next steps.`,
+    ``,
+    `Log in anytime: ${appBase}/login`,
+    ``,
+    `— ChiefOS`,
+  ].join("\n");
 
-  // Keep it simple, plaintext-safe HTML
-  const html = `
-    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; line-height: 1.5;">
-      <p>${greeting}</p>
-      <p>We received your early access request for <b>${plan.toUpperCase()}</b>.</p>
-      <p>Next steps:</p>
-      <ol>
-        <li>If you already created an account, you can log in here: <a href="${appBase}/login">${appBase}/login</a></li>
-        <li>If you haven’t created an account yet, create one here: <a href="${appBase}/signup?plan=${plan}">${appBase}/signup?plan=${plan}</a></li>
-      </ol>
-      <p style="color:#666; font-size:12px;">If you didn’t request this, you can ignore this email.</p>
+  const htmlBody = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height:1.5; color:#111;">
+      <p>Hey${safeName ? ` ${escapeHtml(safeName)}` : ""},</p>
+      <p>
+        We received your <b>ChiefOS early access</b> request for
+        <b>${opts.plan.toUpperCase()}</b>.
+      </p>
+      <p>If you're approved, you'll get a follow-up email with next steps.</p>
+      <p style="margin-top:16px;">
+        <a href="${appBase}/login" style="display:inline-block; background:#111; color:#fff; padding:10px 14px; border-radius:10px; text-decoration:none;">
+          Log in
+        </a>
+      </p>
+      <p style="margin-top:18px; color:#555; font-size:13px;">
+        — ChiefOS
+      </p>
     </div>
-  `.trim();
+  `;
 
-  const res = await fetch("https://api.resend.com/emails", {
+  const r = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      "X-Postmark-Server-Token": token,
     },
     body: JSON.stringify({
-      from,
-      to,
-      subject,
-      html,
+      From: from,
+      To: opts.to,
+      Subject: subject,
+      TextBody: textBody,
+      HtmlBody: htmlBody,
+      MessageStream: stream,
     }),
   });
 
-  // Don’t break the request if email fails — but do throw to logs if you want strictness.
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    // soft-fail: log to server output
-    console.warn("Resend email failed:", res.status, errText.slice(0, 500));
+  const text = await r.text();
+  if (!r.ok) {
+    return { ok: false as const, skipped: false as const, reason: `postmark-${r.status}`, raw: text.slice(0, 300) };
   }
+
+  return { ok: true as const };
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#039;";
+      default:
+        return c;
+    }
+  });
 }
 
 export async function POST(req: Request) {
@@ -124,9 +159,9 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
 
     const email = cleanEmail(body?.email);
-    const name = cleanText(body?.name);
-    const phone = cleanText(body?.phone);
-    const source = cleanText(body?.source) || "pricing_or_site";
+    const name = String(body?.name || "").trim() || null;
+    const phone = String(body?.phone || "").trim() || null;
+    const source = String(body?.source || "").trim() || "pricing_or_site";
     const plan = cleanPlan(body?.plan);
 
     const ip =
@@ -138,7 +173,7 @@ export async function POST(req: Request) {
       return json(400, { ok: false, error: "Missing or invalid email." });
     }
 
-    // 1) Read existing row (NO updated_at anywhere)
+    // 1) Read existing row (NO updated_at)
     const q = new URLSearchParams();
     q.set("select", "id,email,status,entitlement_plan,approved_at,plan,created_at");
     q.set("email", `eq."${email}"`);
@@ -151,7 +186,7 @@ export async function POST(req: Request) {
     const existingStatus = String(row0?.status || "").toLowerCase();
     const lockedStatus = existingStatus === "approved" || existingStatus === "denied";
 
-    // 2) Upsert payload (ONLY existing columns)
+    // 2) Upsert payload (only existing columns)
     const payload: Record<string, any> = {
       email,
       name,
@@ -160,11 +195,9 @@ export async function POST(req: Request) {
       source,
       plan,
       entitlement_plan: plan,
-      // DO NOT include updated_at
-      // DO NOT touch approved_at
     };
 
-    // Never downgrade approvals/denials
+    // Only set requested if not locked; never touch approved_at
     if (!lockedStatus) payload.status = "requested";
 
     const upserted = await serviceFetch(`chiefos_beta_signups?on_conflict=email`, {
@@ -178,8 +211,8 @@ export async function POST(req: Request) {
 
     const out = Array.isArray(upserted) ? upserted[0] : upserted;
 
-    // 3) Optional: confirmation email (soft-fail)
-    await maybeSendConfirmationEmail({ to: email, plan, name });
+    // 3) Send confirmation email (does not block success if Postmark misconfigured)
+    const mail = await sendPostmarkEmail({ to: email, name, plan });
 
     return json(200, {
       ok: true,
@@ -187,7 +220,9 @@ export async function POST(req: Request) {
       email: out?.email || email,
       plan,
       locked: lockedStatus,
-      emailed: Boolean(process.env.RESEND_API_KEY && process.env.EARLY_ACCESS_FROM),
+      emailed: mail.ok === true,
+      email_skipped: (mail as any)?.skipped === true ? true : false,
+      email_reason: (mail as any)?.reason || null,
     });
   } catch (e: any) {
     return json(500, { ok: false, error: e?.message || "Early access failed." });
