@@ -104,7 +104,7 @@ export default function ContactPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
               >
-                Open WhatsApp
+                Start on WhatsApp
               </a>
             </div>
           </div>
