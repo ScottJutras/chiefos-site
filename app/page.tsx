@@ -218,6 +218,8 @@ function IconGlyph({ label }: { label: string }) {
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
+      <SiteHeader />
+      
          {/* HERO (Simple tools + clear modules) */}
 <Section id="top" className="pt-8 md:pt-10 pb-12 md:pb-16">
   <div className="max-w-5xl mx-auto text-center">
@@ -236,7 +238,7 @@ export default function Home() {
     <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto">
       ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
     </p>
-       <SiteHeader />
+       
     {/* CTAs */}
     <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
       <TooltipChip tip="No app download. Works inside WhatsApp.">
