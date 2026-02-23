@@ -1,3 +1,4 @@
+// app/api/whoami/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -82,7 +83,6 @@ async function hasWhatsAppIdentityForUser(userId: string, accessToken: string): 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  // NOTE: PostgREST "in" lists are not quoted by default; this is OK for these simple values.
   const r = await fetch(
     `${url}/rest/v1/chiefos_user_identities?select=id&user_id=eq.${userId}&kind=in.(whatsapp,wa,WhatsApp)&limit=1`,
     {
@@ -113,13 +113,15 @@ async function getBetaRowByEmail(email: string): Promise<{
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // ✅ IMPORTANT: do not crash whoami if service role is missing
+  // Don't crash whoami if service role is missing; omit beta info.
   if (!service) return null;
 
   const q = new URLSearchParams();
-  q.set("select", "status,entitlement_plan,plan,approved_at");
-  // ✅ Quote value inside PostgREST eq filter
+  q.set("select", "status,entitlement_plan,plan,approved_at,created_at");
+  // ✅ Correct quoted PostgREST filter
   q.set("email", `eq."${email}"`);
+  // ✅ Prefer latest row if duplicates exist
+  q.set("order", "created_at.desc");
   q.set("limit", "1");
 
   const r = await fetch(`${url}/rest/v1/chiefos_beta_signups?${q.toString()}`, {
@@ -135,7 +137,9 @@ async function getBetaRowByEmail(email: string): Promise<{
 
   const rawStatus = String(row.status || "").trim().toLowerCase();
   const status: BetaStatus | null =
-    rawStatus === "requested" || rawStatus === "approved" || rawStatus === "denied" ? (rawStatus as BetaStatus) : null;
+    rawStatus === "requested" || rawStatus === "approved" || rawStatus === "denied"
+      ? (rawStatus as BetaStatus)
+      : null;
 
   const entitlementPlan = normalizeBetaPlan(row.entitlement_plan || row.plan);
   const approvedPlan = status === "approved" ? entitlementPlan : null;
@@ -160,8 +164,6 @@ export async function GET(req: NextRequest) {
     const email = user.email;
 
     const tenantId = await firstTenantForUser(userId, accessToken);
-
-    // ✅ CRITICAL: no tenant is NOT an error (routes to /finish-signup)
     const safeTenantId = tenantId ? String(tenantId) : null;
 
     const hasWhatsApp = await hasWhatsAppIdentityForUser(userId, accessToken);
@@ -177,7 +179,7 @@ export async function GET(req: NextRequest) {
         email: email || null,
         betaPlan: beta?.approvedPlan || null, // only when approved
         betaStatus: beta?.status || null, // requested|approved|denied|null
-        betaEntitlementPlan: beta?.entitlementPlan || null, // what they requested / entitlement
+        betaEntitlementPlan: beta?.entitlementPlan || null, // requested/entitled plan
       },
       { status: 200 }
     );
