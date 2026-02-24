@@ -2,8 +2,6 @@
 "use client";
 
 import Link from "next/link";
-import TooltipChip from "./TooltipChip";
-import WhatsAppIcon from "./WhatsAppIcon";
 
 export default function SiteFooter({
   brandLine = "Start with receipts. End with job clarity.",
@@ -12,6 +10,9 @@ export default function SiteFooter({
   brandLine?: string;
   subLine?: string;
 }) {
+  const btnBase =
+    "inline-flex items-center justify-center h-10 rounded-2xl px-4 text-sm font-semibold transition hover:-translate-y-[1px] active:translate-y-0";
+
   return (
     <footer className="border-t border-white/10 bg-black">
       <div className="mx-auto max-w-6xl px-6 py-12">
@@ -25,54 +26,33 @@ export default function SiteFooter({
               <span className="text-white/50">{subLine}</span>
             </p>
 
-            {/* Primary footer actions */}
+            {/* Footer actions (uniform height) */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              {/* Start free on WhatsApp (+ privacy tooltip) */}
-              <TooltipChip tip="We only use your number to open WhatsApp and link your logs to your account. No spam. Never sold.">
-                <a
-                  href="/wa?t=footer"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
-                >
-                  <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-black/10 bg-black/5">
-                    <WhatsAppIcon className="h-5 w-5 text-black translate-y-[0.5px]" />
-                  </span>
-
-                  Start free
-
-                  {/* “i” chip */}
-                  <span
-                    className="inline-grid h-6 w-6 place-items-center rounded-lg border border-black/10 bg-black/5 text-[12px] text-black/70"
-                    aria-hidden="true"
-                  >
-                    i
-                  </span>
-                </a>
-              </TooltipChip>
-
-              {/* Purchase path */}
-              <Link
-                href="/pricing"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
-              >
-                Get it now
-              </Link>
-
-              {/* Sign in */}
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm font-semibold text-white/80 hover:text-white hover:bg-black/40 transition hover:-translate-y-[1px] active:translate-y-0"
-              >
-                Sign in
-              </Link>
-
-              {/* Quiet tester link (footer-only) */}
               <Link
                 href="/early-access?plan=starter"
-                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] text-white/60 hover:bg-black/40 hover:text-white/80 transition"
+                className={[
+                  btnBase,
+                  "border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85",
+                ].join(" ")}
               >
                 Testers
+              </Link>
+
+              <Link
+                href="/pricing"
+                className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
+              >
+                Get started
+              </Link>
+
+              <Link
+                href="/login"
+                className={[
+                  btnBase,
+                  "border border-white/15 bg-white/5 text-white hover:bg-white/10",
+                ].join(" ")}
+              >
+                Sign in
               </Link>
             </div>
           </div>

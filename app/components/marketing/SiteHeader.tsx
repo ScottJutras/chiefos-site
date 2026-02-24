@@ -3,6 +3,9 @@
 import Link from "next/link";
 
 export default function SiteHeader() {
+  const btnBase =
+    "inline-flex items-center justify-center h-10 rounded-xl px-4 text-sm font-semibold transition hover:-translate-y-[1px] active:translate-y-0";
+
   return (
     <header className="w-full border border-white/10 bg-black/70 backdrop-blur-xl rounded-2xl">
       <div className="mx-auto w-full px-4 sm:px-6 h-12 flex items-center justify-between">
@@ -16,30 +19,20 @@ export default function SiteHeader() {
 
         {/* Right: Auth actions */}
         <div className="flex items-center gap-2">
-  {/* Primary: free start */}
-  <Link
-    href="/wa?t=header"
-    className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-  >
-    Start free
-  </Link>
+          <Link
+            href="/pricing"
+            className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
+          >
+            Get started
+          </Link>
 
-  {/* Secondary: purchase */}
-  <Link
-    href="/pricing"
-    className="inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
-  >
-    Get it now
-  </Link>
-
-  {/* Tertiary: sign in */}
-  <Link
-    href="/login"
-    className="inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold text-white/80 hover:text-white transition"
-  >
-    Sign in
-  </Link>
-</div>
+          <Link
+            href="/login"
+            className={[btnBase, "border border-white/15 bg-white/5 text-white hover:bg-white/10"].join(" ")}
+          >
+            Sign in
+          </Link>
+        </div>
       </div>
     </header>
   );

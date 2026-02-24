@@ -11,6 +11,7 @@ import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 import StackVsChief from "@/app/components/marketing/StackVsChief";
 import { MicroAppsIcon, MobileAppIcon } from "@/app/components/marketing/ToolIcons";
+import HeroGetStartedForm from "@/app/components/marketing/HeroGetStartedForm";
 import {
   ExpensesIcon,
   TimeIcon,
@@ -255,6 +256,7 @@ export default function Home() {
     </p>
 
       {/* CTA (Phone input + embedded button → Pricing) */}
+      <HeroGetStartedForm pricingHref="/pricing" />
 <div className="mt-8 flex flex-col items-center justify-center gap-3">
   <form
     onSubmit={(e) => {
