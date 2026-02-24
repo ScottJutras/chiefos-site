@@ -170,7 +170,7 @@ function ToolCard({
 
     <div className="mt-2">
       <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[11px] text-white/70 tracking-wide">
-        Grounded answers
+        The CFO Brain
       </span>
     </div>
   </>
