@@ -3,6 +3,7 @@ import SiteHeader from "@/app/components/marketing/SiteHeader";
 import Section from "@/app/components/marketing/Section";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
 import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
+import CheckoutButton from "@/app/components/marketing/CheckoutButton";
 
 function Check() {
   return (
@@ -12,6 +13,8 @@ function Check() {
   );
 }
 
+type PaidPlan = "starter" | "pro";
+
 function PricingCard({
   name,
   price,
@@ -19,6 +22,8 @@ function PricingCard({
   features,
   ctaLabel,
   ctaHref,
+  paidPlan,
+  phone,
   highlighted,
   badge,
 }: {
@@ -27,10 +32,25 @@ function PricingCard({
   blurb: string;
   features: string[];
   ctaLabel: string;
-  ctaHref: string;
+
+  // Free / non-paid CTA (WhatsApp, testers, etc.)
+  ctaHref?: string;
+
+  // Paid CTA (Stripe)
+  paidPlan?: PaidPlan;
+
+  // Optional phone for Stripe linking
+  phone?: string;
+
   highlighted?: boolean;
   badge?: string;
 }) {
+  const btnBase =
+    "mt-6 inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition h-11";
+  const btnPrimary = "bg-white text-black hover:bg-white/90";
+  const btnSecondary = "border border-white/15 bg-white/5 text-white hover:bg-white/10";
+  const buttonClass = [btnBase, highlighted ? btnPrimary : btnSecondary].join(" ");
+
   return (
     <div
       className={[
@@ -47,6 +67,7 @@ function PricingCard({
       )}
 
       <div className="text-sm font-semibold text-white/90">{name}</div>
+
       <div className="mt-2 flex items-end gap-2">
         <div className="text-4xl font-bold tracking-tight">{price}</div>
         <div className="pb-1 text-sm text-white/60">/ month</div>
@@ -54,17 +75,16 @@ function PricingCard({
 
       <p className="mt-3 text-sm text-white/70 leading-relaxed">{blurb}</p>
 
-      <a
-        href={ctaHref}
-        className={[
-          "mt-6 inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition",
-          highlighted
-            ? "bg-white text-black hover:bg-white/90"
-            : "border border-white/15 bg-white/5 text-white hover:bg-white/10",
-        ].join(" ")}
-      >
-        {ctaLabel}
-      </a>
+      {/* ✅ CTA: Stripe for paid plans, link for free/testers */}
+      {paidPlan ? (
+        <CheckoutButton plan={paidPlan} phone={phone} className={buttonClass}>
+          {ctaLabel}
+        </CheckoutButton>
+      ) : (
+        <a href={ctaHref || "/"} className={buttonClass}>
+          {ctaLabel}
+        </a>
+      )}
 
       <div className="mt-6 space-y-3">
         {features.map((f) => (
@@ -87,7 +107,15 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-export default function PricingPage() {
+function getPhoneFromSearchParams(sp: any): string | undefined {
+  const raw = sp?.phone ? String(sp.phone) : "";
+  const phone = raw.trim();
+  return phone ? phone : undefined;
+}
+
+export default function PricingPage({ searchParams }: { searchParams?: any }) {
+  const phone = getPhoneFromSearchParams(searchParams);
+
   return (
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
@@ -116,7 +144,7 @@ export default function PricingPage() {
               target="_blank"
               rel="noopener noreferrer"
               className={[
-                "inline-flex items-center justify-center gap-2 rounded-2xl",
+                "inline-flex items-center justify-center gap-2 rounded-2xl h-11",
                 "border border-white/15 bg-white/5 px-5 py-3",
                 "text-sm font-semibold text-white hover:bg-white/10 transition",
                 "hover:shadow-[0_18px_50px_rgba(37,211,102,0.14)]",
@@ -129,12 +157,13 @@ export default function PricingPage() {
               Start on WhatsApp
             </a>
 
-            <a
-              href="/early-access?plan=starter"
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+            <CheckoutButton
+              plan="starter"
+              phone={phone}
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0 h-11"
             >
               Choose Starter
-            </a>
+            </CheckoutButton>
           </div>
 
           <p className="mt-3 text-xs text-white/45">
@@ -166,8 +195,9 @@ export default function PricingPage() {
             name="Starter — Owner Mode"
             price="$59"
             blurb="For owners who want speed + answers. OCR + voice + Ask Chief (owner-only)."
-            ctaLabel="Choose Starter"
-            ctaHref="/early-access?plan=starter"
+            ctaLabel="Get it now"
+            paidPlan="starter"
+            phone={phone}
             highlighted
             features={[
               "1 Owner + up to 10 Crew records",
@@ -183,8 +213,9 @@ export default function PricingPage() {
             name="Pro — Crew + Control"
             price="$149"
             blurb="For teams with real payroll exposure: crew self-logging, approvals, audit depth, and board roles."
-            ctaLabel="Choose Pro"
-            ctaHref="/early-access?plan=pro"
+            ctaLabel="Get it now"
+            paidPlan="pro"
+            phone={phone}
             badge="Crew + Control"
             features={[
               "1 Owner + up to 25 Crew",
@@ -195,6 +226,14 @@ export default function PricingPage() {
               "Priority onboarding (white glove setup)",
             ]}
           />
+        </div>
+
+        {/* Quiet testers link (optional). Keep this if you want it on Pricing. */}
+        <div className="mt-6 text-xs text-white/45">
+          Testing?{" "}
+          <a className="underline hover:text-white" href="/early-access?plan=starter">
+            Get tester access
+          </a>
         </div>
       </Section>
 
@@ -233,15 +272,15 @@ export default function PricingPage() {
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <FAQItem
               q="What happens when I hit a plan limit?"
-              a="You can still capture. If you hit a limit, the upgrade-only capabilities pause (like OCR, voice, exports, or crew self-logging) — and we tell you exactly what hit the limit."
+              a="You can still capture. If you hit a limit, upgrade-only capabilities pause (like OCR, voice, exports, or crew self-logging) — and we tell you exactly what hit the limit."
             />
             <FAQItem
               q="Can my crew use Ask Chief?"
-              a="No. Crew are the senses — they capture reality. Owners use Ask Chief to understand the whole operation from the records."
+              a="No. Crew are the senses — they capture. Owners use Ask Chief to understand the whole operation from the records."
             />
             <FAQItem
               q="What does ‘Approvals + Audit’ mean in Pro?"
-              a="Sensitive edits can require approval before they affect job truth. Every change is traceable: who changed what, when, and what job it touched."
+              a="Sensitive edits can require approval before they affect totals. Every change is traceable: who changed what, when, and what job it touched."
             />
             <FAQItem
               q="Is my data trapped?"
@@ -254,21 +293,21 @@ export default function PricingPage() {
               href="/wa?t=pricing-cta"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition h-11"
             >
               Start on WhatsApp
             </a>
-            <a
-              href="/early-access?plan=starter"
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+
+            <CheckoutButton
+              plan="starter"
+              phone={phone}
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition h-11"
             >
-              Choose Starter
-            </a>
+              Get Starter
+            </CheckoutButton>
           </div>
 
-          <p className="mt-3 text-xs text-white/45">
-            Stop stacking apps. Start running a system.
-          </p>
+          <p className="mt-3 text-xs text-white/45">Stop stacking apps. Start running a system.</p>
         </div>
       </Section>
 

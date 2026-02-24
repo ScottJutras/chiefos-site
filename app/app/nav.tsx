@@ -8,14 +8,13 @@ const items = [
   { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/chief", label: "Chief" },
 
-  { href: "/app/expenses", label: "Expenses" },
-  { href: "/app/revenue", label: "Revenue" },
-  { href: "/app/time", label: "Time" },
-  { href: "/app/tasks", label: "Tasks" },
+  // Operator hub
+  { href: "/app/activity", label: "Activity" },
 
+  // System
   { href: "/app/settings/billing", label: "Billing" },
+  { href: "/app/settings", label: "Settings" },
 ];
-
 
 export function AppNav() {
   const pathname = usePathname();
@@ -23,7 +22,10 @@ export function AppNav() {
   return (
     <nav className="flex items-center gap-2">
       {items.map((it) => {
-        const active = pathname === it.href || pathname.startsWith(it.href + "/");
+        const active =
+          pathname === it.href ||
+          pathname.startsWith(it.href + "/");
+
         return (
           <Link
             key={it.href}

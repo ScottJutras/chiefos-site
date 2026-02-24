@@ -600,7 +600,7 @@ export default function Home() {
         "25 jobs • 1-year history",
         "Exports included (CSV/XLS/PDF)",
       ]}
-      ctaHref="/early-access?plan=starter"
+      ctaHref="/pricing?plan=starter"
       ctaLabel="Get it now"
       foot="For owners who want clarity without the night shift."
     />
@@ -616,7 +616,7 @@ export default function Home() {
         "Unlimited jobs • 7-year history",
         "Board seats (bookkeepers/advisors)",
       ]}
-      ctaHref="/early-access?plan=pro"
+      ctaHref="/pricing?plan=pro"
       ctaLabel="Get it now"
       foot="Crew captures. Owner approves. Chief keeps it grounded."
     />
