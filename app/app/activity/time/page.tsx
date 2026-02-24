@@ -1,4 +1,4 @@
-// app/app/time/page.tsx
+// app/app/activity/time/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -91,10 +91,7 @@ function toInputDateTimeLocal(s?: string | null) {
 }
 
 function chip(cls: string) {
-  return [
-    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
-    cls,
-  ].join(" ");
+  return ["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", cls].join(" ");
 }
 
 function startOfWeekMondayLocal(d: Date) {
@@ -137,9 +134,7 @@ function estimateHours(entries: TimeEntry[]) {
   let totalMs = 0;
 
   for (const [, list] of byEmp) {
-    const ordered = list
-      .slice()
-      .sort((a, b) => (parseMs(baseTime(a)) || 0) - (parseMs(baseTime(b)) || 0));
+    const ordered = list.slice().sort((a, b) => (parseMs(baseTime(a)) || 0) - (parseMs(baseTime(b)) || 0));
 
     let openIn: number | null = null;
 
@@ -164,7 +159,11 @@ function estimateHours(entries: TimeEntry[]) {
 }
 
 export default function TimePage() {
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  // ✅ IMPORTANT: read hasWhatsApp so we can prevent flicker while the gate is redirecting
+  const gate = useTenantGate({ requireWhatsApp: true });
+  const gateLoading = gate.loading;
+  const gateHasWhatsApp = gate.hasWhatsApp;
+
   const toast = useToast();
 
   const [rows, setRows] = useState<TimeEntry[]>([]);
@@ -260,9 +259,7 @@ export default function TimePage() {
         onClick={() => setTotalsRange(id)}
         className={[
           "rounded-full border px-3 py-1 text-xs transition",
-          active
-            ? "border-white/20 bg-white text-black"
-            : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
+          active ? "border-white/20 bg-white text-black" : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
         ].join(" ")}
       >
         {label}
@@ -274,8 +271,6 @@ export default function TimePage() {
     document.title = "Time · ChiefOS";
   }, []);
 
-
-  
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!exportRef.current) return;
@@ -285,55 +280,55 @@ export default function TimePage() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [exportOpen]);
 
-useEffect(() => {
-  if (!exportOpen) return;
+  useEffect(() => {
+    if (!exportOpen) return;
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") setExportOpen(false);
-  };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExportOpen(false);
+    };
 
-  window.addEventListener("keydown", onKeyDown);
-  return () => window.removeEventListener("keydown", onKeyDown);
-}, [exportOpen]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [exportOpen]);
 
+  useEffect(() => {
+    let cancelled = false;
 
- useEffect(() => {
-  let cancelled = false;
+    // ✅ wait until tenant gate finishes AND WhatsApp is confirmed linked
+    // If WhatsApp isn't linked, the gate will redirect — we don't render or load data in that window.
+    if (gateLoading || !gateHasWhatsApp) return;
 
-  // ✅ wait until tenant gate finishes
-  if (gateLoading) return;
+    async function load() {
+      try {
+        if (!cancelled) {
+          setLoading(true);
+          setError(null);
+        }
 
-  async function load() {
-    try {
-      if (!cancelled) {
-        setLoading(true);
-        setError(null);
+        // ✅ make sure session exists (avoids weird 401/redirect races)
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess?.session) throw new Error("Missing session. Please log in again.");
+
+        const { data, error } = await supabase
+          .from("time_entries")
+          .select("*")
+          .is("deleted_at", null)
+          .order("timestamp", { ascending: false });
+
+        if (error) throw error;
+        if (!cancelled) setRows((data ?? []) as TimeEntry[]);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? "Failed to load time entries.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      // ✅ make sure session exists (avoids weird 401/redirect races)
-      const { data: sess } = await supabase.auth.getSession();
-      if (!sess?.session) throw new Error("Missing session. Please log in again.");
-
-      const { data, error } = await supabase
-        .from("time_entries")
-        .select("*")
-        .is("deleted_at", null)
-        .order("timestamp", { ascending: false });
-
-      if (error) throw error;
-      if (!cancelled) setRows((data ?? []) as TimeEntry[]);
-    } catch (e: any) {
-      if (!cancelled) setError(e?.message ?? "Failed to load time entries.");
-    } finally {
-      if (!cancelled) setLoading(false);
     }
-  }
 
-  load();
-  return () => {
-    cancelled = true;
-  };
-}, [gateLoading]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [gateLoading, gateHasWhatsApp]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -484,9 +479,7 @@ useEffect(() => {
       const { error } = await supabase.from("time_entries").update(patch).eq("id", draft.id);
       if (error) throw error;
 
-      setRows((prev) =>
-        prev.map((r) => (r.id === draft.id ? ({ ...r, ...patch } as TimeEntry) : r))
-      );
+      setRows((prev) => prev.map((r) => (r.id === draft.id ? ({ ...r, ...patch } as TimeEntry) : r)));
 
       toast.push({ kind: "success", message: "Time entry updated." });
       setEditOpen(false);
@@ -625,7 +618,9 @@ useEffect(() => {
     }
   }
 
-  if (gateLoading || loading) return <div className="p-8 text-white/70">Loading time…</div>;
+  // ✅ Critical: also block rendering if WhatsApp is not confirmed yet.
+  // If it’s not linked, the gate will redirect; we avoid the flicker.
+  if (gateLoading || !gateHasWhatsApp || loading) return <div className="p-8 text-white/70">Loading time…</div>;
   if (error) return <div className="p-8 text-red-300">Error: {error}</div>;
 
   return (
@@ -695,9 +690,7 @@ useEffect(() => {
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <div className="text-xs text-white/55">Totals (filtered)</div>
-                  <div className="mt-1 text-2xl font-semibold text-white">
-                    {totals.count} events
-                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-white">{totals.count} events</div>
                   <div className="mt-1 text-xs text-white/55">
                     Est. hours: <b className="text-white">{hoursFmt(totals.hours)}</b> (clock_in → clock_out)
                   </div>
@@ -756,69 +749,10 @@ useEffect(() => {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-white/60">
-                  <th className="py-3 pl-4 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("time")}
-                      className={[
-                        "inline-flex items-center hover:text-white transition",
-                        sortBy.startsWith("time_") ? "text-white" : "text-white/60",
-                      ].join(" ")}
-                      title="Sort by time"
-                    >
-                      When
-                      {sortArrow(sortBy.startsWith("time_"), sortBy === "time_asc" ? "asc" : "desc")}
-                    </button>
-                  </th>
-
-                  <th className="py-3 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("employee")}
-                      className={[
-                        "inline-flex items-center hover:text-white transition",
-                        sortBy.startsWith("employee_") ? "text-white" : "text-white/60",
-                      ].join(" ")}
-                      title="Sort by employee"
-                    >
-                      Employee
-                      {sortArrow(
-                        sortBy.startsWith("employee_"),
-                        sortBy === "employee_asc" ? "asc" : "desc"
-                      )}
-                    </button>
-                  </th>
-
-                  <th className="py-3 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("type")}
-                      className={[
-                        "inline-flex items-center hover:text-white transition",
-                        sortBy.startsWith("type_") ? "text-white" : "text-white/60",
-                      ].join(" ")}
-                      title="Sort by type"
-                    >
-                      Type
-                      {sortArrow(sortBy.startsWith("type_"), sortBy === "type_asc" ? "asc" : "desc")}
-                    </button>
-                  </th>
-
-                  <th className="py-3 pr-4">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("job")}
-                      className={[
-                        "inline-flex items-center hover:text-white transition",
-                        sortBy.startsWith("job_") ? "text-white" : "text-white/60",
-                      ].join(" ")}
-                      title="Sort by job"
-                    >
-                      Job
-                      {sortArrow(sortBy.startsWith("job_"), sortBy === "job_asc" ? "asc" : "desc")}
-                    </button>
-                  </th>
-
+                  <th className="py-3 pl-4 pr-4">When</th>
+                  <th className="py-3 pr-4">Employee</th>
+                  <th className="py-3 pr-4">Type</th>
+                  <th className="py-3 pr-4">Job</th>
                   <th className="py-3 pr-4">TZ</th>
                   <th className="py-3 pr-4">Source</th>
                   <th className="py-3 pr-4">Actions</th>
@@ -847,9 +781,7 @@ useEffect(() => {
                       <td className="py-3 pr-4 whitespace-nowrap text-white/85">{r.type ?? "—"}</td>
                       <td className="py-3 pr-4 text-white/75">{r.job_name ?? "—"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white/60">{r.tz ?? "—"}</td>
-                      <td className="py-3 pr-4 whitespace-nowrap text-white/60">
-                        {r.source_msg_id ? "WhatsApp" : "—"}
-                      </td>
+                      <td className="py-3 pr-4 whitespace-nowrap text-white/60">{r.source_msg_id ? "WhatsApp" : "—"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap">
                         <button
                           onClick={() => openEdit(r)}
@@ -914,9 +846,7 @@ useEffect(() => {
                       {t}
                     </option>
                   ))}
-                  {!TYPE_OPTIONS.includes(draft.type) && (
-                    <option value={draft.type}>{draft.type}</option>
-                  )}
+                  {!TYPE_OPTIONS.includes(draft.type) && <option value={draft.type}>{draft.type}</option>}
                 </select>
               </div>
 
@@ -951,11 +881,7 @@ useEffect(() => {
 
               <div>
                 <label className="block text-xs text-white/60 mb-1">TZ</label>
-                <input
-                  value={draft.tz}
-                  readOnly
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70"
-                />
+                <input value={draft.tz} readOnly className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70" />
               </div>
             </div>
           )}
