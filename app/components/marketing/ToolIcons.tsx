@@ -89,3 +89,27 @@ export function ChiefIcon({ className }: Props) {
     </svg>
   );
 }
+
+export function MicroAppsIcon({ className }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className}>
+      {/* 2x2 grid */}
+      <rect x="4" y="4" width="7" height="7" rx="2" />
+      <rect x="13" y="4" width="7" height="7" rx="2" />
+      <rect x="4" y="13" width="7" height="7" rx="2" />
+      <rect x="13" y="13" width="7" height="7" rx="2" />
+      {/* sparkle */}
+      <path d="M18.5 9.5l.6-1.6.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z" />
+    </svg>
+  );
+}
+
+export function MobileAppIcon({ className }: Props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className}>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M10 5h4" />
+      <circle cx="12" cy="18.5" r="0.9" />
+    </svg>
+  );
+}
