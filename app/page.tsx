@@ -220,39 +220,34 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
      <SiteHeader /> 
 
-         {/* HERO (Simple tools + clear modules) */}
-{/* HERO (Simple tools + clear modules) */}
-<Section id="top" className="pt-8 md:pt-10 pb-12 md:pb-16">
-  <div className="max-w-5xl mx-auto text-center">
-    {/* Headline */}
-    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
-      Simple tools. Simple pricing.
-      <br />
-      Outstanding performance.
+        
+{/* HERO + SYSTEM OVERVIEW */}
+<Section id="top" className="pt-8 md:pt-10 pb-16 md:pb-20">
+  <div className="max-w-4xl mx-auto text-center">
+
+    {/* HERO HEADLINE */}
+    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
+      Integrated tools. One operating system. One price.
     </h1>
 
-    <p className="mt-4 text-lg md:text-xl text-white/75 leading-relaxed max-w-3xl mx-auto">
-      Stop stacking apps. Start running a system.
+    <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
+      Time, money, and jobs captured where you already communicate — in WhatsApp —
+      by text, voice, or photo. Structured automatically so your business runs as
+      one connected system.
     </p>
 
-    <p className="mt-3 text-lg md:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto">
-      ChiefOS brings time, money, and operations into one connected layer — so your day doesn’t end in a spreadsheet.
+    <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
+      Stop paying for five apps to run one business.
     </p>
 
-    {/* Move the WhatsApp hint BELOW the hero copy */}
-    <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70 mx-auto">
-      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-      Add Chief to WhatsApp and say 'Hi' to get started
-    </div>
-
-    {/* CTAs */}
-    <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center items-center">
+    {/* CTA */}
+    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
       <TooltipChip tip="No app download. Works inside WhatsApp.">
         <a
           href="/wa?t=hero"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
         >
           <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
             <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
@@ -263,87 +258,111 @@ export default function Home() {
 
       <a
         href="/early-access?plan=starter"
-        className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+        className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
       >
-        Get early access
+        Get access
       </a>
-
-      <a
-        href="/login"
-        className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
-      >
-        Sign in
-      </a>
-    </div>
-
-    <div className="mt-4 text-xs text-white/50">
-      Owners can ask questions. Crew capture is plan-dependent — you stay in control.
-    </div>
-
-    {/* ✅ New: simplified header moved BELOW hero */}
-    <div className="mt-8">
-      
     </div>
   </div>
 
-  {/* Wide cards (page-width feel) */}
-  <div className="mt-10 grid gap-4 md:grid-cols-2">
+  {/* POWER BLOCK: FUNCTIONS vs CAPTURE */}
+  <div className="mt-14 grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+      <div className="text-xs tracking-[0.18em] uppercase text-white/50">Functions</div>
+      <div className="mt-4 space-y-2 text-white/80 text-sm">
+        <div>Expenses</div>
+        <div>Time Clock</div>
+        <div>Tasks</div>
+        <div>Jobs</div>
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+      <div className="text-xs tracking-[0.18em] uppercase text-white/50">Capture</div>
+      <div className="mt-4 space-y-2 text-white/80 text-sm">
+        <div>Text</div>
+        <div>Voice</div>
+        <div>Receipt Photo (OCR)</div>
+        <div>Email Forward</div>
+      </div>
+    </div>
+  </div>
+
+  {/* CURRENT FEATURES GRID */}
+  <div className="mt-16 grid gap-6 md:grid-cols-2">
+
     <ToolCard
       title="Expenses"
       icon={<ExpensesIcon className="h-6 w-6 text-white/80" />}
-      blurb="Snap a receipt, text a vendor + amount..."
+      blurb="Capture expenses by text, voice, photo, or email. Auto-structured, attached to jobs, and export-ready without nightly cleanup."
     />
 
     <ToolCard
       title="Time Clock"
       icon={<TimeIcon className="h-6 w-6 text-white/80" />}
-      blurb="Clock in/out, break..."
+      blurb="Clock in, out, break, and drive from WhatsApp. Categorized, traceable, and tied directly to jobs and costs."
     />
 
     <ToolCard
       title="Tasks"
       icon={<TasksIcon className="h-6 w-6 text-white/80" />}
-      blurb="Capture what’s open..."
-    />
-
-    <ToolCard
-      title="Reminders"
-      badge="Coming soon"
-      icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
-      blurb="Lightweight reminders..."
-    />
-
-    <ToolCard
-      title="Quotes"
-      badge="Coming soon"
-      icon={<QuotesIcon className="h-6 w-6 text-white/80" />}
-      blurb="Create and track quotes..."
-    />
-
-    <ToolCard
-      title="Docs"
-      icon={<DocsIcon className="h-6 w-6 text-white/80" />}
-      blurb="Keep your paperwork in one place..."
+      blurb="Create, assign, and track tasks linked to time and money. Keep work accountable without separate task apps."
     />
 
     <ToolCard
       title="Jobs"
       icon={<JobsIcon className="h-6 w-6 text-white/80" />}
-      blurb="Jobs are the spine..."
+      blurb="Every expense, shift, and task connects to a job. See totals, margins, and activity in one structured timeline."
     />
 
-    <ToolCard
-      title="Chief"
-      featured
-      icon={<ChiefIcon className="h-7 w-7 text-white" />}
-      blurb={
-        "Chief is the layer that turns messy inputs into usable records — then answers questions from your data.\n\n" +
-        "• Text messages\n" +
-        "• Audio notes\n" +
-        "• Receipt photos\n\n" +
-        "Chief doesn’t hallucinate numbers. It can only answer based on what you’ve logged and confirmed."
-      }
-    />
+    {/* CHIEF — FULL WIDTH */}
+    <div className="md:col-span-2">
+      <ToolCard
+        title="Chief"
+        featured
+        icon={<ChiefIcon className="h-7 w-7 text-white" />}
+        blurb="Chief sits over every function — organizing records, answering questions, and connecting activity without guessing. Structured answers based only on what’s logged."
+      />
+    </div>
+  </div>
+
+  {/* COMING SOON */}
+  <div className="mt-20">
+    <div className="text-xs tracking-[0.18em] uppercase text-white/50 text-center">
+      Coming Soon
+    </div>
+
+    <div className="mt-6 grid gap-6 md:grid-cols-2">
+
+      <ToolCard
+        title="Documents"
+        badge="Coming soon"
+        icon={<DocsIcon className="h-6 w-6 text-white/80" />}
+        blurb="Generate quotes, contracts, change orders, invoices, and receipts from conversation, text, or images."
+      />
+
+      <ToolCard
+        title="Reminders"
+        badge="Coming soon"
+        icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
+        blurb="Set smart reminders connected to tasks, jobs, and payments so nothing falls through the cracks."
+      />
+
+      <ToolCard
+        title="Email Receipt Capture"
+        badge="Coming soon"
+        icon={<ExpensesIcon className="h-6 w-6 text-white/80" />}
+        blurb="Forward receipt emails directly to your account. Automatically parsed and attached to the right job."
+      />
+
+      <ToolCard
+        title="Pictures"
+        badge="Coming soon"
+        icon={<DocsIcon className="h-6 w-6 text-white/80" />}
+        blurb="Store and organize job site photos and business images — searchable and connected to projects."
+      />
+
+    </div>
   </div>
 </Section>
 
