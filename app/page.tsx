@@ -150,16 +150,25 @@ function ToolCard({
     >
       <div className={featured ? "text-center" : "flex items-start justify-between gap-4"}>
         <div className={featured ? "" : "flex items-start gap-3"}>
-          <div
-  className={[
-    "inline-grid place-items-center border",
-    featured
-      ? "mx-auto mb-4 h-14 w-14 rounded-2xl border-white/20 bg-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.10)]"
-      : "h-10 w-10 rounded-xl border-white/10 bg-black/30",
-  ].join(" ")}
->
-  {icon}
-</div>
+          {featured ? (
+  <>
+    <div className="text-2xl md:text-3xl font-semibold text-white leading-tight">
+      {title}
+    </div>
+
+    <div className="mt-2">
+      <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[11px] text-white/70 tracking-wide">
+        Grounded answers
+      </span>
+    </div>
+  </>
+) : (
+  <div className="flex items-center gap-2">
+    <div className="text-base md:text-lg font-semibold text-white/90 leading-tight">
+      {title}
+    </div>
+  </div>
+)}
 
           <div>
             <div className={featured ? "flex items-center justify-center gap-2" : "flex items-center gap-2"}>
@@ -169,7 +178,7 @@ function ToolCard({
 
               {featured ? (
                 <span className="rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[11px] text-white/70">
-                  Ask anything
+                  Brain
                 </span>
               ) : null}
             </div>
