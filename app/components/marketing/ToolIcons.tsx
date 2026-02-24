@@ -78,8 +78,14 @@ export function JobsIcon({ className }: Props) {
 export function ChiefIcon({ className }: Props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className={className}>
-      <path d="M12 3a7 7 0 017 7c0 5-7 11-7 11S5 15 5 10a7 7 0 017-7z" />
-      <circle cx="12" cy="10" r="2.5" />
+      {/* Shield */}
+      <path d="M12 3l7 4v6c0 5-3.5 8.3-7 9.8C8.5 21.3 5 18 5 13V7l7-4z" />
+      {/* Check */}
+      <path d="M9.2 12.4l1.9 1.9 3.8-4.2" />
+      {/* Subtle nodes */}
+      <circle cx="7.5" cy="9.2" r="0.6" />
+      <circle cx="16.5" cy="9.2" r="0.6" />
+      <circle cx="12" cy="17.2" r="0.6" />
     </svg>
   );
 }

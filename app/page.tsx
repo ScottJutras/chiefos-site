@@ -148,21 +148,21 @@ function ToolCard({
           : "border-white/10 bg-white/[0.04] hover:bg-white/[0.06]",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
+      <div className={featured ? "text-center" : "flex items-start justify-between gap-4"}>
+        <div className={featured ? "" : "flex items-start gap-3"}>
           <div
-            className={[
-              "inline-grid h-10 w-10 place-items-center rounded-xl border",
-              featured
-                ? "border-white/20 bg-white/[0.08]"
-                : "border-white/10 bg-black/30",
-            ].join(" ")}
-          >
-            {icon}
-          </div>
+  className={[
+    "inline-grid place-items-center border",
+    featured
+      ? "mx-auto mb-4 h-14 w-14 rounded-2xl border-white/20 bg-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.10)]"
+      : "h-10 w-10 rounded-xl border-white/10 bg-black/30",
+  ].join(" ")}
+>
+  {icon}
+</div>
 
           <div>
-            <div className="flex items-center gap-2">
+            <div className={featured ? "flex items-center justify-center gap-2" : "flex items-center gap-2"}>
               <div className="text-base md:text-lg font-semibold text-white/90 leading-tight">
                 {title}
               </div>
@@ -174,9 +174,14 @@ function ToolCard({
               ) : null}
             </div>
 
-            <div className="mt-2 text-sm text-white/70 leading-relaxed whitespace-pre-line">
-              {blurb}
-            </div>
+            <div
+  className={[
+    "mt-2 text-sm text-white/70 leading-relaxed whitespace-pre-line",
+    featured ? "mx-auto max-w-[58ch] text-base md:text-lg text-white/75" : "",
+  ].join(" ")}
+>
+  {blurb}
+</div>
           </div>
         </div>
 
@@ -188,7 +193,7 @@ function ToolCard({
       </div>
 
       {featured ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/70">
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/70 justify-center">
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
             Text
           </span>
@@ -265,26 +270,79 @@ export default function Home() {
     </div>
   </div>
 
-  {/* POWER BLOCK: FUNCTIONS vs CAPTURE */}
-  <div className="mt-14 grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <div className="text-xs tracking-[0.18em] uppercase text-white/50">Functions</div>
-      <div className="mt-4 space-y-2 text-white/80 text-sm">
-        <div>Expenses</div>
-        <div>Time Clock</div>
-        <div>Tasks</div>
-        <div>Jobs</div>
+    {/* POWER BLOCK: TOOLS + SENSES (connected) */}
+  <div className="mt-14 max-w-4xl mx-auto">
+    {/* Relationship header */}
+    <div className="mb-4 flex items-center justify-center gap-3 text-xs md:text-sm text-white/55">
+      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+        Senses capture reality
+      </span>
+      <span className="text-white/35">→</span>
+      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+        Tools organize the business
+      </span>
+    </div>
+
+    <div className="grid md:grid-cols-2 gap-6">
+      {/* TOOLS */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+        <div className="flex items-center justify-between">
+          <div className="text-xs tracking-[0.18em] uppercase text-white/50">
+            Tools
+          </div>
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/60">
+            More coming
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["Expenses", "Time Clock", "Tasks", "Jobs"].map((t) => (
+            <span
+              key={t}
+              className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/80"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-4 text-sm text-white/55 leading-relaxed">
+          Track what happened, tied to jobs and totals — not scattered across apps.
+        </div>
+      </div>
+
+      {/* SENSES */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+        <div className="flex items-center justify-between">
+          <div className="text-xs tracking-[0.18em] uppercase text-white/50">
+            Senses
+          </div>
+          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/60">
+            More coming
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {["Text", "Voice", "Receipt Photo (OCR)", "Email Forward"].map((s) => (
+            <span
+              key={s}
+              className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/80"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-4 text-sm text-white/55 leading-relaxed">
+          Log any tool using the fastest input in the moment, without switching apps.
+        </div>
       </div>
     </div>
 
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <div className="text-xs tracking-[0.18em] uppercase text-white/50">Capture</div>
-      <div className="mt-4 space-y-2 text-white/80 text-sm">
-        <div>Text</div>
-        <div>Voice</div>
-        <div>Receipt Photo (OCR)</div>
-        <div>Email Forward</div>
-      </div>
+    {/* Footnote cue */}
+    <div className="mt-4 text-center text-xs text-white/45">
+      Same system. Two layers: <span className="text-white/60">how you capture</span> and{" "}
+      <span className="text-white/60">what it becomes</span>.
     </div>
   </div>
 
@@ -320,8 +378,8 @@ export default function Home() {
       <ToolCard
         title="Chief"
         featured
-        icon={<ChiefIcon className="h-7 w-7 text-white" />}
-        blurb="Chief sits over every function — organizing records, answering questions, and connecting activity without guessing. Structured answers based only on what’s logged."
+        icon={<ChiefIcon className="h-8 w-8 text-white" />}
+        blurb="Chief sits under every tool, linking jobs, time, and money into one record. It answers only from what’s been logged, flags what’s missing, and never guesses."
       />
     </div>
   </div>
@@ -359,7 +417,7 @@ export default function Home() {
         title="Pictures"
         badge="Coming soon"
         icon={<DocsIcon className="h-6 w-6 text-white/80" />}
-        blurb="Store and organize job site photos and business images — searchable and connected to projects."
+        blurb="Store and organize job site photos and business images, searchable and connected to projects."
       />
 
     </div>
@@ -377,7 +435,7 @@ export default function Home() {
             </h2>
 
             <p className="mt-4 text-white/70 text-lg leading-relaxed">
-              Not a tool. Not a chatbot. ChiefOS is the operating layer that makes your tools work together — as one
+              Not a tool. Not a chatbot. ChiefOS is the operating layer that makes your tools work together, as one
               system.
             </p>
 
