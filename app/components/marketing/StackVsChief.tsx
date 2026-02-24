@@ -130,7 +130,7 @@ export default function StackVsChief({ variant = "default" }: { variant?: Varian
           </div>
 
           <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 cursor-pointer">
-            <span className="text-sm text-white/70">Include spreadsheet time cost</span>
+            <span className="text-sm text-white/70">Include labour cost of spreadsheet creation  </span>
             <input
   type="checkbox"
   checked={includeTimeCost}
