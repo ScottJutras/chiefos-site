@@ -273,7 +273,7 @@ export default function Home() {
         href="/early-access?plan=starter"
         className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
       >
-        Get access
+        Get Early Access
       </a>
     </div>
   </div>
@@ -285,7 +285,7 @@ export default function Home() {
   <div className="mb-6 flex items-center justify-center gap-4 text-sm text-white/50">
     <span>Conversational Business Management</span>
     <span className="text-white/35">→</span>
-    <span>Time and Money saved EVERY.SINGLE.DAY</span>
+    <span>Time and Money saved EVERY . SINGLE . DAY</span>
   </div>
 
   <div className="grid md:grid-cols-2 gap-6">
