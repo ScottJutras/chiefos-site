@@ -278,82 +278,78 @@ export default function Home() {
     </div>
   </div>
 
-    {/* POWER BLOCK: TOOLS + SENSES (connected) */}
-  <div className="mt-14 max-w-4xl mx-auto">
-    {/* Relationship header */}
-    <div className="mb-4 flex items-center justify-center gap-3 text-xs md:text-sm text-white/55">
-      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-        Senses capture reality
-      </span>
-      <span className="text-white/35">→</span>
-      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-        Tools organize the business
-      </span>
-    </div>
+  {/* POWER BLOCK: SENSES → TOOLS */}
+<div className="mt-14 max-w-4xl mx-auto">
 
-    <div className="grid md:grid-cols-2 gap-6">
-      {/* TOOLS */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-        <div className="flex items-center justify-between">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/50">
-            Tools
-          </div>
-          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/60">
-            More coming
-          </span>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {["Expenses", "Time Clock", "Tasks", "Jobs"].map((t) => (
-            <span
-              key={t}
-              className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/80"
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-
-        <div className="mt-4 text-sm text-white/55 leading-relaxed">
-          Track what happened, tied to jobs and totals — not scattered across apps.
-        </div>
-      </div>
-
-      {/* SENSES */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-        <div className="flex items-center justify-between">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/50">
-            Senses
-          </div>
-          <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/60">
-            More coming
-          </span>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {["Text", "Voice", "Receipt Photo (OCR)", "Email Forward"].map((s) => (
-            <span
-              key={s}
-              className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/80"
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-
-        <div className="mt-4 text-sm text-white/55 leading-relaxed">
-          Log any tool using the fastest input in the moment, without switching apps.
-        </div>
-      </div>
-    </div>
-
-    {/* Footnote cue */}
-    <div className="mt-4 text-center text-xs text-white/45">
-      Same system. Two layers: <span className="text-white/60">how you capture</span> and{" "}
-      <span className="text-white/60">what it becomes</span>.
-    </div>
+  {/* Relationship header */}
+  <div className="mb-6 flex items-center justify-center gap-4 text-sm text-white/50">
+    <span>Capture reality</span>
+    <span className="text-white/35">→</span>
+    <span>Organize the business</span>
   </div>
 
+  <div className="grid md:grid-cols-2 gap-6">
+
+    {/* SENSES (LEFT — FIRST TOUCHPOINT) */}
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
+      <div className="text-xl md:text-2xl font-semibold text-white">
+        Senses
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {["Text", "Voice", "Receipt Photo (OCR)", "Email Forward"].map((s) => (
+          <span
+            key={s}
+            className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
+          >
+            {s}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-5 text-sm text-white/60 leading-relaxed">
+        Log anything using the fastest input in the moment — no switching apps.
+      </div>
+
+      <div className="mt-4 text-[11px] uppercase tracking-[0.18em] text-white/40">
+        More inputs coming
+      </div>
+    </div>
+
+    {/* TOOLS (RIGHT — STRUCTURED OUTPUT) */}
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
+      <div className="text-xl md:text-2xl font-semibold text-white">
+        Tools
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {["Expenses", "Time Clock", "Tasks", "Jobs"].map((t) => (
+          <span
+            key={t}
+            className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-5 text-sm text-white/60 leading-relaxed">
+        Every entry becomes structured, tied to jobs, and connected across the system.
+      </div>
+
+      <div className="mt-4 text-[11px] uppercase tracking-[0.18em] text-white/40">
+        More tools coming
+      </div>
+    </div>
+
+  </div>
+
+  {/* System explanation footer */}
+  <div className="mt-6 text-center text-xs text-white/45">
+    Two layers. One system.
+  </div>
+
+</div>
   {/* CURRENT FEATURES GRID */}
   <div className="mt-16 grid gap-6 md:grid-cols-2">
 
