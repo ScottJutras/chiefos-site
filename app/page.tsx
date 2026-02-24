@@ -257,54 +257,48 @@ export default function Home() {
        {/* CTA (Phone → WhatsApp) */}
     <div className="mt-8 flex flex-col items-center justify-center gap-3">
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const raw = (e.currentTarget as HTMLFormElement).phone.value || "";
-          const phone = String(raw).trim();
+  action="/wa"
+  method="GET"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="w-full max-w-xl"
+>
+  <input type="hidden" name="t" value="hero" />
 
-          const url = phone
-            ? `/wa?t=hero&phone=${encodeURIComponent(phone)}`
-            : `/wa?t=hero`;
+  <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+    {/* Input (pill) */}
+    <div className="relative flex-1">
+      <input
+        name="phone"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder="Enter your phone number"
+        className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 pr-12 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 focus:bg-black/35"
+      />
 
-          window.open(url, "_blank", "noopener,noreferrer");
-        }}
-        className="w-full max-w-xl"
-      >
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
-          {/* Input (pill) */}
-          <div className="relative flex-1">
-            <input
-              name="phone"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="Enter your phone number"
-              className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 pr-12 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 focus:bg-black/35"
-            />
-
-            {/* little info icon with tooltip */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <TooltipChip tip="We only use your number to open WhatsApp and link your logs to your account. No spam. Never sold.">
-                <button
-                  type="button"
-                  className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85 transition"
-                  aria-label="Why we ask for your phone number"
-                >
-                  i
-                </button>
-              </TooltipChip>
-            </div>
-          </div>
-
-          {/* Button */}
+      {/* little info icon with tooltip */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <TooltipChip tip="We only use your number to open WhatsApp and link your logs to your account. No spam. Never sold.">
           <button
-            type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+            type="button"
+            className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85 transition"
+            aria-label="Why we ask for your phone number"
           >
-            Start for Free on WhatsApp
+            i
           </button>
-        </div>
-      </form>
+        </TooltipChip>
+      </div>
+    </div>
 
+    {/* Button */}
+    <button
+      type="submit"
+      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+    >
+      Start for Free on WhatsApp
+    </button>
+  </div>
+</form>
       {/* Secondary CTA */}
       <a
         href="/pricing"
