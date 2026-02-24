@@ -254,30 +254,73 @@ export default function Home() {
       Stop paying for five apps to run one business.
     </p>
 
-    {/* CTA */}
-    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
-      <TooltipChip tip="No app download. Works inside WhatsApp.">
-        <a
-          href="/wa?t=hero"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
-        >
-          <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
-            <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
-          </span>
-          Start on WhatsApp
-        </a>
-      </TooltipChip>
+    {/* CTA (Phone → WhatsApp) */}
+<div className="mt-8 flex flex-col items-center justify-center gap-3">
+  <form
+    onSubmit={(e) => {
+      e.preventDefault();
+      const raw = (e.currentTarget as HTMLFormElement).phone.value || "";
+      const phone = String(raw).trim();
 
-      <a
-        href="/early-access?plan=starter"
-        className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+      // Optional: pass phone as a query param for prefill/tracking
+      // If you don't need it, just do: window.open("/wa?t=hero", "_blank", "noopener,noreferrer");
+      const url = phone
+        ? `/wa?t=hero&phone=${encodeURIComponent(phone)}`
+        : `/wa?t=hero`;
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    }}
+    className="w-full max-w-xl"
+  >
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
+      {/* Input (pill) */}
+      <div className="relative flex-1">
+        <input
+          name="phone"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="Enter your phone number"
+          className="w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 pr-12 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/25 focus:bg-black/35"
+        />
+
+        {/* little info icon with tooltip */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <TooltipChip tip="We use your number only to open your WhatsApp link and connect your logs to your account. We don’t sell your info, and we won’t spam you.">
+            <button
+              type="button"
+              className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85 transition"
+              aria-label="Why we ask for your phone number"
+            >
+              i
+            </button>
+          </TooltipChip>
+        </div>
+      </div>
+
+      {/* Button (stacks under on mobile) */}
+      <button
+        type="submit"
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
       >
-        Get Early Access
-      </a>
+        Start for Free on WhatsApp
+      </button>
     </div>
+  </form>
+
+  {/* Secondary CTA */}
+  <a
+    href="/pricing"
+    className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+  >
+    Get it now
+  </a>
+
+  {/* Tiny reassurance line */}
+  <div className="text-xs text-white/45">
+    No app download. Your number is used for WhatsApp access + account linking only.
   </div>
+</div>
+</div>
 
   {/* POWER BLOCK: SENSES → TOOLS */}
 <div className="mt-14 max-w-4xl mx-auto">
