@@ -346,7 +346,7 @@ export default function Home() {
 
   {/* System explanation footer */}
   <div className="mt-6 text-center text-xs text-white/45">
-    Two layers. One system.
+    No more stacking expensive apps just to make it through the day.
   </div>
 
 </div>
