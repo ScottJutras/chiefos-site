@@ -244,7 +244,7 @@ export default function Home() {
     </h1>
 
     <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
-      The tools you need to manage your business all integrated in 1 operating system. No more stacking expensive apps to track Labour, Expenses, Revenue, Tasks and so much more and where you already communicate...In WhatsApp.
+      The tools you need to manage your business all integrated in 1 operating system.
       Track your buiness conversationally, by text, voice or image without having to spend hours every night doing spreadsheets.
     </p>
 
