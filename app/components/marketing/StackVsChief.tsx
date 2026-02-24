@@ -132,11 +132,19 @@ export default function StackVsChief({ variant = "default" }: { variant?: Varian
           <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 cursor-pointer">
             <span className="text-sm text-white/70">Include spreadsheet time cost</span>
             <input
-              type="checkbox"
-              checked={includeTimeCost}
-              onChange={(e) => setIncludeTimeCost(e.target.checked)}
-              className="h-4 w-4 accent-white"
-            />
+  type="checkbox"
+  checked={includeTimeCost}
+  onChange={(e) => setIncludeTimeCost(e.target.checked)}
+  className="
+    h-5 w-5
+    rounded-md
+    border border-white/30
+    bg-black/40
+    accent-white
+    focus:ring-2 focus:ring-white/30
+    cursor-pointer
+  "
+/>
           </label>
         </div>
       </div>
