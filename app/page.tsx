@@ -244,7 +244,7 @@ export default function Home() {
     </h1>
 
     <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
-      The tools you need to manage your business all integrated in 1 operating system.
+      The tools you need to manage your business integrated into 1 operating system.
       Track your buiness conversationally, by text, voice or image without having to spend hours every night doing spreadsheets.
     </p>
 
@@ -432,20 +432,19 @@ export default function Home() {
         <div className="grid md:grid-cols-12 gap-10 items-start">
           <div className="md:col-span-5">
             <h2 className="text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
-              Business Operating System.
+              Your Data is YOURS
               <br />
-              Not an app.
+              Export your spreadsheets anytime
             </h2>
 
             <p className="mt-4 text-white/70 text-lg leading-relaxed">
-              Not a tool. Not a chatbot. ChiefOS is the operating layer that makes your tools work together, as one
-              system.
+              Receipt Images, Voice recording and more available to download anytime. 
             </p>
 
             <div className="mt-6 space-y-3 text-sm text-white/70">
               <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
-                <div className="text-sm font-semibold text-white/85">Chief = the financial brain</div>
-                <div className="mt-1 text-xs text-white/55">The part that helps you understand the numbers.</div>
+                <div className="text-sm font-semibold text-white/85">Spreadsheets</div>
+                <div className="mt-1 text-xs text-white/55">Export= PDF XLS CSV</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
                 <div className="text-sm font-semibold text-white/85">OS = the structure</div>
