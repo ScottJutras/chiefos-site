@@ -136,14 +136,14 @@ export default function StackVsChief({ variant = "default" }: { variant?: Varian
   checked={includeTimeCost}
   onChange={(e) => setIncludeTimeCost(e.target.checked)}
   className="
-    h-5 w-5
-    rounded-md
-    border border-white/30
-    bg-black/40
-    accent-white
-    focus:ring-2 focus:ring-white/30
-    cursor-pointer
-  "
+  h-5 w-5
+  rounded-md
+  border border-white/30
+  bg-black/40
+  accent-black
+  focus:ring-2 focus:ring-white/30
+  cursor-pointer
+"
 />
           </label>
         </div>
