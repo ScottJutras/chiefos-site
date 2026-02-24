@@ -36,7 +36,7 @@ function chip(cls: string) {
 
 export default function TrashPage() {
   const router = useRouter();
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
   const toast = useToast();
 
   const [confirmOpen, setConfirmOpen] = useState(false);

@@ -26,7 +26,7 @@ function chip(cls: string) {
 
 export default function VendorsPage() {
   const router = useRouter();
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: true });
+  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
 
   const [rows, setRows] = useState<VendorRow[]>([]);
   const [loading, setLoading] = useState(true);
