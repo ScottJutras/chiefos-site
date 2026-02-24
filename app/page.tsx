@@ -203,16 +203,16 @@ function ToolCard({
       {featured ? (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/70 justify-center">
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-            Text
+            Chief, did I make any money on Job #2?
           </span>
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-            Audio
+            How much did it cost to redo that wall?
           </span>
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-            Receipt photos
+            How much do I need to make so I can pay my bills?
           </span>
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-            No invented numbers
+            Answers grounded truth.
           </span>
         </div>
       ) : null}
@@ -283,9 +283,9 @@ export default function Home() {
 
   {/* Relationship header */}
   <div className="mb-6 flex items-center justify-center gap-4 text-sm text-white/50">
-    <span>Capture reality</span>
+    <span>Conversational Business Management</span>
     <span className="text-white/35">→</span>
-    <span>Organize the business</span>
+    <span>Time and Money saved EVERY.SINGLE.DAY</span>
   </div>
 
   <div className="grid md:grid-cols-2 gap-6">
@@ -771,7 +771,7 @@ export default function Home() {
             <p className="mt-4 text-white/70 text-lg leading-relaxed">Chief uses the records you’ve built.</p>
 
             <div className="mt-6 text-sm text-white/55">
-              Behind the scenes, intelligent systems organize and reason over your data — so you don’t have to.
+              Behind the scenes, intelligent systems organize and reason over your data, so you don’t have to.
             </div>
           </div>
 
