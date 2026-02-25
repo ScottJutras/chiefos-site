@@ -239,7 +239,7 @@ export default function ExpensesPage() {
   async function load() {
     try {
       const { data, error } = await supabase
-        .from("chiefos_expenses_receipts")
+        .from("chiefos_portal_expenses")
         .select("*")
         .is("deleted_at", null)
         .order("expense_date", { ascending: false });
@@ -755,7 +755,7 @@ export default function ExpensesPage() {
       if (error) throw error;
 
       const { data: fresh, error: fErr } = await supabase
-        .from("chiefos_expenses_receipts")
+        .from("chiefos_portal_expenses")
         .select("*")
         .is("deleted_at", null)
         .order("expense_date", { ascending: false });
