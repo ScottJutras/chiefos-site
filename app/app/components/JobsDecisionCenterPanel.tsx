@@ -42,7 +42,6 @@ function statusLabel(k: StatusKey) {
 }
 
 function statusBadgeClass(k: StatusKey) {
-  // Dark portal styling
   switch (k) {
     case "active":
       return "border-emerald-400/20 bg-emerald-500/10 text-emerald-200";
@@ -57,15 +56,82 @@ function statusBadgeClass(k: StatusKey) {
   }
 }
 
+function DrawerShell({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", onKey);
+    // lock scroll (simple, safe)
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60"
+        aria-label="Close drawer"
+      />
+
+      {/* Panel */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-white/10 bg-black/80 backdrop-blur">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div>
+            <div className="text-xs text-white/55">Decision Center</div>
+            <div className="mt-1 text-sm font-semibold text-white/90">{title}</div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/75 hover:bg-white/10 transition"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="h-[calc(100%-64px)] overflow-hidden p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function JobsDecisionCenterPanel(props: {
   title?: string;
-  href?: string; // optional "Open Jobs" link
+  href?: string; // optional link if you ever add a jobs page later
   maxHeightClassName?: string;
+  enableDrawer?: boolean; // default true
 }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [q, setQ] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const [open, setOpen] = useState<Record<StatusKey, boolean>>({
     active: true,
     paused: false,
@@ -75,6 +141,7 @@ export default function JobsDecisionCenterPanel(props: {
   });
 
   const maxH = props.maxHeightClassName ?? "max-h-[70vh]";
+  const enableDrawer = props.enableDrawer ?? true;
 
   useEffect(() => {
     let alive = true;
@@ -138,143 +205,176 @@ export default function JobsDecisionCenterPanel(props: {
   const totalCount = jobs.length;
   const visibleCount = filtered.length;
 
-  return (
-    <aside className="rounded-2xl border border-white/10 bg-black/30">
-      {/* Header */}
-      <div className="sticky top-0 z-10 rounded-t-2xl border-b border-white/10 bg-black/60 p-4 backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-white/55">Decision Center</div>
-            <div className="mt-1 flex items-center gap-2">
-              <div className="text-sm font-semibold text-white/90">
-                {props.title || "Jobs"}
-              </div>
+  const PanelBody = ({ heightClass }: { heightClass: string }) => (
+    <div className={`${heightClass} overflow-auto`}>
+      {loading ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+          Loading jobs…
+        </div>
+      ) : totalCount === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-sm text-white/60">
+          No jobs yet. Create one to unlock job-first totals (profit, spend, revenue).
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {(Object.keys(grouped) as StatusKey[]).map((k) => {
+            const list = grouped[k];
+            if (!list.length) return null;
 
-              {props.href ? (
-                <Link
-                  href={props.href}
-                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/75 hover:bg-white/10 transition"
+            const isOpen = open[k];
+
+            return (
+              <div key={k} className="rounded-2xl border border-white/10 bg-black/20">
+                <button
+                  type="button"
+                  onClick={() => setOpen((s) => ({ ...s, [k]: !s[k] }))}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition"
                 >
-                  Open Jobs →
-                </Link>
-              ) : null}
-            </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={[
+                        "rounded-full border px-2 py-1 text-[11px] font-semibold",
+                        statusBadgeClass(k),
+                      ].join(" ")}
+                    >
+                      {statusLabel(k)}
+                    </span>
+                    <span className="text-sm font-semibold text-white/85">{list.length}</span>
+                    <span className="text-xs text-white/55">jobs</span>
+                  </div>
+                  <span className="text-xs text-white/55">{isOpen ? "Collapse" : "Expand"}</span>
+                </button>
 
-            <div className="mt-1 text-xs text-white/55">
-              Search + expand groups without leaving the dashboard.
-            </div>
-          </div>
-
-          <div className="text-right text-xs text-white/55">
-            <div>{loading ? "Loading…" : `${visibleCount}/${totalCount}`}</div>
-            <div>visible</div>
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by job #, name, or status"
-            className={[
-              "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm",
-              "text-white/85 placeholder:text-white/35 outline-none",
-              "focus:border-white/20",
-            ].join(" ")}
-          />
-        </div>
-
-        {err ? (
-          <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
-            {err}
-            <div className="mt-1 text-[11px] text-red-200/80">
-              If this is permissions-related, confirm: portal membership → tenant mapping → jobs RLS.
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Body */}
-      <div className={`${maxH} overflow-auto p-4`}>
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-            Loading jobs…
-          </div>
-        ) : totalCount === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-sm text-white/60">
-            No jobs yet. Create one to unlock job-first totals (profit, spend, revenue).
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {(Object.keys(grouped) as StatusKey[]).map((k) => {
-              const list = grouped[k];
-              if (!list.length) return null;
-
-              const isOpen = open[k];
-
-              return (
-                <div key={k} className="rounded-2xl border border-white/10 bg-black/20">
-                  <button
-                    type="button"
-                    onClick={() => setOpen((s) => ({ ...s, [k]: !s[k] }))}
-                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={[
-                          "rounded-full border px-2 py-1 text-[11px] font-semibold",
-                          statusBadgeClass(k),
-                        ].join(" ")}
-                      >
-                        {statusLabel(k)}
-                      </span>
-                      <span className="text-sm font-semibold text-white/85">{list.length}</span>
-                      <span className="text-xs text-white/55">jobs</span>
-                    </div>
-                    <span className="text-xs text-white/55">{isOpen ? "Collapse" : "Expand"}</span>
-                  </button>
-
-                  {isOpen ? (
-                    <div className="border-t border-white/10 p-3">
-                      <div className="space-y-2">
-                        {list.map((j) => (
-                          <div
-                            key={j.id}
-                            className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/75">
-                                  #{j.job_no}
-                                </span>
-                                <div className="truncate text-sm font-semibold text-white/85">
-                                  {j.job_name || "Untitled job"}
-                                </div>
-                              </div>
-                              <div className="mt-0.5 text-xs text-white/55">
-                                Status: {j.status || "unknown"}
+                {isOpen ? (
+                  <div className="border-t border-white/10 p-3">
+                    <div className="space-y-2">
+                      {list.map((j) => (
+                        <div
+                          key={j.id}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/75">
+                                #{j.job_no}
+                              </span>
+                              <div className="truncate text-sm font-semibold text-white/85">
+                                {j.job_name || "Untitled job"}
                               </div>
                             </div>
-
-                            {/* Read-only: no fake buttons */}
-                            <div className="shrink-0 text-[11px] text-white/45">
-                              {j.active ? "Active" : ""}
+                            <div className="mt-0.5 text-xs text-white/55">
+                              Status: {j.status || "unknown"}
                             </div>
                           </div>
-                        ))}
-                      </div>
 
-                      <div className="mt-3 text-[11px] text-white/45">
-                        Rule: calm truth surface. No mutation, no “dashboard theatre.”
-                      </div>
+                          <div className="shrink-0 text-[11px] text-white/45">
+                            {j.active ? "Active" : ""}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ) : null}
+
+                    <div className="mt-3 text-[11px] text-white/45">
+                      Rule: calm truth surface. No mutation, no “dashboard theatre.”
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <aside className="rounded-2xl border border-white/10 bg-black/30">
+        {/* Header */}
+        <div className="sticky top-0 z-10 rounded-t-2xl border-b border-white/10 bg-black/60 p-4 backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs text-white/55">Decision Center</div>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="text-sm font-semibold text-white/90">
+                  {props.title || "Jobs"}
                 </div>
-              );
-            })}
+
+                {props.href ? (
+                  <Link
+                    href={props.href}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/75 hover:bg-white/10 transition"
+                  >
+                    Open Jobs →
+                  </Link>
+                ) : null}
+
+                {enableDrawer ? (
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(true)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/75 hover:bg-white/10 transition"
+                    title="Expand jobs list"
+                  >
+                    Expand →
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="mt-1 text-xs text-white/55">
+                Search + expand groups without leaving the dashboard.
+              </div>
+            </div>
+
+            <div className="text-right text-xs text-white/55">
+              <div>{loading ? "Loading…" : `${visibleCount}/${totalCount}`}</div>
+              <div>visible</div>
+            </div>
           </div>
-        )}
-      </div>
-    </aside>
+
+          <div className="mt-3">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search by job #, name, or status"
+              className={[
+                "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm",
+                "text-white/85 placeholder:text-white/35 outline-none",
+                "focus:border-white/20",
+              ].join(" ")}
+            />
+          </div>
+
+          {err ? (
+            <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+              {err}
+              <div className="mt-1 text-[11px] text-red-200/80">
+                If this is permissions-related, confirm: portal membership → tenant mapping → jobs RLS.
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Body */}
+        <div className={`${maxH} p-4`}>
+          <PanelBody heightClass="max-h-[70vh]" />
+        </div>
+      </aside>
+
+      {/* Drawer (expanded jobs) */}
+      <DrawerShell
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={props.title || "Jobs"}
+      >
+        {/* Bigger body in drawer */}
+        <div className="h-full">
+          <div className="mb-3 text-xs text-white/55">
+            Expanded view — still read-only.
+          </div>
+          <PanelBody heightClass="h-[calc(100%-20px)]" />
+        </div>
+      </DrawerShell>
+    </>
   );
 }
