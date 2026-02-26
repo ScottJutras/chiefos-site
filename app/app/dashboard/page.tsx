@@ -120,20 +120,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Row 1: Ask Chief (left) + Commands (right) */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
-          {/* Ask Chief hero surface */}
-          <section className="rounded-2xl border border-white/10 bg-black/60 px-5 py-4">
+        <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_420px]">
+         {/* Ask Chief hero surface */}
+<section className="place-self-start h-fit w-full rounded-2xl border border-white/10 bg-black/60 px-5 py-4">
   <div className="flex items-center justify-between gap-4">
     <div className="min-w-0">
       <div className="text-xs text-white/50">Ask Chief</div>
-      <div className="text-sm text-white/70">
-        Ask about spend, revenue, profit, jobs.
-      </div>
+      <div className="text-sm text-white/70">Ask about spend, revenue, profit, jobs.</div>
     </div>
 
-    <div className="hidden sm:block text-[11px] text-white/40">
-      Live
-    </div>
+    <div className="hidden sm:block text-[11px] text-white/40">Live</div>
   </div>
 
   <div className="mt-3">
