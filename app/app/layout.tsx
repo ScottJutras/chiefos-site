@@ -10,22 +10,25 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         className="sticky z-20 border-b border-white/10 bg-black/70 backdrop-blur-xl"
         style={{ top: "var(--early-access-banner-h)" }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link
-            href="/app"
-            className="font-semibold tracking-tight hover:text-white/90 transition"
-          >
-            ChiefOS
-          </Link>
+        {/* Header: full width, small padding */}
+        <div className="w-full px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/app"
+              className="font-semibold tracking-tight hover:text-white/90 transition"
+            >
+              ChiefOS
+            </Link>
 
-          <div className="flex items-center gap-3">
-            <AppNav />
+            <div className="flex items-center gap-3">
+              <AppNav />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* IMPORTANT: no top padding here (header already consumes height) */}
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      {/* Main: full width, minimal padding */}
+      <main className="w-full px-2 py-3">{children}</main>
     </div>
   );
 }
