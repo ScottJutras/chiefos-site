@@ -5,8 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import AskChiefMini from "@/app/app/components/AskChiefMini";
 import AskChiefCommandsPanel from "@/app/app/components/AskChiefCommandsPanel";
 import JobsDecisionCenterPanel from "@/app/app/components/JobsDecisionCenterPanel";
+import DecisionCenterNav from "@/app/app/components/DecisionCenterNav";
+import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { supabase } from "@/lib/supabase";
+
+type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 
 function prettyFromEmail(email?: string | null) {
   if (!email) return "";
@@ -17,18 +21,9 @@ function prettyFromEmail(email?: string | null) {
   return cleaned.replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-function TopLink({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
+function TopLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link
-      href={href}
-      className="text-xs text-white/60 hover:text-white/85 transition"
-    >
+    <Link href={href} className="text-xs text-white/60 hover:text-white/85 transition">
       {label}
     </Link>
   );
@@ -38,6 +33,9 @@ export default function DashboardPage() {
   const { loading } = useTenantGate({ requireWhatsApp: false });
 
   const [workspaceName, setWorkspaceName] = useState<string>("Your system");
+
+  // ✅ In-page data browser state (no navigation away)
+  const [view, setView] = useState<ViewKey>("expenses");
 
   useEffect(() => {
     let alive = true;
@@ -96,9 +94,7 @@ export default function DashboardPage() {
         }
 
         const dbBusiness =
-          ((t as any)?.business_name as string | null) ||
-          ((t as any)?.name as string | null) ||
-          "";
+          ((t as any)?.business_name as string | null) || ((t as any)?.name as string | null) || "";
 
         const finalName = (dbBusiness || "").trim() || metaFallback || emailFallback || "Your system";
 
@@ -121,7 +117,7 @@ export default function DashboardPage() {
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* ─────────────────────────────────────────────────────────────
-            Minimal header row (replaces the large title card)
+            Minimal header row (keeps space tight)
         ───────────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -129,14 +125,8 @@ export default function DashboardPage() {
             <div className="truncate text-lg font-semibold text-white/90">{titleLine}</div>
           </div>
 
-          {/* simple one-line links instead of big cards */}
+          {/* Keep only the truly “settings-y” stuff up here (optional) */}
           <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-            <TopLink href="/app/activity/expenses" label="Expenses" />
-            <TopLink href="/app/activity/revenue" label="Revenue" />
-            <TopLink href="/app/activity/time" label="Time" />
-            <TopLink href="/app/activity/tasks" label="Tasks" />
-            <span className="hidden sm:inline text-white/15">|</span>
-            <TopLink href="/app/settings/commands" label="Commands" />
             <TopLink href="/app/settings/billing" label="Billing" />
             <TopLink href="/app/settings" label="Settings" />
           </div>
@@ -144,37 +134,50 @@ export default function DashboardPage() {
 
         {/* ─────────────────────────────────────────────────────────────
             Decision Centre prototype layout
-            Left = Ask Chief + feed (scrollable)
+            Left = Ask Chief + in-page data browser (scrollable)
             Right = Commands + Jobs (sticky)
         ───────────────────────────────────────────────────────────── */}
         <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
-          {/* Left: Ask Chief is the hero */}
-          <div className="min-w-0">
+          {/* Left: Ask Chief + in-page data */}
+          <div className="min-w-0 space-y-4">
+            {/* Ask Chief stays on this page */}
             <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
               <div className="text-xs text-white/55">Ask Chief</div>
               <div className="mt-1 text-sm text-white/65">
                 Ask about spend, revenue, profit, job performance — Chief answers from your ledger.
               </div>
 
-              {/* Ask Chief input + results feed */}
-              {/* IMPORTANT: AskChiefMini should NOT show “Open Chief” or suggested prompt buttons.
-                  If it does today, we’ll adjust AskChiefMini next (small patch). */}
               <div className="mt-4">
+                {/* NOTE: AskChiefMini currently includes an “Open Chief →” link + prompt chips.
+                    If you want, we’ll patch AskChiefMini next to remove those (small edit).
+                 */}
                 <AskChiefMini />
               </div>
+
+              {/* ✅ Your requested nav row (in-page switching, no route change) */}
+              <DecisionCenterNav view={view} setView={setView} />
             </div>
 
-            {/* Optional: keep a tiny hint line, but don’t waste space */}
-            <div className="mt-3 text-[11px] text-white/45">
-              Stay here: jobs + commands + answers all visible on one screen.
-            </div>
+            {/* ✅ In-page data panel (Expenses will work immediately via chiefos_portal_expenses)
+                Revenue/Time/Tasks will fail-soft until those portal-safe surfaces exist.
+             */}
+            <DashboardDataPanel view={view} />
           </div>
 
           {/* Right: sticky decision panels */}
           <div className="space-y-4 xl:sticky xl:top-6 h-fit">
-            <AskChiefCommandsPanel />
+            {/* Commands anchor so the nav “Commands” jumps here */}
+            <div id="command-reference">
+              <AskChiefCommandsPanel />
+            </div>
+
             <JobsDecisionCenterPanel title="Jobs" />
           </div>
+        </div>
+
+        <div className="mt-4 text-[11px] text-white/40">
+          Portal-safe data panels detected: chiefos_portal_expenses (✅). Revenue/Time/Tasks panels will become fully
+          deterministic once their portal-safe views exist.
         </div>
       </div>
     </main>
