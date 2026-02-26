@@ -5,6 +5,9 @@ import { supabase } from "@/lib/supabase";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 
+// ✅ “effectively all” for beta (avoid accidental infinite payloads)
+const MAX_ROWS = 5000;
+
 function money(cents?: number | null) {
   const n = Number(cents ?? 0);
   const dollars = n / 100;
@@ -13,7 +16,6 @@ function money(cents?: number | null) {
 
 function fmtDate(s?: string | null) {
   if (!s) return "";
-  // handles "2025-01-01" or ISO timestamps
   const d = new Date(s);
   return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString();
 }
@@ -53,7 +55,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
             .from("chiefos_portal_expenses")
             .select("id, expense_date, vendor, description, amount_cents, job_name, job_no, created_at")
             .order("created_at", { ascending: false })
-            .limit(50);
+            .limit(MAX_ROWS);
 
           if (!alive) return;
           if (error) throw error;
@@ -68,7 +70,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
               .from("chiefos_portal_revenue")
               .select("id, revenue_date, customer, description, amount_cents, job_name, created_at")
               .order("created_at", { ascending: false })
-              .limit(50);
+              .limit(MAX_ROWS);
 
             if (!alive) return;
             if (error) throw error;
@@ -80,7 +82,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
               .select("id, date, source, description, amount_cents, job_name, created_at, kind")
               .ilike("kind", "revenue")
               .order("created_at", { ascending: false })
-              .limit(50);
+              .limit(MAX_ROWS);
 
             if (!alive) return;
             if (error) throw error;
@@ -95,7 +97,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
             .from("time_entries")
             .select("id, job_name, user_name, start_time, end_time, minutes, created_at, status")
             .order("created_at", { ascending: false })
-            .limit(50);
+            .limit(MAX_ROWS);
 
           if (!alive) return;
           if (error) throw error;
@@ -109,7 +111,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
             .from("tasks")
             .select("id, title, status, job_name, assigned_to, created_at")
             .order("created_at", { ascending: false })
-            .limit(50);
+            .limit(MAX_ROWS);
 
           if (!alive) return;
           if (error) throw error;
@@ -140,7 +142,9 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
             Browse while you ask. This panel never leaves the dashboard.
           </div>
         </div>
-        <div className="text-xs text-white/55">{loading ? "Loading…" : `${rows.length} shown`}</div>
+        <div className="text-xs text-white/55">
+          {loading ? "Loading…" : `${rows.length} shown${rows.length >= MAX_ROWS ? " (capped)" : ""}`}
+        </div>
       </div>
 
       {err ? (
