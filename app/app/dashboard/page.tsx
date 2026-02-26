@@ -122,23 +122,24 @@ export default function DashboardPage() {
         {/* Row 1: Ask Chief (left) + Commands (right) */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
           {/* Ask Chief hero surface */}
-          <section className="rounded-2xl border border-white/10 bg-black/50 p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-xs text-white/55">Ask Chief</div>
-                <div className="mt-1 text-sm text-white/70">
-                  Ask questions. Browse your data. Stay on one screen.
-                </div>
-              </div>
-              <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/60">
-                Live
-              </div>
-            </div>
+          <section className="rounded-2xl border border-white/10 bg-black/60 px-5 py-4">
+  <div className="flex items-center justify-between gap-4">
+    <div className="min-w-0">
+      <div className="text-xs text-white/50">Ask Chief</div>
+      <div className="text-sm text-white/70">
+        Ask about spend, revenue, profit, jobs.
+      </div>
+    </div>
 
-            <div className="mt-4">
-              <AskChiefMini />
-            </div>
-          </section>
+    <div className="hidden sm:block text-[11px] text-white/40">
+      Live
+    </div>
+  </div>
+
+  <div className="mt-3">
+    <AskChiefMini />
+  </div>
+</section>
 
           {/* Commands pinned far right */}
           <div className="xl:sticky xl:top-4 h-fit">
