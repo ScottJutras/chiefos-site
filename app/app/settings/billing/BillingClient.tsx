@@ -108,9 +108,15 @@ async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   } catch {}
 
   if (!resp.ok) {
-    const msg = json?.error || json?.message || `Request failed (${resp.status})`;
-    throw new Error(msg);
-  }
+  const raw = json?.error ?? json?.message ?? null;
+  const msg =
+    typeof raw === "string"
+      ? raw
+      : raw
+        ? JSON.stringify(raw)
+        : `Request failed (${resp.status})`;
+  throw new Error(msg);
+}
 
   return json as T;
 }

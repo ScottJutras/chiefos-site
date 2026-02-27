@@ -8,7 +8,6 @@ import AskChiefMini from "@/app/app/components/AskChiefMini";
 import AskChiefCommandsPanel from "@/app/app/components/AskChiefCommandsPanel";
 import JobsDecisionCenterPanel from "@/app/app/components/JobsDecisionCenterPanel";
 
-// You created these:
 import DecisionCenterNav from "@/app/app/components/DecisionCenterNav";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 
@@ -22,6 +21,27 @@ function prettyFromEmail(email?: string | null) {
 }
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
+
+function pickBestName({
+  tenantName,
+  metaFallback,
+  emailFallback,
+}: {
+  tenantName?: string | null;
+  metaFallback?: string | null;
+  emailFallback?: string | null;
+}) {
+  const a = String(tenantName ?? "").trim();
+  if (a) return a;
+
+  const b = String(metaFallback ?? "").trim();
+  if (b) return b;
+
+  const c = String(emailFallback ?? "").trim();
+  if (c) return c;
+
+  return "Your system";
+}
 
 export default function DashboardPage() {
   const { loading } = useTenantGate({ requireWhatsApp: false });
@@ -49,12 +69,13 @@ export default function DashboardPage() {
 
         const emailFallback = prettyFromEmail(user?.email || null);
 
+        // If not logged in (or token is missing), just show best fallback
         if (!userId) {
-          if (alive) setWorkspaceName(metaFallback || emailFallback || "Your system");
+          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
           return;
         }
 
-        // Resolve tenant_id via portal membership (auth.uid() context)
+        // Resolve tenant_id via portal membership
         const { data: pu, error: puErr } = await supabase
           .from("chiefos_portal_users")
           .select("tenant_id")
@@ -62,36 +83,41 @@ export default function DashboardPage() {
           .maybeSingle();
 
         if (puErr) {
-          if (alive) setWorkspaceName(metaFallback || emailFallback || "Your system");
+          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
           return;
         }
 
         const tenantId = (pu as any)?.tenant_id as string | null;
 
         if (!tenantId) {
-          if (alive) setWorkspaceName(metaFallback || emailFallback || "Your system");
+          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
           return;
         }
 
-        // Deterministic business name from chiefos_tenants
+        // Deterministic name from chiefos_tenants
+        // ✅ IMPORTANT: do NOT select business_name (it does not exist / causes 400)
         const { data: t, error: tErr } = await supabase
           .from("chiefos_tenants")
-          .select("business_name,name")
+          .select("name")
           .eq("id", tenantId)
           .maybeSingle();
 
         if (tErr) {
-          if (alive) setWorkspaceName(metaFallback || emailFallback || "Your system");
+          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
           return;
         }
 
-        const dbBusiness =
-          ((t as any)?.business_name as string | null) ||
-          ((t as any)?.name as string | null) ||
-          "";
+        const tenantName = ((t as any)?.name as string | null) || null;
 
-        const finalName = (dbBusiness || "").trim() || metaFallback || emailFallback || "Your system";
-        if (alive) setWorkspaceName(finalName);
+        if (alive) {
+          setWorkspaceName(
+            pickBestName({
+              tenantName,
+              metaFallback,
+              emailFallback,
+            })
+          );
+        }
       } catch {
         // fail-soft
       }
@@ -108,9 +134,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen">
-      {/* Minimal padding, full width */}
       <div className="mx-auto max-w-none px-4 py-4">
-        {/* tiny header row */}
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] text-white/45">Workspace</div>
@@ -119,40 +143,33 @@ export default function DashboardPage() {
           <div className="text-[11px] text-white/40">Decision Center prototype</div>
         </div>
 
-        {/* Row 1: Ask Chief (left) + Commands (right) */}
         <div className="mt-5 grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_420px]">
-         {/* Ask Chief hero surface */}
-<section className="place-self-start h-fit w-full rounded-2xl border border-white/10 bg-black/60 px-5 py-4">
-  <div className="flex items-center justify-between gap-4">
-    <div className="min-w-0">
-      <div className="text-xs text-white/50">Ask Chief</div>
-      <div className="text-sm text-white/70">Ask about spend, revenue, profit, jobs.</div>
-    </div>
+          <section className="place-self-start h-fit w-full rounded-2xl border border-white/10 bg-black/60 px-5 py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs text-white/50">Ask Chief</div>
+                <div className="text-sm text-white/70">Ask about spend, revenue, profit, jobs.</div>
+              </div>
 
-    <div className="hidden sm:block text-[11px] text-white/40">Live</div>
-  </div>
+              <div className="hidden sm:block text-[11px] text-white/40">Live</div>
+            </div>
 
-  <div className="mt-3">
-    <AskChiefMini />
-  </div>
-</section>
+            <div className="mt-3">
+              <AskChiefMini />
+            </div>
+          </section>
 
-          {/* Commands pinned far right */}
           <div className="xl:sticky xl:top-4 h-fit">
             <AskChiefCommandsPanel />
           </div>
         </div>
 
-        {/* Row 2: Jobs + Tools/Data */}
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {/* Jobs */}
           <div className="min-w-0">
             <JobsDecisionCenterPanel title="Jobs" />
           </div>
 
-          {/* Tools/Data */}
           <div className="min-w-0 space-y-3">
-            {/* ✅ FIXED PROPS (matches your component type) */}
             <DecisionCenterNav view={view} setView={setView} />
             <DashboardDataPanel view={view} />
           </div>
