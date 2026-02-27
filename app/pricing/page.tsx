@@ -2,8 +2,8 @@
 import SiteHeader from "@/app/components/marketing/SiteHeader";
 import Section from "@/app/components/marketing/Section";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
-import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import CheckoutButton from "@/app/components/marketing/CheckoutButton";
+import PricingFAQ from "@/app/pricing/PricingFAQ";
 
 function Check() {
   return (
@@ -15,13 +15,24 @@ function Check() {
 
 type PaidPlan = "starter" | "pro";
 
+function normalizePaidPlan(x: any): PaidPlan | null {
+  const s = String(x ?? "").toLowerCase().trim();
+  if (s === "starter") return "starter";
+  if (s === "pro") return "pro";
+  return null;
+}
+
+function getPhoneFromSearchParams(sp: any): string | undefined {
+  const raw = sp?.phone ? String(sp.phone) : "";
+  const phone = raw.trim();
+  return phone ? phone : undefined;
+}
+
 function PricingCard({
   name,
   price,
   blurb,
   features,
-  ctaLabel,
-  ctaHref,
   paidPlan,
   phone,
   highlighted,
@@ -31,17 +42,8 @@ function PricingCard({
   price: string;
   blurb: string;
   features: string[];
-  ctaLabel: string;
-
-  // Free / non-paid CTA (WhatsApp, testers, etc.)
-  ctaHref?: string;
-
-  // Paid CTA (Stripe)
-  paidPlan?: PaidPlan;
-
-  // Optional phone for Stripe linking
+  paidPlan?: PaidPlan; // if present -> Stripe checkout
   phone?: string;
-
   highlighted?: boolean;
   badge?: string;
 }) {
@@ -75,14 +77,14 @@ function PricingCard({
 
       <p className="mt-3 text-sm text-white/70 leading-relaxed">{blurb}</p>
 
-      {/* ✅ CTA: Stripe for paid plans, link for free/testers */}
+      {/* ✅ single CTA per card */}
       {paidPlan ? (
         <CheckoutButton plan={paidPlan} phone={phone} className={buttonClass}>
-          {ctaLabel}
+          Get it now
         </CheckoutButton>
       ) : (
-        <a href={ctaHref || "/"} className={buttonClass}>
-          {ctaLabel}
+        <a href="/wa?t=free" className={buttonClass}>
+          Start free
         </a>
       )}
 
@@ -98,89 +100,144 @@ function PricingCard({
   );
 }
 
-function FAQItem({ q, a }: { q: string; a: string }) {
+function FAQRow({
+  q,
+  a,
+  open,
+  onToggle,
+}: {
+  q: string;
+  a: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="text-sm font-semibold text-white/90">{q}</div>
-      <div className="mt-2 text-sm text-white/70 leading-relaxed">{a}</div>
+    <div className="rounded-2xl border border-white/10 bg-white/5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 p-5 text-left"
+      >
+        <div className="text-sm font-semibold text-white/90">{q}</div>
+        <div
+          className={[
+            "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-white/70 transition",
+            open ? "rotate-45" : "",
+          ].join(" ")}
+          aria-hidden="true"
+        >
+          +
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 -mt-2 text-sm text-white/70 leading-relaxed">{a}</div>
+      )}
     </div>
   );
-}
-
-function getPhoneFromSearchParams(sp: any): string | undefined {
-  const raw = sp?.phone ? String(sp.phone) : "";
-  const phone = raw.trim();
-  return phone ? phone : undefined;
 }
 
 export default function PricingPage({ searchParams }: { searchParams?: any }) {
   const phone = getPhoneFromSearchParams(searchParams);
 
+  // ✅ used only for highlight + optional sticky bar
+  const selectedPlan: PaidPlan = normalizePaidPlan(searchParams?.plan) || "starter";
+  const hasPlanIntent = !!normalizePaidPlan(searchParams?.plan);
+
+  const selectedLabel =
+    selectedPlan === "pro" ? "Pro — Crew + Control" : "Starter — Owner Mode";
+  const selectedPrice = selectedPlan === "pro" ? "$149/mo" : "$59/mo";
+
+  const faqs = [
+    {
+      q: "What happens when I hit a plan limit?",
+      a: "Capture never stops. If you hit a limit, the upgrade-only features pause (like OCR, voice, exports, or crew logging) and we tell you exactly what boundary you hit.",
+    },
+    {
+      q: "Can my crew use Ask Chief?",
+      a: "No. Crew are the senses — they capture. Owners use Ask Chief to reason from the records.",
+    },
+    {
+      q: "What does ‘Approvals + Audit’ mean in Pro?",
+      a: "Sensitive edits can require approval before totals change. Every change is traceable: who changed what, when, and what job it touched.",
+    },
+    {
+      q: "Is my data trapped?",
+      a: "No. Paid plans support exports (CSV/XLS/PDF). If you ever leave, your records leave with you.",
+    },
+  ];
+
+  // simple server-component accordion state via URL is overkill; use CSS-only behavior by rendering all closed:
+  // for now we’ll open none by default and toggle client-side later only if you want it.
+  // We'll keep it static-friendly: open the first one.
+  const openIndex = 0;
+
   return (
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-      {/* HERO */}
-      <Section className="pt-28 md:pt-32 pb-12 md:pb-16">
+      {/* ✅ Intent-only sticky bar (only when /pricing?plan=pro|starter) */}
+      {hasPlanIntent && (
+        <div className="sticky top-0 z-40 border-b border-white/10 bg-black/70 backdrop-blur">
+          <div className="mx-auto max-w-6xl px-6 py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-white/80">
+                Selected{" "}
+                <span className="text-white font-semibold">{selectedLabel}</span>{" "}
+                <span className="text-white/50">({selectedPrice})</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <CheckoutButton
+                  plan={selectedPlan}
+                  phone={phone}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+                >
+                  Continue to checkout
+                </CheckoutButton>
+
+                <a href="#plans" className="text-xs text-white/60 hover:text-white underline">
+                  Change
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HERO (no big CTAs; keep it clean) */}
+      <Section className="pt-20 md:pt-24 pb-10 md:pb-12">
         <div className="max-w-2xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-            Stop stacking apps. Start running a system.
+            Plans
           </div>
 
           <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
-            Plans that match
+            Pick the plan that matches
             <br />
-            how you actually run work.
+            how you run work.
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
-            Start with capture. Upgrade when you want more speed, more structure, and more control —
-            without breaking the habit.
+            Capture first. Upgrade when you want more speed, structure, and control.
           </p>
 
-          <div className="mt-7 flex flex-col sm:flex-row gap-3 overflow-visible">
-            <a
-              href="/wa?t=pricing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={[
-                "inline-flex items-center justify-center gap-2 rounded-2xl h-11",
-                "border border-white/15 bg-white/5 px-5 py-3",
-                "text-sm font-semibold text-white hover:bg-white/10 transition",
-                "hover:shadow-[0_18px_50px_rgba(37,211,102,0.14)]",
-                "hover:-translate-y-[1px] active:translate-y-0",
-              ].join(" ")}
-            >
-              <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
-                <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
-              </span>
-              Start on WhatsApp
+          <div className="mt-4 text-sm text-white/60">
+            Prefer to start via WhatsApp?{" "}
+            <a className="underline hover:text-white" href="/wa?t=pricing">
+              Open WhatsApp
             </a>
-
-            <CheckoutButton
-              plan="starter"
-              phone={phone}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0 h-11"
-            >
-              Choose Starter
-            </CheckoutButton>
           </div>
-
-          <p className="mt-3 text-xs text-white/45">
-            WhatsApp-first. No app download. Capture once → structure automatically → ask anything.
-          </p>
         </div>
       </Section>
 
-      {/* PLANS */}
-      <Section id="plans" className="pb-10 md:pb-12">
+      {/* PLANS (this is the conversion surface) */}
+      <Section id="plans" className="pb-12 md:pb-14">
         <div className="grid gap-6 md:grid-cols-3">
           <PricingCard
             name="Free — Field Capture"
             price="$0"
-            blurb="For owners who want a clean slate and a daily capture habit. Start logging immediately."
-            ctaLabel="Start free"
-            ctaHref="/wa?t=free"
+            blurb="Build the capture habit and keep jobs organized. Upgrade only when a gate matters."
             features={[
               "1 Owner",
               "3 Jobs (active or closed)",
@@ -194,11 +251,10 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <PricingCard
             name="Starter — Owner Mode"
             price="$59"
-            blurb="For owners who want speed + answers. OCR + voice + Ask Chief (owner-only)."
-            ctaLabel="Get it now"
+            blurb="Speed + answers. OCR + voice + Ask Chief (owner-only)."
             paidPlan="starter"
             phone={phone}
-            highlighted
+            highlighted={selectedPlan === "starter"}
             features={[
               "1 Owner + up to 10 Crew records",
               "25 Jobs",
@@ -212,10 +268,10 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <PricingCard
             name="Pro — Crew + Control"
             price="$149"
-            blurb="For teams with real payroll exposure: crew self-logging, approvals, audit depth, and board roles."
-            ctaLabel="Get it now"
+            blurb="Crew self-logging, approvals, audit depth, and board roles."
             paidPlan="pro"
             phone={phone}
+            highlighted={selectedPlan === "pro"}
             badge="Crew + Control"
             features={[
               "1 Owner + up to 25 Crew",
@@ -228,7 +284,6 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           />
         </div>
 
-        {/* Quiet testers link (optional). Keep this if you want it on Pricing. */}
         <div className="mt-6 text-xs text-white/45">
           Testing?{" "}
           <a className="underline hover:text-white" href="/early-access?plan=starter">
@@ -237,77 +292,24 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
         </div>
       </Section>
 
-      {/* INCLUDES */}
-      <Section className="pb-14 md:pb-16">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-7">
-          <div className="text-sm font-semibold text-white/90">What every plan includes</div>
-          <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            A capture-first workflow that turns messy real life into clean records — so your business runs as a system.
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {[
-              "Capture never hard-fails: you can always log the basics.",
-              "Jobs keep time + expenses + revenue connected to the cause.",
-              "Confirm-before-save so your numbers stay trustworthy.",
-              "Searchable history so every number stays traceable.",
-            ].map((x) => (
-              <div key={x} className="flex items-start gap-3 text-sm text-white/70">
-                <Check />
-                <div className="leading-relaxed">{x}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* PRICING FAQ */}
+        {/* FAQ (interactive accordion) */}
       <Section className="pb-16 md:pb-20">
         <div className="max-w-3xl">
-          <div className="text-sm font-semibold text-white/90">Pricing FAQ</div>
+          <div className="text-sm font-semibold text-white/90">FAQ</div>
           <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            Plan tiers help you grow as your business needs expand. They unlock speed, structure, and overall data reasoning.
+            Clean answers. No lock-in games.
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <FAQItem
-              q="What happens when I hit a plan limit?"
-              a="You can still capture. If you hit a limit, upgrade-only capabilities pause (like OCR, voice, exports, or crew self-logging) — and we tell you exactly what hit the limit."
-            />
-            <FAQItem
-              q="Can my crew use Ask Chief?"
-              a="No. Crew are the senses — they capture. Owners use Ask Chief to understand the whole operation from the records."
-            />
-            <FAQItem
-              q="What does ‘Approvals + Audit’ mean in Pro?"
-              a="Sensitive edits can require approval before they affect totals. Every change is traceable: who changed what, when, and what job it touched."
-            />
-            <FAQItem
-              q="Is my data trapped?"
-              a="No. Paid plans support exports (CSV/XLS/PDF). If you ever leave, your records leave with you."
-            />
+          <div className="mt-6">
+            <PricingFAQ items={faqs} defaultOpenIndex={0} />
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <a
-              href="/wa?t=pricing-cta"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition h-11"
-            >
-              Start on WhatsApp
+          <div className="mt-8 text-sm text-white/60">
+            Still unsure?{" "}
+            <a className="underline hover:text-white" href="/wa?t=pricing-help">
+              Ask on WhatsApp
             </a>
-
-            <CheckoutButton
-              plan="starter"
-              phone={phone}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition h-11"
-            >
-              Get Starter
-            </CheckoutButton>
           </div>
-
-          <p className="mt-3 text-xs text-white/45">Stop stacking apps. Start running a system.</p>
         </div>
       </Section>
 

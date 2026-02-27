@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 export default function CheckoutButton({
   plan,
   phone,
-  children = "Get it now",
-  className = "",
+  className,
+  children,
 }: {
   plan: "starter" | "pro";
-  phone?: string; // optional phone for linking
-  children?: string;
+  phone?: string;
   className?: string;
+  children?: ReactNode; // ✅ instead of string
 }) {
   const [loading, setLoading] = useState(false);
 
