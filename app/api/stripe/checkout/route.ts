@@ -12,8 +12,14 @@ function getPriceId(plan: PlanKey) {
 }
 
 function getSiteUrl() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  // Prefer explicit canonical domain
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  // Vercel production/preview fallback
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) return `https://${vercel}`.replace(/\/+$/, "");
+
   return "http://localhost:3000";
 }
 
