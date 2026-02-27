@@ -221,13 +221,6 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
             Capture first. Upgrade when you want more speed, structure, and control.
           </p>
-
-          <div className="mt-4 text-sm text-white/60">
-            Prefer to start via WhatsApp?{" "}
-            <a className="underline hover:text-white" href="/wa?t=pricing">
-              Open WhatsApp
-            </a>
-          </div>
         </div>
       </Section>
 
@@ -283,13 +276,6 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
             ]}
           />
         </div>
-
-        <div className="mt-6 text-xs text-white/45">
-          Testing?{" "}
-          <a className="underline hover:text-white" href="/early-access?plan=starter">
-            Get tester access
-          </a>
-        </div>
       </Section>
 
         {/* FAQ (interactive accordion) */}
@@ -304,18 +290,15 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
             <PricingFAQ items={faqs} defaultOpenIndex={0} />
           </div>
 
-          <div className="mt-8 text-sm text-white/60">
-            Still unsure?{" "}
-            <a className="underline hover:text-white" href="/wa?t=pricing-help">
-              Ask on WhatsApp
-            </a>
-          </div>
+           <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
+            Still unsure? Don't be. Make more money every single hour with ChiefOS.
+          </p>
         </div>
       </Section>
 
       <SiteFooter
         brandLine="Stop stacking apps. Start running a system."
-        subLine="Capture once. Structure automatically. Ask anything."
+        subLine="Capture on the go: Text. Voice. Audio. Ask Chief."
       />
     </main>
   );
