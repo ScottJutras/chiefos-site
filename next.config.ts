@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const BACKEND_ORIGIN =
-  process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "https://www.usechiefos.com";
+  process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "https://chief-ai-refactored.vercel.app";
 
 const nextConfig: NextConfig = {
   turbopack: {
