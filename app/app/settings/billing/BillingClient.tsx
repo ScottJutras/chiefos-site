@@ -1,8 +1,8 @@
-// chiefos-site/app/app/settings/billing/BillingClient.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 type BillingStatus =
   | { linked: false }
@@ -35,45 +35,49 @@ const PLAN_UI = {
     label: "Free",
     badge: "Field Capture",
     price: "$0",
-    highlights: [
-      "Text capture in WhatsApp",
-      "Up to 3 jobs",
-      "90-day history",
-      "No exports",
-    ],
+    highlights: ["Text capture in WhatsApp", "Up to 3 jobs", "90-day history", "No exports"],
   },
   starter: {
     label: "Starter",
     badge: "Owner Mode",
     price: "$59/mo",
-    highlights: [
-      "Receipt photos + voice capture",
-      "Ask Chief (owner-only)",
-      "Up to 25 jobs",
-      "Exports (CSV / XLS / PDF)",
-    ],
+    highlights: ["Receipt photos + voice capture", "Ask Chief (owner-only)", "Up to 25 jobs", "Exports (CSV / XLS / PDF)"],
   },
   pro: {
     label: "Pro",
     badge: "Crew + Control",
     price: "$149/mo",
-    highlights: [
-      "Crew self-logging from their own phones",
-      "Approvals + audit trail",
-      "Unlimited jobs",
-      "Board seats (bookkeeper/advisor access)",
-    ],
+    highlights: ["Crew self-logging from their own phones", "Approvals + audit trail", "Unlimited jobs", "Board seats (bookkeeper/advisor access)"],
   },
 } as const;
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?: number }) {
+  const timeoutMs = opts?.timeoutMs ?? 2500;
+  const intervalMs = opts?.intervalMs ?? 150;
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (token) return token;
+    } catch {
+      // ignore
+    }
+    await sleep(intervalMs);
+  }
+
+  return "";
+}
 
 function fmtDateFromUnixSeconds(sec?: number | null) {
   if (!sec || !Number.isFinite(sec)) return null;
   try {
-    return new Date(sec * 1000).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return new Date(sec * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   } catch {
     return null;
   }
@@ -87,11 +91,15 @@ function normalizePlanKey(x: unknown): "free" | "starter" | "pro" {
 }
 
 async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
+  const token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
+  if (!token) throw new Error("Missing session. Please log in again.");
+
   const headers = new Headers(init?.headers || {});
   headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${token}`);
   if (init?.body && !headers.get("Content-Type")) headers.set("Content-Type", "application/json");
 
-  const resp = await fetch(url, { ...init, headers, cache: "no-store", credentials: "include" });
+  const resp = await fetch(url, { ...init, headers, cache: "no-store" });
 
   const text = await resp.text();
   let json: any = null;
@@ -123,11 +131,7 @@ function StatusPill({
           ? "bg-rose-500/10 text-rose-200 border-rose-500/20"
           : "bg-white/5 text-white/80 border-white/10";
 
-  return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${cls}`}>
-      {label}
-    </span>
-  );
+  return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${cls}`}>{label}</span>;
 }
 
 export default function BillingClient() {
@@ -198,10 +202,13 @@ export default function BillingClient() {
       return out;
     } catch (e: any) {
       const msg = String(e?.message || "Failed to load billing status");
-      if (msg.toLowerCase().includes("missing dashboard token")) {
+
+      // Still not linked (valid state)
+      if (msg.toLowerCase().includes("not_linked") || msg.toLowerCase().includes("missing dashboard token")) {
         router.replace("/app/link-phone?next=/app/settings/billing");
         return null;
       }
+
       setErr(msg);
       setStatus(null);
       return null;
@@ -249,9 +256,7 @@ export default function BillingClient() {
         setActivating(false);
         setActivationTarget(null);
         stopPolling();
-        setErr(
-          "Payment received, but plan activation is still propagating. If this doesn’t update in a minute, click “Manage billing” or refresh."
-        );
+        setErr("Payment received, but plan activation is still propagating. Refresh in a minute or open “Manage billing”.");
       }
     };
 
@@ -322,16 +327,14 @@ export default function BillingClient() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6">
         <div className="text-xs text-white/55">Settings</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">Plans & Billing</h1>
         <p className="mt-2 text-sm text-white/70">
-          Billing controls access — enforcement happens server-side. This page simply reflects your current system state.
+          Billing controls access — enforcement happens server-side. This page reflects your current system state.
         </p>
       </div>
 
-      {/* Activating banner */}
       {activating && (
         <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -344,7 +347,6 @@ export default function BillingClient() {
         </div>
       )}
 
-      {/* Billing issue */}
       {billingIssue && (
         <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -356,17 +358,13 @@ export default function BillingClient() {
                 While Stripe shows past-due, the effective plan is Free until it becomes active again.
               </div>
             </div>
-            <button
-              onClick={openPortal}
-              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
-            >
+            <button onClick={openPortal} className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90">
               Manage billing
             </button>
           </div>
         </div>
       )}
 
-      {/* Error */}
       {err && (
         <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
           <div className="text-sm font-medium text-rose-100">Couldn’t complete that action</div>
@@ -374,7 +372,6 @@ export default function BillingClient() {
         </div>
       )}
 
-      {/* Link required */}
       {linked === false ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           <h2 className="text-lg font-semibold">Link required</h2>
@@ -398,7 +395,6 @@ export default function BillingClient() {
         </div>
       ) : (
         <>
-          {/* Current state panel */}
           <div className="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 md:grid-cols-3">
             <div className="md:col-span-2">
               <div className="flex flex-wrap items-center gap-3">
@@ -454,7 +450,6 @@ export default function BillingClient() {
             </div>
           </div>
 
-          {/* Plan cards */}
           <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {(["free", "starter", "pro"] as const).map((k) => {
               const ui = PLAN_UI[k];
@@ -525,18 +520,13 @@ export default function BillingClient() {
                       </button>
                     )}
 
-                    {k !== "free" && (
-                      <div className="mt-2 text-xs text-white/50">
-                        You’ll see “Activating…” briefly after checkout while the plan updates.
-                      </div>
-                    )}
+                    {k !== "free" && <div className="mt-2 text-xs text-white/50">You’ll see “Activating…” briefly after checkout while the plan updates.</div>}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Notes */}
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm font-medium">Notes</div>
             <div className="mt-2 text-sm text-white/70">
