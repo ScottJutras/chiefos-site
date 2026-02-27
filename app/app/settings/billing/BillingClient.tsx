@@ -23,7 +23,7 @@ type BillingStatus =
       cancel_at_period_end?: boolean | null;
       current_period_start?: number | null; // unix seconds (or null)
       current_period_end?: number | null; // unix seconds (or null)
-      stripe_customer_id?: boolean | null;
+      stripe_customer_id?: string | null; // ✅ was boolean (typo), should be string|null
     };
 
 const STATUS_URL = "/api/billing/status";
@@ -108,15 +108,15 @@ async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   } catch {}
 
   if (!resp.ok) {
-  const raw = json?.error ?? json?.message ?? null;
-  const msg =
-    typeof raw === "string"
-      ? raw
-      : raw
-        ? JSON.stringify(raw)
-        : `Request failed (${resp.status})`;
-  throw new Error(msg);
-}
+    const raw = json?.error ?? json?.message ?? null;
+    const msg =
+      typeof raw === "string"
+        ? raw
+        : raw
+          ? JSON.stringify(raw)
+          : `Request failed (${resp.status})`;
+    throw new Error(msg);
+  }
 
   return json as T;
 }
@@ -150,6 +150,8 @@ export default function BillingClient() {
     if (q === "starter") return "starter";
     return null;
   }, [sp]);
+
+  const hasSessionId = useMemo(() => !!sp.get("session_id"), [sp]);
 
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -198,6 +200,13 @@ export default function BillingClient() {
   function stopPolling() {
     pollingRef.current?.stop?.();
     pollingRef.current = null;
+  }
+
+  // ✅ FIX: central “clear activating” (used for back/bfcache + timeouts)
+  function clearActivating() {
+    stopPolling();
+    setActivating(false);
+    setActivationTarget(null);
   }
 
   async function refreshStatus() {
@@ -252,16 +261,14 @@ export default function BillingClient() {
           : "free";
 
       if (eff === target) {
-        setActivating(false);
-        setActivationTarget(null);
-        stopPolling();
+        // ✅ FIX: success — stop + clear + remove session_id/plan so it won’t retrigger on refresh
+        clearActivating();
+        router.replace("/app/settings/billing");
         return;
       }
 
       if (Date.now() - startedAt >= maxMs) {
-        setActivating(false);
-        setActivationTarget(null);
-        stopPolling();
+        clearActivating();
         setErr("Payment received, but plan activation is still propagating. Refresh in a minute or open “Manage billing”.");
       }
     };
@@ -279,16 +286,45 @@ export default function BillingClient() {
 
   // Auto polling when returning from Stripe (session_id in URL)
   useEffect(() => {
-    const hasSession = !!sp.get("session_id");
-    if (!hasSession) return;
+    if (!hasSessionId) return;
 
     const target = (preferredPlan || "starter") as "starter" | "pro";
     startPolling(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp, preferredPlan]);
+  }, [hasSessionId, preferredPlan]);
+
+  // ✅ FIX: if user backed out of Stripe (no session_id), don’t stay “Activating…”
+  // This catches bfcache restores + “Back” behavior.
+  useEffect(() => {
+    if (!activating) return;
+    if (hasSessionId) return;
+
+    const t = window.setTimeout(() => {
+      // If we’re “activating” but not in the return-from-Stripe state,
+      // we should unlock the UI.
+      clearActivating();
+    }, 350);
+
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activating, hasSessionId]);
+
+  // ✅ FIX: bfcache restore hook (Safari/Chrome can restore state on back)
+  useEffect(() => {
+    const onPageShow = () => {
+      if (!sp.get("session_id")) {
+        clearActivating();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function startCheckout(planKey: "starter" | "pro") {
     setErr(null);
+
+    // Keep the nice UX (“Activating…”), but it will now auto-clear on Back.
     setActivating(true);
     setActivationTarget(planKey);
 
@@ -301,8 +337,7 @@ export default function BillingClient() {
       if (out?.url) window.location.href = out.url;
       else throw new Error("Checkout failed.");
     } catch (e: any) {
-      setActivating(false);
-      setActivationTarget(null);
+      clearActivating();
       setErr(e?.message || "Checkout failed");
     }
   }
@@ -364,7 +399,10 @@ export default function BillingClient() {
                 While Stripe shows past-due, the effective plan is Free until it becomes active again.
               </div>
             </div>
-            <button onClick={openPortal} className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90">
+            <button
+              onClick={openPortal}
+              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+            >
               Manage billing
             </button>
           </div>
@@ -526,7 +564,11 @@ export default function BillingClient() {
                       </button>
                     )}
 
-                    {k !== "free" && <div className="mt-2 text-xs text-white/50">You’ll see “Activating…” briefly after checkout while the plan updates.</div>}
+                    {k !== "free" && (
+                      <div className="mt-2 text-xs text-white/50">
+                        You’ll see “Activating…” briefly after checkout while the plan updates.
+                      </div>
+                    )}
                   </div>
                 </div>
               );
