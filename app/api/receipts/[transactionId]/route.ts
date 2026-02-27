@@ -16,15 +16,10 @@ function bearerFromReq(req: Request) {
   return authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : "";
 }
 
-export async function GET(
-  req: NextRequest,
-  ctx: { params: Promise<{ transactionId: string }> }
-) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ transactionId: string }> }) {
   try {
-    // ✅ Next 16 expects params as a Promise
     const { transactionId } = await ctx.params;
 
-    // ✅ Param validation (core wants an int)
     const raw = String(transactionId || "").trim();
     const txId = Number(raw);
     if (!Number.isInteger(txId) || txId <= 0) {
@@ -33,16 +28,22 @@ export async function GET(
 
     const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
 
-    // ✅ Use bearer (ReceiptActions provides it)
-    const accessToken = bearerFromReq(req);
-    if (!accessToken) {
-      return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
-    }
-
-    // Preserve ?download=1 etc.
+    // Build upstream URL (preserve ?download=1 etc.)
     const url = new URL(req.url);
     const qs = url.searchParams.toString();
     const upstreamUrl = `${core}/api/receipts/${txId}${qs ? `?${qs}` : ""}`;
+
+    // Prefer bearer (portal). If missing, fall back to forwarding cookies (dashboard).
+    const accessToken = bearerFromReq(req);
+    const cookie = req.headers.get("cookie") || "";
+
+    if (!accessToken && !cookie) {
+      return jsonErr("AUTH_REQUIRED", "Missing session. Please log in again.", 401);
+    }
+
+    const headers: Record<string, string> = {};
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    if (!accessToken && cookie) headers.Cookie = cookie;
 
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 15000);
@@ -51,7 +52,7 @@ export async function GET(
     try {
       upstream = await fetch(upstreamUrl, {
         method: "GET",
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers,
         cache: "no-store",
         signal: ac.signal,
       });
