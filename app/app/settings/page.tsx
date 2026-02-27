@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase"; // ✅ use your shared client
 
 function Tile({
   title,
@@ -89,12 +89,6 @@ function NeutralButton({
   );
 }
 
-function mustEnv(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
-}
-
 async function postWithBearer(path: string, accessToken: string) {
   const r = await fetch(path, {
     method: "POST",
@@ -107,7 +101,9 @@ async function postWithBearer(path: string, accessToken: string) {
   });
 
   const ct = r.headers.get("content-type") || "";
-  const payload = ct.includes("application/json") ? await r.json().catch(() => null) : null;
+  const payload = ct.includes("application/json")
+    ? await r.json().catch(() => null)
+    : null;
 
   if (!r.ok) {
     const msg = payload?.message || payload?.error || `Request failed (${r.status})`;
@@ -119,12 +115,6 @@ async function postWithBearer(path: string, accessToken: string) {
 
 export default function SettingsPage() {
   const router = useRouter();
-
-  const supabase = useMemo(() => {
-    const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
-    const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-    return createClient(url, anon, { auth: { persistSession: true } });
-  }, []);
 
   const [busy, setBusy] = useState<null | "logout" | "reset" | "delete">(null);
   const [error, setError] = useState<string | null>(null);
