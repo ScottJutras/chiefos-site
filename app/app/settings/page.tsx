@@ -1,5 +1,9 @@
-// app/app/settings/page.tsx
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 function Tile({
   title,
@@ -35,7 +39,166 @@ function Tile({
   );
 }
 
+function DangerButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!!disabled}
+      className={[
+        "rounded-xl px-4 py-2 text-sm font-semibold transition",
+        "border border-red-500/25 bg-red-500/10 text-red-100",
+        "hover:bg-red-500/15 hover:border-red-500/35",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function NeutralButton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!!disabled}
+      className={[
+        "rounded-xl px-4 py-2 text-sm font-semibold transition",
+        "border border-white/10 bg-white/[0.06] text-white/90",
+        "hover:bg-white/[0.09]",
+        "disabled:opacity-50 disabled:cursor-not-allowed",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function mustEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
+}
+
+async function postWithBearer(path: string, accessToken: string) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+    cache: "no-store",
+  });
+
+  const ct = r.headers.get("content-type") || "";
+  const payload = ct.includes("application/json") ? await r.json().catch(() => null) : null;
+
+  if (!r.ok) {
+    const msg = payload?.message || payload?.error || `Request failed (${r.status})`;
+    throw new Error(msg);
+  }
+
+  return payload;
+}
+
 export default function SettingsPage() {
+  const router = useRouter();
+
+  const supabase = useMemo(() => {
+    const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL");
+    const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    return createClient(url, anon, { auth: { persistSession: true } });
+  }, []);
+
+  const [busy, setBusy] = useState<null | "logout" | "reset" | "delete">(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [confirmReset, setConfirmReset] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState("");
+
+  async function getAccessTokenOrThrow() {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    const token = data?.session?.access_token;
+    if (!token) throw new Error("Missing session. Please log in again.");
+    return token;
+  }
+
+  async function onLogout() {
+    setError(null);
+    setBusy("logout");
+    try {
+      await supabase.auth.signOut();
+      router.replace("/");
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message || "Logout failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onResetWorkspace() {
+    setError(null);
+
+    if (confirmReset.trim().toUpperCase() !== "RESET") {
+      setError('Type "RESET" to confirm.');
+      return;
+    }
+
+    setBusy("reset");
+    try {
+      const token = await getAccessTokenOrThrow();
+      await postWithBearer("/api/account/reset", token);
+      setConfirmReset("");
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message || "Reset failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onDeleteAccount() {
+    setError(null);
+
+    if (confirmDelete.trim().toUpperCase() !== "DELETE") {
+      setError('Type "DELETE" to confirm.');
+      return;
+    }
+
+    setBusy("delete");
+    try {
+      const token = await getAccessTokenOrThrow();
+      await postWithBearer("/api/account/delete", token);
+
+      // If core deleted the user, local signOut might fail; ignore.
+      await supabase.auth.signOut().catch(() => {});
+      router.replace("/");
+      router.refresh();
+    } catch (e: any) {
+      setError(e?.message || "Delete failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <main className="space-y-6">
       <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
@@ -46,36 +209,93 @@ export default function SettingsPage() {
         <div className="mt-3 text-sm text-white/60">
           Preferences, access, billing, and operator reference.
         </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <NeutralButton onClick={onLogout} disabled={busy !== null}>
+            {busy === "logout" ? "Logging out…" : "Log out"}
+          </NeutralButton>
+
+          {error ? (
+            <div className="text-sm text-red-200/90 border border-red-500/20 bg-red-500/10 px-3 py-2 rounded-xl">
+              {error}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Tile
-          title="Billing"
-          sub="Plan, invoices, and subscription status."
-          href="/app/settings/billing"
-        />
-
+        <Tile title="Billing" sub="Plan, invoices, and subscription status." href="/app/settings/billing" />
         <Tile
           title="Command Reference"
           sub="Reliable message formats you can copy and send in WhatsApp."
           href="/app/settings/commands"
           badge="Reference"
         />
-
-        {/* Optional placeholders for future */}
         <Tile
           title="WhatsApp Connection"
           sub="Manage your WhatsApp linkage and connection health."
           href="/app/settings"
           badge="Coming soon"
         />
-
         <Tile
           title="Roles & Permissions"
           sub="Control who can log, approve, and view records."
           href="/app/settings"
           badge="Coming soon"
         />
+      </div>
+
+      <div className="rounded-[28px] border border-red-500/20 bg-red-500/[0.06] p-6">
+        <div className="text-xs tracking-[0.18em] uppercase text-red-100/70">Danger Zone</div>
+
+        <div className="mt-3 text-xl font-semibold text-white/95">Reset or delete</div>
+
+        <div className="mt-2 text-sm text-white/70 leading-relaxed">
+          Reset wipes your workspace data (jobs, transactions, receipts, tasks) but keeps your login.
+          Delete removes your account completely.
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-sm font-semibold text-white/90">Reset workspace data</div>
+            <div className="mt-2 text-sm text-white/70">
+              Type <span className="font-mono text-white/90">RESET</span> to confirm.
+            </div>
+
+            <input
+              value={confirmReset}
+              onChange={(e) => setConfirmReset(e.target.value)}
+              placeholder="Type RESET"
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/90 placeholder:text-white/40 outline-none focus:border-white/20"
+            />
+
+            <div className="mt-3">
+              <DangerButton onClick={onResetWorkspace} disabled={busy !== null}>
+                {busy === "reset" ? "Resetting…" : "Reset my workspace"}
+              </DangerButton>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="text-sm font-semibold text-white/90">Delete account</div>
+            <div className="mt-2 text-sm text-white/70">
+              Type <span className="font-mono text-white/90">DELETE</span> to confirm.
+            </div>
+
+            <input
+              value={confirmDelete}
+              onChange={(e) => setConfirmDelete(e.target.value)}
+              placeholder="Type DELETE"
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/90 placeholder:text-white/40 outline-none focus:border-white/20"
+            />
+
+            <div className="mt-3">
+              <DangerButton onClick={onDeleteAccount} disabled={busy !== null}>
+                {busy === "delete" ? "Deleting…" : "Delete my account"}
+              </DangerButton>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
