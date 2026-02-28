@@ -647,7 +647,7 @@ export default function Home() {
       ]}
       ctaHref="/pricing?plan=pro"
       ctaLabel="Buy Now"
-      foot="State of the art conversational Financial Management for larger teams"
+      foot="State of the art conversational financial management"
     />
   </div>
 
