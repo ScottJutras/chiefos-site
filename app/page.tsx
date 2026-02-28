@@ -577,16 +577,18 @@ export default function Home() {
       name="Free"
       sub="Field Capture"
       price="$0"
-      badge="Start here"
+      badge="Starting out"
       bullets={[
-        "WhatsApp capture (text)",
-        "3 jobs • 90-day history",
-        "Job totals (no Ask Chief)",
-        "No receipt photos, no voice, no exports",
+        "1 Owner",
+              "3 Jobs",
+              "Text",
+              "Full suite of integrated tool",
+              "Exports",
+              "WhatsApp Capture",
       ]}
       ctaHref="/wa?t=free"
-      ctaLabel="Start on WhatsApp"
-      foot="Free is for capture. Paid is for speed, answers, and control."
+      ctaLabel="Get it now"
+      foot="Step into conversational bookkeeping"
     />
 
     <PlanCard
@@ -595,14 +597,17 @@ export default function Home() {
       price="$59"
       badge="Most popular"
       bullets={[
-        "Receipt photos + voice logging",
-        "Ask Chief (owner-only)",
-        "25 jobs • 1-year history",
-        "Exports included (CSV/XLS/PDF)",
+         "1 Owner", 
+              "Track up to 10 Employees",
+              "25 Jobs",
+              "Text, Voice, Images",
+              "Full suite of integrated tools",
+              "Ask Chief",
+              "Exports",
       ]}
       ctaHref="/pricing?plan=starter"
-      ctaLabel="Get it now"
-      foot="For owners who want clarity without the night shift."
+      ctaLabel="Buy Now"
+      foot="Step into state of the art conversational bookkeeping"
     />
 
     <PlanCard
@@ -611,14 +616,19 @@ export default function Home() {
       price="$149"
       badge="Teams"
       bullets={[
-        "Crew self-logging from their own phones",
-        "Approvals + audit trail",
-        "Unlimited jobs • 7-year history",
-        "Board seats (bookkeepers/advisors)",
+        "1 Owner",
+              "Track up to 150 Employees: Log capabilities",
+              "Up to 25 Board Members: Log + Approve + Edit capabilities",
+              "Unlimited Jobs",
+              "Text, Voice, Images",
+              "Ask Chief",
+              "Approvals + full audit trail",
+              "Priority onboarding (white glove setup)",
+              "Exports",
       ]}
       ctaHref="/pricing?plan=pro"
-      ctaLabel="Get it now"
-      foot="Crew captures. Owner approves. Chief keeps it grounded."
+      ctaLabel="Buy Now"
+      foot="State of the art conversational Financial Management for large teams"
     />
   </div>
 
