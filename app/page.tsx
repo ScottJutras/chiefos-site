@@ -562,6 +562,7 @@ export default function Home() {
 </Section>
 
 {/* PLANS (Framed around maturity + aligned with new language) */}
+{/* PLANS (Framed around maturity + aligned with new language) */}
 <Section id="pricing-preview" className="py-14 md:py-20">
   <div className="max-w-3xl">
     <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
@@ -580,11 +581,11 @@ export default function Home() {
       badge="Starting out"
       bullets={[
         "1 Owner",
-              "3 Jobs",
-              "Text",
-              "Full suite of integrated tool",
-              "Exports",
-              "WhatsApp Capture",
+        "3 Jobs",
+        "Text",
+        "Full suite of integrated tools",
+        "Exports",
+        "WhatsApp Capture",
       ]}
       ctaHref="/wa?t=free"
       ctaLabel="Get it now"
@@ -597,13 +598,14 @@ export default function Home() {
       price="$59"
       badge="Most popular"
       bullets={[
-         "1 Owner", 
-              "Track up to 10 Employees",
-              "25 Jobs",
-              "Text, Voice, Images",
-              "Full suite of integrated tools",
-              "Ask Chief",
-              "Exports",
+        "1 Owner",
+        "Track up to 10 Employees",
+        "25 Jobs",
+        "Text, Voice, Images",
+        "Full suite of integrated tools",
+        "Ask Chief",
+        "Exports",
+        "WhatsApp Capture",
       ]}
       ctaHref="/pricing?plan=starter"
       ctaLabel="Buy Now"
@@ -617,23 +619,25 @@ export default function Home() {
       badge="Teams"
       bullets={[
         "1 Owner",
-              "Track up to 150 Employees: Log capabilities",
-              "Up to 25 Board Members: Log + Approve + Edit capabilities",
-              "Unlimited Jobs",
-              "Text, Voice, Images",
-              "Ask Chief",
-              "Approvals + full audit trail",
-              "Priority onboarding (white glove setup)",
-              "Exports",
+        "Track up to 150 Employees: Log capabilities",
+        "Up to 25 Board Members: Log + Approve + Edit capabilities",
+        "Unlimited Jobs",
+        "Text, Voice, Images",
+        "Full suite of integrated tools",
+        "Ask Chief",
+        "Exports",
+        "WhatsApp Capture",
+        "Approvals + full audit trail",
+        "Priority onboarding (white glove setup)",
       ]}
       ctaHref="/pricing?plan=pro"
       ctaLabel="Buy Now"
-      foot="State of the art conversational Financial Management for large teams"
+      foot="State of the art conversational Financial Management for larger teams"
     />
   </div>
 
   <div className="mt-6 text-xs text-white/45">
-    Upgrade when you hit a boundary. Paid plans stay reversible with exports — nothing trapped.
+    Your data is YOURs. All plans include exports, so you can take your data with you anywhere.
   </div>
 </Section>
 
