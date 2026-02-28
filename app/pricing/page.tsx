@@ -230,14 +230,12 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <PricingCard
             name="Free — Field Capture"
             price="$0"
-            blurb="Step into modern bookkeeping"
+            blurb="Step into conversational bookkeeping"
             features={[
               "1 Owner",
-              "3 Jobs (active or closed)",
-              "Expenses / revenue / time / tasks (text)",
-              "Job totals only (no Ask Chief)",
-              "90-day history",
-              "No OCR / voice / exports",
+              "3 Jobs",
+              "Text",
+              "Full suite of integrated tool",
               "Exports",
             ]}
           />
@@ -250,33 +248,34 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
             phone={phone}
             highlighted={selectedPlan === "starter"}
             features={[
-              "1 Owner + up to 10 Employee. Employees can tracked, but cannot log activities",
-              "Employee but they cannot log activities.",
+              "1 Owner", 
+              "Track up to 10 Employees",
               "25 Jobs",
-              "Moderate Ai usage limits for Text, Voice, Images, Ask Chief",
-              "Ask Chief (Owner only)",
-              "Exports enabled",
+              "Text, Voice, Images",
+              "Full suite of integrated tools",
+              "Ask Chief",
+              "Exports",
             ]}
           />
 
           <PricingCard
             name="Pro — Crew + Control"
             price="$149"
-            blurb="State of the art bookkeeping w/ the highest Ai usage limits"
+            blurb="State of the art conversational Financial Management"
             paidPlan="pro"
             phone={phone}
             highlighted={selectedPlan === "pro"}
             badge="Crew + Control"
             features={[
               "1 Owner",
-              "up to 250 Employees. Employees can log activities",
-              "Up to 50 Board Members. Board Members have log/approve/edit capabilities",
+              "Track up to 150 Employees: Log capabilities",
+              "Up to 25 Board Members: Log + Approve + Edit capabilities",
               "Unlimited Jobs",
-              "Highest Ai usage limits for Text, Voice, Images, Ask Chief",
-              "Ask Chief (Owner only)",
+              "Text, Voice, Images",
+              "Ask Chief",
               "Approvals + full audit trail",
               "Priority onboarding (white glove setup)",
-              "Exports enabled",
+              "Exports",
             ]}
           />
         </div>
@@ -287,8 +286,7 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
         <div className="max-w-3xl">
           <div className="text-sm font-semibold text-white/90">FAQ</div>
           <div className="mt-2 text-sm text-white/70 leading-relaxed">
-            Clean answers. No lock-in games.
-          </div>
+                    </div>
 
           <div className="mt-6">
             <PricingFAQ items={faqs} defaultOpenIndex={0} />
