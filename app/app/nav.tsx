@@ -11,6 +11,9 @@ const items = [
   // Operator hub
   { href: "/app/activity", label: "Activity" },
 
+  // Crew+Control
+  { href: "/app/crew/inbox", label: "Crew Inbox" },
+
   // System
   { href: "/app/settings/billing", label: "Billing" },
   { href: "/app/settings", label: "Settings" },
