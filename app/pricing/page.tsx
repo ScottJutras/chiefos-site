@@ -230,7 +230,7 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <PricingCard
             name="Free — Field Capture"
             price="$0"
-            blurb="Build the capture habit and keep jobs organized. Upgrade only when a gate matters."
+            blurb="Step into modern bookkeeping"
             features={[
               "1 Owner",
               "3 Jobs (active or closed)",
@@ -238,41 +238,45 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
               "Job totals only (no Ask Chief)",
               "90-day history",
               "No OCR / voice / exports",
+              "Exports",
             ]}
           />
 
           <PricingCard
             name="Starter — Owner Mode"
             price="$59"
-            blurb="Speed + answers. OCR + voice + Ask Chief (owner-only)."
+            blurb="State of the art conversational bookkeeping"
             paidPlan="starter"
             phone={phone}
             highlighted={selectedPlan === "starter"}
             features={[
-              "1 Owner + up to 10 Crew records",
+              "1 Owner + up to 10 Employee. Employees can tracked, but cannot log activities",
+              "Employee but they cannot log activities.",
               "25 Jobs",
-              "Receipts: OCR + confirm",
-              "Voice logging (expenses / revenue / time / tasks)",
+              "Moderate Ai usage limits for Text, Voice, Images, Ask Chief",
               "Ask Chief (Owner only)",
-              "Exports enabled (no watermark)",
+              "Exports enabled",
             ]}
           />
 
           <PricingCard
             name="Pro — Crew + Control"
             price="$149"
-            blurb="Crew self-logging, approvals, audit depth, and board roles."
+            blurb="State of the art bookkeeping w/ the highest Ai usage limits"
             paidPlan="pro"
             phone={phone}
             highlighted={selectedPlan === "pro"}
             badge="Crew + Control"
             features={[
-              "1 Owner + up to 25 Crew",
-              "Up to 10 Board Members (approve/edit; no Ask Chief)",
+              "1 Owner",
+              "up to 250 Employees. Employees can log activities",
+              "Up to 50 Board Members. Board Members have log/approve/edit capabilities",
               "Unlimited Jobs",
-              "Crew self-logging from their own phones",
+              "Highest Ai usage limits for Text, Voice, Images, Ask Chief",
+              "Ask Chief (Owner only)",
               "Approvals + full audit trail",
               "Priority onboarding (white glove setup)",
+              "Exports enabled",
             ]}
           />
         </div>
