@@ -69,54 +69,69 @@ function PlanCard({
   name,
   sub,
   price,
+  badge,
   bullets,
   ctaHref,
   ctaLabel,
-  badge,
   foot,
 }: {
   name: string;
   sub: string;
   price: string;
+  badge?: string;
   bullets: string[];
   ctaHref: string;
   ctaLabel: string;
-  badge?: string;
   foot?: string;
 }) {
+  const btnBase =
+    "mt-6 inline-flex w-full items-center justify-center rounded-2xl h-11 px-4 text-sm font-semibold transition";
+
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-      {badge ? (
-        <div className="absolute right-5 top-5 rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[11px] text-white/70">
+    <div className="relative flex h-full flex-col rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-7">
+      {badge && (
+        <div className="absolute -top-3 left-6 rounded-full border border-white/15 bg-black/70 px-3 py-1 text-xs text-white/70 backdrop-blur">
           {badge}
         </div>
-      ) : null}
+      )}
 
-      <div className="text-[12px] tracking-[0.18em] uppercase text-white/55">{name}</div>
-      <div className="mt-2 text-xl font-semibold text-white">{sub}</div>
+      {/* Top Content */}
+      <div>
+        <div className="text-sm font-semibold text-white/80">{name}</div>
+        <div className="mt-1 text-white/60 text-sm">{sub}</div>
 
-      <div className="mt-5 flex items-end gap-2">
-        <div className="text-3xl font-semibold tracking-tight text-white">{price}</div>
-        <div className="pb-1 text-sm text-white/55">/ month</div>
+        <div className="mt-4 flex items-end gap-2">
+          <div className="text-4xl font-bold tracking-tight">{price}</div>
+          <div className="pb-1 text-sm text-white/60">/ month</div>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          {bullets.map((b) => (
+            <div key={b} className="flex items-start gap-3 text-sm text-white/70">
+              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-white/40" />
+              <span>{b}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-5 space-y-2">
-        {bullets.map((b) => (
-          <div key={b} className="flex items-start gap-3 text-sm text-white/70">
-            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-white/60" />
-            <span>{b}</span>
-          </div>
-        ))}
-      </div>
+      {/* Spacer pushes CTA to bottom */}
+      <div className="flex-1" />
 
-      <div className="mt-6">
+      {/* Bottom Section (locked) */}
+      <div>
         <a
           href={ctaHref}
-          className="inline-flex w-full items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+          className={`${btnBase} bg-white text-black hover:bg-white/90`}
         >
           {ctaLabel}
         </a>
-        {foot ? <div className="mt-2 text-xs text-white/45">{foot}</div> : null}
+
+        {foot && (
+          <div className="mt-4 text-xs text-white/50 leading-relaxed">
+            {foot}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -562,7 +577,6 @@ export default function Home() {
 </Section>
 
 {/* PLANS (Framed around maturity + aligned with new language) */}
-{/* PLANS (Framed around maturity + aligned with new language) */}
 <Section id="pricing-preview" className="py-14 md:py-20">
   <div className="max-w-3xl">
     <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
@@ -593,6 +607,7 @@ export default function Home() {
     />
 
     <PlanCard
+    
       name="Starter"
       sub="Owner Mode"
       price="$59"
