@@ -117,21 +117,25 @@ function FAQRow({
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-4 p-5 text-left"
+        aria-expanded={open}
       >
         <div className="text-sm font-semibold text-white/90">{q}</div>
+
         <div
           className={[
-            "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-white/70 transition",
-            open ? "rotate-45" : "",
+            "inline-flex h-8 w-8 items-center justify-center rounded-xl",
+            "border border-white/10 bg-black/30 text-white/80 text-lg font-semibold",
           ].join(" ")}
           aria-hidden="true"
         >
-          +
+          {open ? "−" : "+"}
         </div>
       </button>
 
       {open && (
-        <div className="px-5 pb-5 -mt-2 text-sm text-white/70 leading-relaxed">{a}</div>
+        <div className="px-5 pb-5 -mt-2 text-sm text-white/70 leading-relaxed">
+          {a}
+        </div>
       )}
     </div>
   );
