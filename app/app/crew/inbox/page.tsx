@@ -70,33 +70,47 @@ export default function CrewInboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function act(id: string, action: "approve" | "reject" | "needs-clarification") {
-    setErr(null);
-    setBusyId(id);
-    try {
-      if (action === "approve") {
-        await apiFetch(`/api/crew/logs/${id}/approve`, { method: "POST", body: JSON.stringify({}) });
-      } else if (action === "reject") {
-        const reason = window.prompt("Reason (optional):", "") || "";
-        await apiFetch(`/api/crew/logs/${id}/reject`, {
-          method: "POST",
-          body: JSON.stringify({ reason }),
-        });
-      } else {
-        const note = window.prompt("Clarification note (optional):", "") || "";
-        await apiFetch(`/api/crew/logs/${id}/needs-clarification`, {
-          method: "POST",
-          body: JSON.stringify({ note }),
-        });
-      }
+ async function act(id: string, action: "approve" | "reject" | "needs-clarification") {
+  setErr(null);
+  setBusyId(id);
 
-      await load();
-    } catch (e: any) {
-      setErr(String(e?.message || "Action failed"));
-    } finally {
-      setBusyId(null);
+  try {
+    if (action === "approve") {
+      await apiFetch(`/api/crew/logs/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } else if (action === "reject") {
+      const reason = (window.prompt("Reason (required):", "") || "").trim();
+      if (!reason) {
+        setErr("Reject requires a reason.");
+        setBusyId(null); // ✅ ensure UI unblocks
+        return;
+      }
+      await apiFetch(`/api/crew/logs/${id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+    } else {
+      const note = (window.prompt("Clarification note (required):", "") || "").trim();
+      if (!note) {
+        setErr("Needs clarification requires a note.");
+        setBusyId(null); // ✅ ensure UI unblocks
+        return;
+      }
+      await apiFetch(`/api/crew/logs/${id}/needs-clarification`, {
+        method: "POST",
+        body: JSON.stringify({ note }),
+      });
     }
+
+    await load();
+  } catch (e: any) {
+    setErr(String(e?.message || "Action failed"));
+  } finally {
+    setBusyId(null);
   }
+}
 
   return (
     <div className="w-full max-w-5xl mx-auto px-2 py-3">

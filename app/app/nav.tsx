@@ -10,7 +10,7 @@ const items = [
 
   // Operator hub
   { href: "/app/activity", label: "Activity" },
-
+  { href: "/app/crew", label: "Crew" },
   // Crew+Control
   { href: "/app/crew/inbox", label: "Crew Inbox" },
 
