@@ -27,6 +27,26 @@ function DIGITS(x: string) {
   return String(x || "").replace(/\D/g, "");
 }
 
+/**
+ * Canada/US convenience:
+ * - 10 digits => assume +1 (NANP) and store "1XXXXXXXXXX"
+ * - 11 digits starting with "1" => store as-is
+ * - otherwise => reject (until you add country selector)
+ */
+function normalizePhoneDigitsOrThrow(input: string) {
+  const d = DIGITS(String(input || "").trim());
+
+  // Allow blank (since email can be used)
+  if (!d) return "";
+
+  if (d.length === 10) return "1" + d;
+  if (d.length === 11 && d.startsWith("1")) return d;
+
+  throw new Error(
+    "Phone must be 10 digits (Canada/US) or include country code (e.g., 1XXXXXXXXXX)."
+  );
+}
+
 export default function CrewMembersPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,7 +62,10 @@ export default function CrewMembersPage() {
   const [assign, setAssign] = useState<Assignment>({});
 
   const employees = useMemo(() => items.filter((m) => m.role === "employee"), [items]);
-  const board = useMemo(() => items.filter((m) => m.role === "board" || m.role === "owner" || m.role === "admin"), [items]);
+  const board = useMemo(
+    () => items.filter((m) => m.role === "board" || m.role === "owner" || m.role === "admin"),
+    [items]
+  );
 
   const employeeCount = employees.length;
   const boardCount = items.filter((m) => m.role === "board").length;
@@ -76,8 +99,14 @@ export default function CrewMembersPage() {
     setErr(null);
 
     const dn = name.trim();
-    const pd = DIGITS(phone);
     const em = email.trim().toLowerCase();
+
+    let pd = "";
+    try {
+      pd = normalizePhoneDigitsOrThrow(phone);
+    } catch (e: any) {
+      return setErr(String(e?.message || "Invalid phone number."));
+    }
 
     if (!dn) return setErr("Display name is required.");
     if (!pd && !em) return setErr("Phone or email is required.");
@@ -140,7 +169,6 @@ export default function CrewMembersPage() {
       setBusy(null);
     }
   }
-
   return (
     <div className="w-full max-w-5xl mx-auto px-2 py-3">
       <div className="flex items-start justify-between gap-3">
