@@ -41,11 +41,16 @@ function DIGITS(x: string) {
  */
 function normalizePhoneDigitsOrThrow(input: string) {
   const d = DIGITS(String(input || "").trim());
+
+  // Allow blank (since email can be used)
   if (!d) return "";
+
   if (d.length === 10) return "1" + d;
   if (d.length === 11 && d.startsWith("1")) return d;
 
-  throw new Error("Phone must be 10 digits (Canada/US) or include country code (e.g., 1XXXXXXXXXX).");
+  throw new Error(
+    "Phone must be 10 digits (Canada/US) or include country code (e.g., 1XXXXXXXXXX)."
+  );
 }
 
 export default function CrewMembersPage() {
@@ -59,7 +64,7 @@ export default function CrewMembersPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  // ✅ DB-backed assignment map (loaded from /admin/assignments)
+  // Reviewer routing map (NOW hydrated from DB)
   const [assign, setAssign] = useState<Assignment>({});
 
   const employees = useMemo(() => items.filter((m) => m.role === "employee"), [items]);
@@ -71,28 +76,37 @@ export default function CrewMembersPage() {
   const employeeCount = employees.length;
   const boardCount = items.filter((m) => m.role === "board").length;
 
-  async function loadMembersAndAssignments() {
+  async function load() {
     setErr(null);
     setLoading(true);
+
     try {
-      const r = (await apiFetch("/api/crew/admin/members", { method: "GET" })) as any;
-      const members: Member[] = Array.isArray(r?.items) ? r.items : [];
+      // Load members + assignments in parallel
+      const [membersResp, assignmentsResp] = await Promise.all([
+        apiFetch("/api/crew/admin/members", { method: "GET" }) as Promise<any>,
+        apiFetch("/api/crew/admin/assignments", { method: "GET" }) as Promise<any>,
+      ]);
+
+      const members = Array.isArray(membersResp?.items) ? (membersResp.items as Member[]) : [];
       setItems(members);
 
-      // ✅ Load assignments (truth) AFTER members
-      const a = (await apiFetch("/api/crew/admin/assignments", { method: "GET" })) as any;
-      const rows: AssignmentRow[] = Array.isArray(a?.items) ? a.items : [];
-      const map: Assignment = {};
-      for (const row of rows) {
-        if (row?.employee_actor_id && row?.board_actor_id) {
-          map[String(row.employee_actor_id)] = String(row.board_actor_id);
+      const rows = Array.isArray(assignmentsResp?.items)
+        ? (assignmentsResp.items as AssignmentRow[])
+        : [];
+
+      // Hydrate assign map from DB
+      const nextMap: Assignment = {};
+      for (const r of rows) {
+        if (!r) continue;
+        if (r.active && r.employee_actor_id && r.board_actor_id) {
+          nextMap[String(r.employee_actor_id)] = String(r.board_actor_id);
         }
       }
-      setAssign(map);
+      setAssign(nextMap);
     } catch (e: any) {
       const msg = String(e?.message || "Unable to load members");
       if (e?.status === 402 || msg.includes("NOT_INCLUDED")) {
-        setErr("Crew+Control requires Pro.");
+        setErr("Crew+Control requires Starter or Pro.");
       } else if (e?.status === 403 || msg.includes("PERMISSION_DENIED")) {
         setErr("Only the owner/admin can manage crew members.");
       } else {
@@ -103,20 +117,24 @@ export default function CrewMembersPage() {
     }
   }
 
-  useEffect(() => {
-    loadMembersAndAssignments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function removeMember(actorId: string) {
     setErr(null);
+
     const ok = window.confirm("Remove this member from your business? This cannot be undone.");
     if (!ok) return;
 
     setBusy(actorId);
     try {
       await apiFetch(`/api/crew/admin/members/${actorId}`, { method: "DELETE" });
-      await loadMembersAndAssignments();
+
+      // also remove local assignment mapping if present
+      setAssign((prev) => {
+        const next = { ...prev };
+        delete next[actorId];
+        return next;
+      });
+
+      await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to remove member"));
     } finally {
@@ -125,8 +143,14 @@ export default function CrewMembersPage() {
   }
 
   function exportCsv() {
+    // cookie auth / session-based portal endpoint
     window.location.href = `/api/crew/admin/members/export.csv`;
   }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function addEmployee() {
     setErr(null);
@@ -158,7 +182,7 @@ export default function CrewMembersPage() {
       setName("");
       setPhone("");
       setEmail("");
-      await loadMembersAndAssignments();
+      await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to add employee"));
     } finally {
@@ -174,7 +198,9 @@ export default function CrewMembersPage() {
         method: "PATCH",
         body: JSON.stringify({ role }),
       });
-      await loadMembersAndAssignments();
+
+      // If demoting someone, you may want to refresh assignments (server deactivates board->employee routing)
+      await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to update role"));
     } finally {
@@ -194,7 +220,7 @@ export default function CrewMembersPage() {
         }),
       });
 
-      // ✅ optimistic update, but still reflects DB after refresh
+      // optimistic local reflect (still useful)
       setAssign((prev) => ({ ...prev, [employeeActorId]: boardActorId }));
     } catch (e: any) {
       setErr(String(e?.message || "Unable to assign reviewer"));
@@ -230,7 +256,9 @@ export default function CrewMembersPage() {
       {/* Add employee */}
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
         <div className="font-semibold">Add employee</div>
-        <div className="mt-1 text-sm text-white/70">Name + phone or email. This creates an employee actor under this tenant.</div>
+        <div className="mt-1 text-sm text-white/70">
+          Name + phone or email. This creates an employee actor under this tenant.
+        </div>
 
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <input
@@ -298,7 +326,7 @@ export default function CrewMembersPage() {
             </button>
 
             <button
-              onClick={loadMembersAndAssignments}
+              onClick={load}
               disabled={loading || !!busy}
               className={[
                 "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
@@ -320,10 +348,13 @@ export default function CrewMembersPage() {
           <div className="mt-3 grid gap-3">
             {items.map((m) => {
               const isBusy = busy === m.actor_id;
-              const canChangeRole = m.role !== "owner";
+              const canChangeRole = m.role !== "owner"; // owner not editable here
 
               return (
-                <div key={m.actor_id} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
+                <div
+                  key={m.actor_id}
+                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold text-white">
@@ -338,7 +369,9 @@ export default function CrewMembersPage() {
                         {m.email ? `✉️ ${m.email}` : ""}
                       </div>
 
-                      <div className="mt-1 text-xs text-white/50">Added: {fmtDate(m.created_at)}</div>
+                      <div className="mt-1 text-xs text-white/50">
+                        Added: {fmtDate(m.created_at)}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -398,7 +431,9 @@ export default function CrewMembersPage() {
                         </>
                       )}
 
-                      {isBusy && <span className="self-center text-xs text-white/60">Working…</span>}
+                      {isBusy && (
+                        <span className="self-center text-xs text-white/60">Working…</span>
+                      )}
                     </div>
                   </div>
 
@@ -419,7 +454,10 @@ export default function CrewMembersPage() {
                         <option value="">Select board/admin/owner…</option>
                         {board.map((b) => (
                           <option key={b.actor_id} value={b.actor_id}>
-                            {(b.display_name || b.email || b.phone_digits || b.actor_id.slice(0, 8)) + ` (${b.role})`}
+                            {(b.display_name ||
+                              b.email ||
+                              b.phone_digits ||
+                              b.actor_id.slice(0, 8)) + ` (${b.role})`}
                           </option>
                         ))}
                       </select>
