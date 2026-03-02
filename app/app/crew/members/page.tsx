@@ -90,6 +90,28 @@ export default function CrewMembersPage() {
     }
   }
 
+ async function removeMember(actorId: string) {
+  setErr(null);
+
+  const ok = window.confirm("Remove this member from your business? This cannot be undone.");
+  if (!ok) return;
+
+  setBusy(actorId);
+  try {
+    await apiFetch(`/api/crew/admin/members/${actorId}`, { method: "DELETE" });
+    await load();
+  } catch (e: any) {
+    setErr(String(e?.message || "Unable to remove member"));
+  } finally {
+    setBusy(null);
+  }
+}
+
+function exportCsv() {
+  // cookie auth / session-based portal endpoint
+  window.location.href = `/api/crew/admin/members/export.csv`;
+}
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,77 +192,101 @@ export default function CrewMembersPage() {
     }
   }
   return (
-    <div className="w-full max-w-5xl mx-auto px-2 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Members & Board</h1>
-          <div className="mt-1 text-sm text-white/70">
-            Employees: {employeeCount}/150 · Board: {boardCount}/25
-          </div>
+  <div className="w-full max-w-5xl mx-auto px-2 py-3">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Members & Board</h1>
+        <div className="mt-1 text-sm text-white/70">
+          Employees: {employeeCount}/150 · Board: {boardCount}/25
         </div>
-
-        <Link
-          href="/app/crew"
-          className="rounded-xl px-3 py-1.5 text-sm font-medium transition border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
-        >
-          Back
-        </Link>
       </div>
 
-      {err && (
-        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-          {err}
-        </div>
-      )}
+      <Link
+        href="/app/crew"
+        className="rounded-xl px-3 py-1.5 text-sm font-medium transition border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+      >
+        Back
+      </Link>
+    </div>
 
-      {/* Add employee */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-        <div className="font-semibold">Add employee</div>
-        <div className="mt-1 text-sm text-white/70">
-          Name + phone or email. This creates an employee actor under this tenant.
-        </div>
+    {err && (
+      <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+        {err}
+      </div>
+    )}
 
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Display name (required)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Phone (digits preferred)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email (optional)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-        </div>
+    {/* Add employee */}
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="font-semibold">Add employee</div>
+      <div className="mt-1 text-sm text-white/70">
+        Name + phone or email. This creates an employee actor under this tenant.
+      </div>
 
-        <div className="mt-3">
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        <input
+          id="crew_display_name"
+          name="crew_display_name"
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Display name (required)"
+          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+        />
+        <input
+          id="crew_phone"
+          name="crew_phone"
+          autoComplete="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Phone (digits preferred)"
+          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+        />
+        <input
+          id="crew_email"
+          name="crew_email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email (optional)"
+          className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+        />
+      </div>
+
+      <div className="mt-3">
+        <button
+          onClick={addEmployee}
+          disabled={loading || busy === "add"}
+          className={[
+            "rounded-xl px-3 py-2 text-sm font-medium transition border",
+            loading || busy === "add"
+              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+          ].join(" ")}
+        >
+          {busy === "add" ? "Adding…" : "Add employee"}
+        </button>
+      </div>
+    </div>
+
+    {/* Members list */}
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-semibold">Team</div>
+
+        <div className="flex gap-2">
           <button
-            onClick={addEmployee}
-            disabled={loading || busy === "add"}
+            onClick={exportCsv}
+            disabled={loading || !!busy}
             className={[
-              "rounded-xl px-3 py-2 text-sm font-medium transition border",
-              loading || busy === "add"
+              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+              loading || !!busy
                 ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
                 : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
             ].join(" ")}
           >
-            {busy === "add" ? "Adding…" : "Add employee"}
+            Export CSV
           </button>
-        </div>
-      </div>
 
-      {/* Members list */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="font-semibold">Team</div>
           <button
             onClick={load}
             disabled={loading || !!busy}
@@ -254,115 +300,143 @@ export default function CrewMembersPage() {
             Refresh
           </button>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="mt-3 text-sm text-white/70">Loading…</div>
-        ) : items.length === 0 ? (
-          <div className="mt-3 text-sm text-white/70">No members yet.</div>
-        ) : (
-          <div className="mt-3 grid gap-3">
-            {items.map((m) => {
-              const isBusy = busy === m.actor_id;
-              const canChangeRole = m.role !== "owner"; // safety; owner not editable here
+      {loading ? (
+        <div className="mt-3 text-sm text-white/70">Loading…</div>
+      ) : items.length === 0 ? (
+        <div className="mt-3 text-sm text-white/70">No members yet.</div>
+      ) : (
+        <div className="mt-3 grid gap-3">
+          {items.map((m) => {
+            const isBusy = busy === m.actor_id;
+            const canChangeRole = m.role !== "owner"; // owner not editable here
 
-              return (
-                <div key={m.actor_id} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-white">
-                        {m.display_name || "Unnamed"}
-                        <span className="text-white/60"> · </span>
-                        <span className="text-white/80">{m.role}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-white/60">
-                        {m.phone_digits ? `📱 ${m.phone_digits}` : ""}
-                        {m.phone_digits && m.email ? " · " : ""}
-                        {m.email ? `✉️ ${m.email}` : ""}
-                      </div>
-                      <div className="mt-1 text-xs text-white/50">Added: {fmtDate(m.created_at)}</div>
+            return (
+              <div
+                key={m.actor_id}
+                className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-white">
+                      {m.display_name || "Unnamed"}
+                      <span className="text-white/60"> · </span>
+                      <span className="text-white/80">{m.role}</span>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {canChangeRole && (
-                        <>
-                          <button
-                            onClick={() => setRole(m.actor_id, "employee")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Set employee
-                          </button>
+                    <div className="mt-1 text-xs text-white/60">
+                      {m.phone_digits ? `📱 ${m.phone_digits}` : ""}
+                      {m.phone_digits && m.email ? " · " : ""}
+                      {m.email ? `✉️ ${m.email}` : ""}
+                    </div>
 
-                          <button
-                            onClick={() => setRole(m.actor_id, "board")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Make board
-                          </button>
-
-                          <button
-                            onClick={() => setRole(m.actor_id, "admin")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Make admin
-                          </button>
-                        </>
-                      )}
-
-                      {isBusy && <span className="self-center text-xs text-white/60">Working…</span>}
+                    <div className="mt-1 text-xs text-white/50">
+                      Added: {fmtDate(m.created_at)}
                     </div>
                   </div>
 
-                  {/* Assignment row (only for employees) */}
-                  {m.role === "employee" && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <div className="text-xs text-white/60">Reviewer:</div>
-                      <select
-                        value={assign[m.actor_id] || ""}
-                        onChange={(e) => {
-                          const v = String(e.target.value || "");
-                          if (!v) return;
-                          assignReviewer(m.actor_id, v);
-                        }}
-                        disabled={!!busy}
-                        className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
-                      >
-                        <option value="">Select board/admin/owner…</option>
-                        {board.map((b) => (
-                          <option key={b.actor_id} value={b.actor_id}>
-                            {(b.display_name || b.email || b.phone_digits || b.actor_id.slice(0, 8)) + ` (${b.role})`}
-                          </option>
-                        ))}
-                      </select>
+                  <div className="flex flex-wrap gap-2">
+                    {canChangeRole && (
+                      <>
+                        <button
+                          onClick={() => setRole(m.actor_id, "employee")}
+                          disabled={isBusy}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                            isBusy
+                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                          ].join(" ")}
+                        >
+                          Set employee
+                        </button>
 
-                      <div className="text-xs text-white/50">
-                        This controls where this employee’s WhatsApp logs route for approval.
-                      </div>
-                    </div>
-                  )}
+                        <button
+                          onClick={() => setRole(m.actor_id, "board")}
+                          disabled={isBusy}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                            isBusy
+                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                          ].join(" ")}
+                        >
+                          Make board
+                        </button>
+
+                        <button
+                          onClick={() => setRole(m.actor_id, "admin")}
+                          disabled={isBusy}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                            isBusy
+                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                          ].join(" ")}
+                        >
+                          Make admin
+                        </button>
+
+                        <button
+                          onClick={() => removeMember(m.actor_id)}
+                          disabled={isBusy}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                            isBusy
+                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                              : "border-red-500/30 bg-red-500/10 text-red-100 hover:bg-red-500/20 hover:text-white",
+                          ].join(" ")}
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+
+                    {isBusy && (
+                      <span className="self-center text-xs text-white/60">
+                        Working…
+                      </span>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                {/* Assignment row (only for employees) */}
+                {m.role === "employee" && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="text-xs text-white/60">Reviewer:</div>
+                    <select
+                      value={assign[m.actor_id] || ""}
+                      onChange={(e) => {
+                        const v = String(e.target.value || "");
+                        if (!v) return;
+                        assignReviewer(m.actor_id, v);
+                      }}
+                      disabled={!!busy}
+                      className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+                    >
+                      <option value="">Select board/admin/owner…</option>
+                      {board.map((b) => (
+                        <option key={b.actor_id} value={b.actor_id}>
+                          {(b.display_name ||
+                            b.email ||
+                            b.phone_digits ||
+                            b.actor_id.slice(0, 8)) + ` (${b.role})`}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="text-xs text-white/50">
+                      This controls where this employee’s WhatsApp logs route for approval.
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }
