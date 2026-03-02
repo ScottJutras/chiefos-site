@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/apiFetch";
 type InboxItem = {
   id: string;
   log_no: number;
-  type: "task" | "time";
+  type: "task" | "time" | "expense" | "revenue" | string;
   source: string;
   content_text: string;
   structured?: any;
@@ -32,6 +32,29 @@ function fmtDate(s: string) {
   }
 }
 
+function normalizeType(t: any) {
+  const s = String(t || "").toLowerCase().trim();
+  return s ? s.toUpperCase() : "—";
+}
+
+/**
+ * Review endpoint contract (authoritative project state):
+ * - GET    /api/crew/review/inbox
+ * - PATCH  /api/crew/review/:logId
+ *
+ * Payload is not fully guaranteed here (we don't see your crewReview.js in this chat),
+ * so we send both "action" and "status" fields to be compatible with common variants.
+ */
+async function patchReview(
+  logId: string,
+  payload: Record<string, any>
+): Promise<void> {
+  await apiFetch(`/api/crew/review/${logId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export default function CrewInboxPage() {
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string | null>(null);
@@ -40,7 +63,10 @@ export default function CrewInboxPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const pendingCount = useMemo(
-    () => items.filter((x) => x.status === "submitted" || x.status === "needs_clarification").length,
+    () =>
+      items.filter(
+        (x) => x.status === "submitted" || x.status === "needs_clarification"
+      ).length,
     [items]
   );
 
@@ -48,7 +74,10 @@ export default function CrewInboxPage() {
     setErr(null);
     setLoading(true);
     try {
-      const data = (await apiFetch("/api/crew/inbox", { method: "GET" })) as InboxResp;
+      const data = (await apiFetch("/api/crew/review/inbox", {
+        method: "GET",
+      })) as InboxResp;
+
       setRole(data.role || null);
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (e: any) {
@@ -70,47 +99,91 @@ export default function CrewInboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
- async function act(id: string, action: "approve" | "reject" | "needs-clarification") {
-  setErr(null);
-  setBusyId(id);
-
-  try {
-    if (action === "approve") {
-      await apiFetch(`/api/crew/logs/${id}/approve`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-    } else if (action === "reject") {
-      const reason = (window.prompt("Reason (required):", "") || "").trim();
-      if (!reason) {
-        setErr("Reject requires a reason.");
-        setBusyId(null); // ✅ ensure UI unblocks
-        return;
-      }
-      await apiFetch(`/api/crew/logs/${id}/reject`, {
-        method: "POST",
-        body: JSON.stringify({ reason }),
-      });
-    } else {
-      const note = (window.prompt("Clarification note (required):", "") || "").trim();
-      if (!note) {
-        setErr("Needs clarification requires a note.");
-        setBusyId(null); // ✅ ensure UI unblocks
-        return;
-      }
-      await apiFetch(`/api/crew/logs/${id}/needs-clarification`, {
-        method: "POST",
-        body: JSON.stringify({ note }),
-      });
-    }
-
-    await load();
-  } catch (e: any) {
-    setErr(String(e?.message || "Action failed"));
-  } finally {
-    setBusyId(null);
+  function optimisticUpdate(id: string, patch: Partial<InboxItem>) {
+    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   }
-}
+
+  async function act(
+    id: string,
+    action: "approve" | "reject" | "needs-clarification" | "edit"
+  ) {
+    setErr(null);
+    setBusyId(id);
+
+    // snapshot for rollback
+    const before = items.find((x) => x.id === id);
+
+    try {
+      if (action === "approve") {
+        // optimistic UI
+        optimisticUpdate(id, { status: "approved" });
+
+        await patchReview(id, {
+          action: "approve",
+          status: "approved",
+        });
+      } else if (action === "reject") {
+        const reason = (window.prompt("Reason (required):", "") || "").trim();
+        if (!reason) {
+          setErr("Reject requires a reason.");
+          return;
+        }
+
+        optimisticUpdate(id, { status: "rejected" });
+
+        await patchReview(id, {
+          action: "reject",
+          status: "rejected",
+          reason,
+        });
+      } else if (action === "needs-clarification") {
+        // NOTE: this may not exist in your backend yet.
+        // If it 400s, you’ll see the error, and we’ll either add support server-side
+        // or remove this button.
+        const note = (
+          window.prompt("Clarification note (required):", "") || ""
+        ).trim();
+        if (!note) {
+          setErr("Needs clarification requires a note.");
+          return;
+        }
+
+        optimisticUpdate(id, { status: "needs_clarification" });
+
+        await patchReview(id, {
+          action: "needs_clarification",
+          status: "needs_clarification",
+          note,
+        });
+      } else {
+        // edit (text only) per project constraints
+        const nextText = (
+          window.prompt("Edit text (required):", before?.content_text || "") || ""
+        ).trim();
+        if (!nextText) {
+          setErr("Edit requires text.");
+          return;
+        }
+
+        optimisticUpdate(id, { content_text: nextText });
+
+        await patchReview(id, {
+          action: "edit",
+          content_text: nextText,
+        });
+      }
+
+      // refresh to ensure we match server truth (append-only events)
+      await load();
+    } catch (e: any) {
+      // rollback optimistic changes
+      if (before) optimisticUpdate(id, before);
+
+      setErr(String(e?.message || "Action failed"));
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="w-full max-w-5xl mx-auto px-2 py-3">
@@ -150,7 +223,8 @@ export default function CrewInboxPage() {
         <div className="mt-4 grid gap-3">
           {items.map((x) => {
             const isBusy = busyId === x.id;
-            const isPending = x.status === "submitted" || x.status === "needs_clarification";
+            const isPending =
+              x.status === "submitted" || x.status === "needs_clarification";
 
             return (
               <div
@@ -161,11 +235,13 @@ export default function CrewInboxPage() {
                   <div className="font-semibold">
                     <span className="text-white">#{x.log_no}</span>{" "}
                     <span className="text-white/60">·</span>{" "}
-                    <span className="text-white">{String(x.type || "").toUpperCase()}</span>{" "}
+                    <span className="text-white">{normalizeType(x.type)}</span>{" "}
                     <span className="text-white/60">·</span>{" "}
                     <span className="text-white/80">{x.status}</span>
                   </div>
-                  <div className="text-xs text-white/60">{fmtDate(x.created_at)}</div>
+                  <div className="text-xs text-white/60">
+                    {fmtDate(x.created_at)}
+                  </div>
                 </div>
 
                 <div className="mt-2 text-base text-white">{x.content_text}</div>
@@ -173,7 +249,9 @@ export default function CrewInboxPage() {
                 <div className="mt-2 text-xs text-white/60">
                   Source: {x.source}
                   {x.creator_role ? ` · Creator role: ${x.creator_role}` : ""}
-                  {x.source_msg_id ? ` · Msg: ${x.source_msg_id.slice(0, 10)}…` : ""}
+                  {x.source_msg_id
+                    ? ` · Msg: ${x.source_msg_id.slice(0, 10)}…`
+                    : ""}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -216,7 +294,24 @@ export default function CrewInboxPage() {
                     Needs clarification
                   </button>
 
-                  {isBusy && <span className="self-center text-xs text-white/60">Working…</span>}
+                  <button
+                    onClick={() => act(x.id, "edit")}
+                    disabled={!isPending || isBusy}
+                    className={[
+                      "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                      !isPending || isBusy
+                        ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                        : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
+                  >
+                    Edit text
+                  </button>
+
+                  {isBusy && (
+                    <span className="self-center text-xs text-white/60">
+                      Working…
+                    </span>
+                  )}
                 </div>
               </div>
             );
