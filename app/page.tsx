@@ -415,15 +415,15 @@ export default function Home() {
             ChiefOS fixes that by connecting time, money, and tasks to every job.
           </p>
           <p className="mt-4 text-white/70 text-lg leading-relaxed">
-            ChiefOS solves anxiety. <span className="text-white/85 font-semibold">Sell the relief.</span>
+            ChiefOS reduces anxiety. Increases Focus. <span className="text-white/85 font-semibold">Dials-in your margins.</span>
           </p>
         </div>
 
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="mb-6 flex items-center justify-center gap-4 text-sm text-white/50">
-            <span>WhatsApp capture</span>
+            <span>Capture on-the-go</span>
             <span className="text-white/35">→</span>
-            <span>Structured job record</span>
+            <span>Structured job records</span>
             <span className="text-white/35">→</span>
             <span>Answers on demand</span>
           </div>
@@ -431,11 +431,11 @@ export default function Home() {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
               <div className="text-xl md:text-2xl font-semibold text-white">
-                Capture (fastest input in the moment)
+                Capture
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {["Text", "Voice", "Receipt Photo (OCR)", "Email Forward"].map((s) => (
+                {["Text", "Voice", "Receipt Photo (OCR)"].map((s) => (
                   <span
                     key={s}
                     className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
@@ -456,7 +456,7 @@ export default function Home() {
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
               <div className="text-xl md:text-2xl font-semibold text-white">
-                Connect (so nothing floats)
+                Connect & Integrate
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
