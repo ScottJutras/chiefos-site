@@ -54,7 +54,7 @@ export default function HeroGetStartedForm({
         </div>
 
         <div className="mt-2 flex items-center justify-center gap-2 text-xs text-white/45">
-          <span>No app download. We use your number for WhatsApp access + account linking.</span>
+          <span> We use your number for WhatsApp access + account linking. Stays private and no spamming</span>
 
           <TooltipChip tip={tip}>
             <span className="inline-grid h-5 w-5 place-items-center rounded-md border border-white/10 bg-black/30 text-[11px] text-white/60 cursor-default">

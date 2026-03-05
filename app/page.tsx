@@ -308,10 +308,6 @@ export default function Home() {
       <br />
       Clean records. Clean exports.
     </div>
-
-    <div className="mt-3 text-xs text-white/45">
-      Answers grounded in your logged records — no guessing.
-    </div>
   </div>
 
 
