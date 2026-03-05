@@ -277,7 +277,7 @@ export default function Home() {
 <Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
   <div className="max-w-4xl mx-auto text-center">
     <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
       Contractor Grade Business Intelligence
     </div>
 
