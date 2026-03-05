@@ -218,7 +218,7 @@ function ToolCard({
             What did labour cost last week?
           </span>
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-            Answers grounded in logged records.
+            Answers grounded in logged records — no guessing.
           </span>
         </div>
       ) : null}
@@ -278,7 +278,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
             <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
-            WhatsApp-first • Built for contractors • Job-level truth
+            Business intelligence • WhatsApp-first • Job-level truth
           </div>
 
           <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
@@ -289,15 +289,30 @@ export default function Home() {
 
           <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
             ChiefOS captures time + money where work happens (WhatsApp) and turns it into a connected job record.
-            Then you can ask your business questions and get answers grounded in what you logged.
           </p>
 
           <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
-            Stop guessing job profitability. Stop rebuilding at night.
+            Powered by intelligent job-level analysis, grounded in your records.
           </p>
 
           {/* CTA */}
           <HeroGetStartedForm pricingHref="/pricing" />
+
+          <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
+            <span className="text-white/80 font-semibold">
+              Text it → Say it → Snap it → Confirm → Done.
+            </span>
+            <br />
+            Clean records. Clean exports.
+          </div>
+
+          <div className="mt-3 text-xs text-white/45">
+            Answers grounded in your logged records — no guessing.
+          </div>
+
+          <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
+            Stop guessing job profitability. Stop rebuilding at night.
+          </p>
 
           <div className="mt-4 text-xs text-white/45">
             No new app to learn. No dashboards to navigate. Just message your business.
@@ -385,7 +400,7 @@ export default function Home() {
                       </div>
 
                       <div className="mt-3 text-xs text-white/55">
-                        If something is missing, Chief flags it instead of guessing.
+                        If something is missing, Chief tells you what’s missing instead of guessing.
                       </div>
                     </div>
                   </div>
@@ -415,7 +430,8 @@ export default function Home() {
             ChiefOS fixes that by connecting time, money, and tasks to every job.
           </p>
           <p className="mt-4 text-white/70 text-lg leading-relaxed">
-            ChiefOS reduces anxiety. Increases Focus. <span className="text-white/85 font-semibold">Dials-in your margins.</span>
+            ChiefOS reduces anxiety. Increases Focus.{" "}
+            <span className="text-white/85 font-semibold">Dials-in your margins.</span>
           </p>
         </div>
 
@@ -516,7 +532,7 @@ export default function Home() {
               title="Chief"
               featured
               icon={<ChiefIcon className="h-8 w-8 text-white" />}
-              blurb="Chief sits under every tool, linking jobs, time, and money into one record. It answers only from what’s been logged, flags what’s missing, and never guesses."
+              blurb="Chief sits under every tool, linking jobs, time, and money into one record. It answers only from what’s been logged, tells you what’s missing, and never guesses."
             />
           </div>
         </div>
@@ -1028,8 +1044,16 @@ export default function Home() {
 
             <p className="mt-4 text-white/70 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
               Capture time, money, and job activity where work happens — then ask Chief what it means.
-              Powered by embedded intelligence that understands your jobs, costs, and margins.
+              Powered by intelligent job-level analysis, grounded in your records.
             </p>
+
+            <div className="mt-4 text-sm md:text-base text-white/70 leading-relaxed">
+              <span className="text-white/80 font-semibold">
+                Text it → Say it → Snap it → Confirm → Done.
+              </span>
+              <br />
+              Clean records. Clean exports.
+            </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center overflow-visible">
               <TooltipChip tip="Fastest path: start on WhatsApp in minutes.">
@@ -1114,7 +1138,7 @@ export default function Home() {
 
       <SiteFooter
         brandLine="Know if you’re making money — instantly."
-        subLine="Capture once. Structure automatically. Ask anything."
+        subLine="Text it → Say it → Snap it → Confirm → Done. Clean records. Clean exports."
       />
     </main>
   );
