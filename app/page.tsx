@@ -273,51 +273,47 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-      {/* HERO */}
-      <Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
-            Business intelligence • WhatsApp-first • Job-level truth
-          </div>
+   {/* HERO */}
+<Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
+  <div className="max-w-4xl mx-auto text-center">
+    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
+      <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
+      Business Intelligence • Capture anywhere • Job-level truth
+    </div>
 
-          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-            Know if you’re making money.
-            <br />
-            Instantly.
-          </h1>
+    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
+      Know if you’re making money.
+      <br />
+      Instantly.
+    </h1>
 
-          <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
-            ChiefOS captures time + money where work happens (WhatsApp) and turns it into a connected job record.
-          </p>
+    <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
+      ChiefOS captures time, expenses, and job activity where work happens and
+      turns it into answers about your business.
+    </p>
 
-          <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
-            Powered by intelligent job-level analysis, grounded in your records.
-          </p>
+    <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
+      Ask your business a question. Get an answer.
+      <br />
+      Powered by intelligent job-level analysis grounded in your records.
+    </p>
 
-          {/* CTA */}
-          <HeroGetStartedForm pricingHref="/pricing" />
+    {/* CTA */}
+    <HeroGetStartedForm pricingHref="/pricing" />
 
-          <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
-            <span className="text-white/80 font-semibold">
-              Text it → Say it → Snap it → Confirm → Done.
-            </span>
-            <br />
-            Clean records. Clean exports.
-          </div>
+    <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
+      <span className="text-white/80 font-semibold">
+        Text it → Say it → Snap it → Confirm → Done.
+      </span>
+      <br />
+      Clean records. Clean exports.
+    </div>
 
-          <div className="mt-3 text-xs text-white/45">
-            Answers grounded in your logged records — no guessing.
-          </div>
+    <div className="mt-3 text-xs text-white/45">
+      Answers grounded in your logged records — no guessing.
+    </div>
+  </div>
 
-          <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
-            Stop guessing job profitability. Stop rebuilding at night.
-          </p>
-
-          <div className="mt-4 text-xs text-white/45">
-            No new app to learn. No dashboards to navigate. Just message your business.
-          </div>
-        </div>
 
         {/* QUICK PROOF + DIFFERENTIATION */}
         <div className="mt-12 max-w-5xl mx-auto grid gap-6 md:grid-cols-12 items-start">
@@ -744,7 +740,7 @@ export default function Home() {
               "Text capture",
               "Core tools: Time + Expenses + Tasks + Jobs",
               "Exports",
-              "WhatsApp-first",
+              "WhatsApp Logging",
             ]}
             ctaHref="/wa?t=free"
             ctaLabel="Get it now"
@@ -757,14 +753,14 @@ export default function Home() {
             price="$59"
             badge="Most popular"
             bullets={[
+              "Ask Chief. Intelligence Layer",
               "1 Owner",
               "Track up to 10 employees",
               "25 Jobs",
               "Text, Voice, Images",
               "Core tools + job connections",
-              "Ask Chief",
               "Exports",
-              "WhatsApp-first",
+              "WhatsApp Logging",
             ]}
             ctaHref="/pricing?plan=starter"
             ctaLabel="Buy Now"
@@ -777,14 +773,14 @@ export default function Home() {
             price="$149"
             badge="Teams"
             bullets={[
+              "Ask Chief. Intelligence Layer",
               "1 Owner",
               "Up to 150 employees: log",
               "Up to 25 admins: log + approve + edit",
               "Unlimited jobs",
               "Text, Voice, Images",
-              "Ask Chief",
               "Exports",
-              "WhatsApp-first",
+              "WhatsApp Logging",
               "Approvals + audit trail",
               "Priority onboarding",
             ]}
