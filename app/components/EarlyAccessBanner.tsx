@@ -1,4 +1,4 @@
-// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\components\EarlyAccessBanner.tsx
+// chiefos-site/app/components/EarlyAccessBanner.tsx
 "use client";
 
 import React, { useEffect, useRef } from "react";
@@ -16,7 +16,6 @@ export default function EarlyAccessBanner() {
     pathname.startsWith("/app");
 
   useEffect(() => {
-    // Always reset first so we never carry stale height between routes.
     document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
 
     if (!show) return;
@@ -36,7 +35,6 @@ export default function EarlyAccessBanner() {
 
     window.addEventListener("resize", apply);
     return () => {
-      // ✅ Critical: prevent stale height after unmount / route change
       document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
       ro.disconnect();
       window.removeEventListener("resize", apply);
@@ -53,10 +51,10 @@ export default function EarlyAccessBanner() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 text-xs text-white/80">
         <div className="flex items-center gap-2">
           <span className="rounded bg-white/10 px-2 py-1 text-[11px] tracking-wide">
-            ACCESS
+            TESTER ACCESS
           </span>
           <span className="hidden sm:inline">
-            Stop stacking apps. Start running a system.
+            Start testing ChiefOS. No approval needed.
           </span>
         </div>
         <div className="text-white/60">ChiefOS</div>

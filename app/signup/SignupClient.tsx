@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
@@ -60,12 +60,12 @@ function CheckRow({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export default function SignupClient() {
-  const router = useRouter();
   const sp = useSearchParams();
 
   const prefillEmail = useMemo(() => (sp.get("email") || "").trim(), [sp]);
   const prefillName = useMemo(() => (sp.get("name") || "").trim(), [sp]);
   const prefillPlan = useMemo(() => cleanPlan(sp.get("plan")), [sp]);
+  const signupMode = useMemo(() => (sp.get("mode") || "").trim().toLowerCase(), [sp]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,15 +83,26 @@ export default function SignupClient() {
   const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    // Prefill once (URL-driven)
     if (prefillEmail) setEmail((cur) => cur || prefillEmail);
     if (prefillName) setCompanyName((cur) => cur || prefillName);
 
     if (prefillPlan && typeof window !== "undefined") {
       localStorage.setItem("chiefos_selected_plan", prefillPlan);
     }
+
+    // Tester mode is a client hint only.
+    // Canonical entitlement must still be assigned server-side later.
+    if (typeof window !== "undefined") {
+      if (signupMode === "tester") {
+        localStorage.setItem("chiefos_signup_mode", "tester");
+        localStorage.setItem("chiefos_requested_plan_key", "starter_tester");
+      } else {
+        localStorage.removeItem("chiefos_signup_mode");
+        localStorage.removeItem("chiefos_requested_plan_key");
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillEmail, prefillName, prefillPlan]);
+  }, [prefillEmail, prefillName, prefillPlan, signupMode]);
 
   function resetTurnstile() {
     setTurnstileToken(null);
@@ -112,9 +123,10 @@ export default function SignupClient() {
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
 
-      await track("signup_submit", { hasCompanyName: Boolean(companyName.trim()) });
-
-      const origin = window.location.origin;
+      await track("signup_submit", {
+        hasCompanyName: Boolean(companyName.trim()),
+        signupMode: signupMode || "standard",
+      });
 
       if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
       else localStorage.removeItem("chiefos_company_name");
@@ -126,7 +138,6 @@ export default function SignupClient() {
           email,
           password,
           turnstileToken,
-          emailRedirectTo: `${origin}/auth/callback`,
         }),
       });
 
@@ -134,7 +145,9 @@ export default function SignupClient() {
       if (!r.ok) throw new Error(j?.error || "Signup failed.");
 
       setSent(true);
-      await track("signup_success", {});
+      await track("signup_success", {
+        signupMode: signupMode || "standard",
+      });
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
       const message = friendly || e?.message || "Signup failed.";
@@ -161,12 +174,14 @@ export default function SignupClient() {
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
           <span className="h-2 w-2 rounded-full bg-black/50" />
-          Owner account
+          {signupMode === "tester" ? "Starter tester account" : "Owner account"}
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
         <p className="mt-2 text-gray-600">
-          Add your company name and email, create a password, verify then submit!
+          {signupMode === "tester"
+            ? "Create your owner account to continue with Starter tester access."
+            : "Add your company name and email, create a password, verify then submit!"}
         </p>
 
         {sent ? (

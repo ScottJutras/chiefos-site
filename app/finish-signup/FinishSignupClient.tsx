@@ -16,7 +16,6 @@ export default function FinishSignupClient() {
 
   const returnTo = useMemo(() => {
     const raw = sp.get("returnTo") || "";
-    // internal-only safety
     if (!raw.startsWith("/")) return "/app/expenses";
     if (raw.startsWith("//")) return "/app/expenses";
     return raw;
@@ -33,7 +32,6 @@ export default function FinishSignupClient() {
         setIsError(false);
         setStatus("Finishing signup…");
 
-        // Session hydration retry
         let userId: string | null = null;
         for (let i = 0; i < 6; i++) {
           const { data, error } = await supabase.auth.getUser();
@@ -67,14 +65,45 @@ export default function FinishSignupClient() {
         const companyName =
           (typeof window !== "undefined" ? localStorage.getItem("chiefos_company_name") : null) || null;
 
-        const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
-          company_name: companyName,
-        });
+        const signupMode =
+  (typeof window !== "undefined" ? localStorage.getItem("chiefos_signup_mode") : null) || null;
 
+const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
+  company_name: companyName,
+});
         if (rpcErr) throw rpcErr;
+        if (signupMode === "tester") {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || null;
 
+  if (accessToken) {
+    const activateRes = await fetch("/api/tester-access/activate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({}),
+    });
+
+    const activateJson = await activateRes.json().catch(() => ({}));
+
+    if (!activateRes.ok) {
+      throw new Error(activateJson?.error || "Tester activation failed.");
+    }
+
+    // Optional UX hint only; canonical plan is still server-side.
+    if (typeof window !== "undefined" && activateJson?.plan) {
+      localStorage.setItem("chiefos_selected_plan", String(activateJson.plan));
+    }
+  }
+}
         try {
-          if (typeof window !== "undefined") localStorage.removeItem("chiefos_company_name");
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("chiefos_company_name");
+            localStorage.removeItem("chiefos_signup_mode");
+            localStorage.removeItem("chiefos_requested_plan_key");
+          }
         } catch {}
 
         if (!cancelled) setStatus("Done. Redirecting…");

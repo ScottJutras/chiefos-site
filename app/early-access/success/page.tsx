@@ -6,15 +6,18 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata = {
-  title: "ChiefOS — Request received",
-  description: "Early access request received. Create your owner account next.",
+  title: "ChiefOS — Tester access started",
+  description: "Your Starter tester access is ready. Continue into ChiefOS.",
 };
 
 export default function EarlyAccessSuccessPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
+        <main
+          className="min-h-screen bg-white text-gray-900"
+          style={{ paddingTop: "var(--early-access-banner-h)" }}
+        >
           <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
             <div className="rounded-2xl border bg-gray-50 p-4">
               <div className="text-sm text-gray-600">Loading…</div>
