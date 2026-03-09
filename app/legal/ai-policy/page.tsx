@@ -15,8 +15,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function AIUsagePolicyPage() {
   return (
-    <main className="space-y-6">
-
+    <main className="min-h-screen bg-black text-white">
+<div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6"></div>
       <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
 
         <div className="text-xs tracking-[0.18em] uppercase text-white/55">
