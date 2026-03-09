@@ -1063,11 +1063,11 @@ export default function Home() {
               </TooltipChip>
 
               <a
-                href="/early-access?plan=starter"
-                className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
-              >
-                Get it now
-              </a>
+  href="/signup?mode=tester&plan=starter"
+  className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+>
+  Start Testing
+</a>
             </div>
 
             <div className="mt-3 text-xs text-white/45">
@@ -1078,60 +1078,78 @@ export default function Home() {
       </Section>
 
       {/* FAQ */}
-      <Section id="faq" className="py-14 md:py-24">
-        <div className="max-w-3xl">
-          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight">FAQ</h2>
-          <p className="mt-4 text-white/70 text-lg leading-relaxed">Short answers. No fluff.</p>
-        </div>
+<Section id="faq" className="py-14 md:py-24">
+  <div className="max-w-3xl">
+    <h2 className="text-3xl md:text-5xl font-semibold tracking-tight">FAQ</h2>
+    <p className="mt-4 text-white/70 text-lg leading-relaxed">
+      Short answers. No fluff.
+    </p>
+  </div>
 
-        <div className="mt-10">
-          <FAQ
-            items={[
-              {
-                q: "Is ChiefOS accounting software?",
-                a: "No. ChiefOS is the operating system for running the business day-to-day: time, expenses, tasks, and jobs captured in one place. Export clean data to your accountant or accounting tool.",
-              },
-              {
-                q: "Do my workers need an app?",
-                a: "No app download. ChiefOS runs in WhatsApp. Depending on your plan, crew can log from their own phones or the owner can log for the crew.",
-              },
-              {
-                q: "How does Chief answer questions?",
-                a: "Chief answers from what you’ve logged and confirmed (time, expenses, revenue, jobs). If something is missing, Chief tells you what’s missing instead of making it up.",
-              },
-              {
-                q: "What if I log something wrong?",
-                a: "ChiefOS is built to be repairable: confirmations, undo, edit flows, approvals (plan-dependent), and an audit trail so fixes don’t break trust.",
-              },
-              {
-                q: "Can I export my data?",
-                a: "Yes. Export anytime — CSV/XLS/PDF for spreadsheets and accountants, plus downloadable attachments like receipts and voice notes (where applicable). Nothing trapped.",
-              },
-              {
-                q: "Is my data private?",
-                a: "Your business data stays scoped to your account. Chief doesn’t answer from other companies’ data, and your team only sees what their role allows.",
-              },
-              {
-                q: "What exactly can I capture in WhatsApp?",
-                a: "Text, voice, and receipt photos. You can log expenses, revenue, time events, tasks, and job activity — then organize and export it later.",
-              },
-              {
-                q: "How fast can I get set up?",
-                a: "Minutes. Start in WhatsApp, answer a couple setup questions, create your first job, and begin logging immediately. Chief starts answering as soon as data exists.",
-              },
-              {
-                q: "What if I already use other tools?",
-                a: "Keep them. ChiefOS doesn’t force a rip-and-replace. Use ChiefOS to capture and structure work during the day, then export clean records into whatever tools you already rely on.",
-              },
-            ]}
-          />
-        </div>
-      </Section>
+  <div className="mt-10">
+    <FAQ
+      items={[
+        {
+          q: "Is ChiefOS accounting software?",
+          a: "No. ChiefOS is the operating system for running the business day-to-day: time, expenses, tasks, and jobs captured in one place. Export clean data to your accountant or accounting tool.",
+        },
+        {
+          q: "Do my workers need an app?",
+          a: "No app download. ChiefOS runs in WhatsApp. Depending on your plan, crew can log from their own phones or the owner can log for the crew.",
+        },
+        {
+          q: "How does Chief answer questions?",
+          a: "Chief answers from what you’ve logged and confirmed — time, expenses, revenue, jobs, and related activity. If something important is missing, Chief tells you what’s missing instead of making it up.",
+        },
+        {
+          q: "What if I log something wrong?",
+          a: "ChiefOS is built to be repairable: confirmations, undo, edit flows, approvals (plan-dependent), and an audit trail so fixes don’t break trust.",
+        },
+        {
+          q: "Can I export my data?",
+          a: "Yes. Export anytime — CSV/XLS/PDF for spreadsheets and accountants, plus downloadable attachments like receipts and voice notes where applicable. Nothing trapped.",
+        },
+        {
+          q: "Is my data private?",
+          a: "Your business data stays scoped to your account. Chief doesn’t answer from other companies’ data, and your team only sees what their role allows.",
+        },
+        {
+          q: "Does ChiefOS use AI?",
+          a: "Yes. Chief uses AI to help organize records and answer questions from your submitted business data — but it is designed to say when something is missing instead of pretending to know.",
+        },
+        {
+          q: "Will my data be used to train AI?",
+          a: "ChiefOS may use aggregated or de-identified data to improve the platform and its AI systems. We do not sell your business data, and we do not position raw customer records as public training data.",
+        },
+        {
+          q: "Is ChiefOS replacing my accountant?",
+          a: "No. ChiefOS helps you capture and structure records during the day so your books are cleaner and easier to review. It does not replace professional accounting, tax, or legal advice.",
+        },
+        {
+          q: "What exactly can I capture in WhatsApp?",
+          a: "Text, voice, and receipt photos. You can log expenses, revenue, time events, tasks, and job activity — then organize and export it later.",
+        },
+        {
+          q: "How fast can I get set up?",
+          a: "Minutes. Start in WhatsApp, answer a couple setup questions, create your first job, and begin logging immediately. Chief starts answering as soon as data exists.",
+        },
+        {
+          q: "What if I already use other tools?",
+          a: "Keep them. ChiefOS doesn’t force a rip-and-replace. Use ChiefOS to capture and structure work during the day, then export clean records into whatever tools you already rely on.",
+        },
+        {
+          q: "What happens if I stop using ChiefOS?",
+          a: "Your data is yours. You can request export of your records, and the goal is to make sure your information is not trapped in the platform.",
+        },
+        {
+          q: "Is ChiefOS in beta?",
+          a: "Yes. ChiefOS is in beta, which means features may improve quickly as the product hardens — but the core goal stays the same: trusted capture, clean records, and clear answers.",
+        },
+      ]}
+    />
+  </div>
+</Section>
 
-      <SiteFooter
-        brandLine="Know if you’re making money — instantly."
-        subLine="Text it → Say it → Snap it → Confirm → Done. Clean records. Clean exports."
-      />
     </main>
   );
 }

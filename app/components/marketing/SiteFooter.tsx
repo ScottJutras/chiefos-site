@@ -29,14 +29,14 @@ export default function SiteFooter({
             {/* Footer actions (uniform height) */}
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
-                href="/early-access?plan=starter"
-                className={[
-                  btnBase,
-                  "border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85",
-                ].join(" ")}
-              >
-                Testers
-              </Link>
+  href="/signup?mode=tester&plan=starter"
+  className={[
+    btnBase,
+    "border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85",
+  ].join(" ")}
+>
+  Testers
+</Link>
 
               <Link
                 href="/pricing"

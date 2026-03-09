@@ -1,32 +1,22 @@
 // chiefos-site/app/terms/page.tsx
 import Link from "next/link";
 
-const LAST_UPDATED = "February 27, 2026";
+const LAST_UPDATED = "March 8, 2026";
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
       <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-white/70">
-        {children}
-      </div>
+      <div className="mt-3 space-y-3 text-sm text-white/70">{children}</div>
     </section>
   );
 }
 
 function Bullets({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-white/70">
+    <ul className="list-disc pl-5 space-y-2 text-sm text-white/70">
       {items.map((x, i) => (
-        <li key={i} className="leading-relaxed">
-          {x}
-        </li>
+        <li key={i}>{x}</li>
       ))}
     </ul>
   );
@@ -35,139 +25,123 @@ function Bullets({ items }: { items: React.ReactNode[] }) {
 export default function TermsPage() {
   return (
     <main className="space-y-6">
+
       <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+
         <div className="text-xs tracking-[0.18em] uppercase text-white/55">
           Legal
         </div>
-        <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-white/95">
+
+        <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-white/95">
           Terms of Service
         </h1>
+
         <div className="mt-3 text-sm text-white/60">
           Last updated: {LAST_UPDATED}
         </div>
 
-        <div className="mt-4 text-sm text-white/70 leading-relaxed">
-          These Terms govern your use of ChiefOS (the “Service”), including our website,
-          portal, and messaging-based features (including WhatsApp ingestion). By using the
-          Service, you agree to these Terms.
+        <div className="mt-4 text-sm text-white/70">
+          These Terms govern your use of ChiefOS (“Service”), including our website,
+          portal, and messaging-based features.
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
+        <div className="mt-5 flex gap-3">
           <Link
             href="/privacy"
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]"
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85"
           >
             Privacy Policy
           </Link>
-          <a
-            href="mailto:support@usechiefos.com"
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]"
-          >
-            Support: support@usechiefos.com
-          </a>
         </div>
       </div>
 
-      <Section title="1) The Service (beta status)">
-        <div>
-          ChiefOS may be offered as an early access / beta service. That means features
-          may change, improve, or be removed as we learn and harden the product.
-        </div>
+      <Section title="1. The Service (Beta)">
         <Bullets
           items={[
-            <>You’re responsible for verifying outputs before making business decisions.</>,
-            <>Some features depend on third-party platforms (e.g., WhatsApp/Twilio).</>,
-            <>We may introduce limits to protect reliability and prevent abuse.</>,
+            <>ChiefOS may be offered as an early access or beta service.</>,
+            <>Features may change or be removed as the system evolves.</>,
+            <>Outputs should be verified before making business decisions.</>,
           ]}
         />
       </Section>
 
-      <Section title="2) Your account and responsibilities">
+      <Section title="2. Accounts">
         <Bullets
           items={[
-            <>You must provide accurate information and keep your login secure.</>,
-            <>You are responsible for activity under your account.</>,
-            <>Do not attempt to access other users’ data or bypass tenant isolation.</>,
+            <>You must provide accurate information.</>,
+            <>You are responsible for maintaining account security.</>,
+            <>You are responsible for all activity under your account.</>,
           ]}
         />
       </Section>
 
-      <Section title="3) Your content and permissions">
+      <Section title="3. Customer Data">
         <div>
-          You retain ownership of the content you submit (receipts, logs, messages, files).
-          You grant ChiefOS a limited license to host, process, and display that content solely
-          to operate and improve the Service.
+          Users retain ownership of the business records they submit to the Service.
+          By using the Service you grant ChiefOS permission to process this data
+          solely for the purpose of operating and improving the platform.
         </div>
       </Section>
 
-      <Section title="4) Acceptable use">
-        <div>You agree not to:</div>
+      <Section title="4. Artificial intelligence features">
+        <div>
+          ChiefOS may use automated systems to generate insights from submitted
+          records.
+        </div>
+
+        <div>
+          AI-generated outputs may contain errors and should not be considered
+          accounting, financial, or legal advice.
+        </div>
+      </Section>
+
+      <Section title="5. Acceptable use">
         <Bullets
           items={[
-            <>Use the Service for illegal activity or to infringe others’ rights.</>,
-            <>Upload malware, attempt exploitation, or probe security vulnerabilities.</>,
-            <>Abuse messaging features (spam, harassment, or automated flooding).</>,
-            <>Reverse engineer or misuse the Service in a way that harms reliability.</>,
+            <>Do not use the Service for illegal activity.</>,
+            <>Do not attempt unauthorized system access.</>,
+            <>Do not interfere with platform reliability.</>,
           ]}
         />
       </Section>
 
-      <Section title="5) Billing (if applicable)">
+      <Section title="6. Billing">
         <div>
-          If you subscribe, payments are processed by Stripe. Plans, pricing, and billing periods
-          may change with notice. Non-payment may result in restricted access.
+          Paid subscriptions are processed by Stripe. Failure to pay applicable
+          fees may result in restricted access.
         </div>
       </Section>
 
-      <Section title="6) Deletion, reset, and termination">
-        <Bullets
-          items={[
-            <>
-              You can reset or delete your account from settings. Reset deletes workspace data while
-              keeping your login. Delete removes your account and access.
-            </>,
-            <>
-              We may suspend or terminate accounts that violate these Terms or threaten system integrity.
-            </>,
-          ]}
-        />
-      </Section>
-
-      <Section title="7) Disclaimers">
+      <Section title="7. Aggregated data">
         <div>
-          The Service is provided “as is” and “as available.” We do not guarantee that the Service
-          will be uninterrupted, error-free, or perfectly accurate—especially in beta.
+          ChiefOS may generate anonymized or aggregated data derived from system
+          activity. This information does not identify individual users and may
+          be used internally to improve the platform.
         </div>
       </Section>
 
-      <Section title="8) Limitation of liability">
+      <Section title="8. Limitation of liability">
         <div>
-          To the maximum extent permitted by law, ChiefOS will not be liable for indirect, incidental,
-          special, consequential, or punitive damages, or for lost profits, revenues, or data, arising
-          from your use of the Service.
+          To the maximum extent permitted by law, ChiefOS will not be liable for
+          indirect, incidental, or consequential damages arising from use of the
+          Service.
         </div>
       </Section>
 
-      <Section title="9) Changes to these Terms">
+      <Section title="9. Governing law">
         <div>
-          We may update these Terms. We’ll update the “Last updated” date and may notify you for
-          material changes.
+          These Terms are governed by the laws of the jurisdiction in which
+          ChiefOS operates.
         </div>
       </Section>
 
-      <Section title="10) Contact">
+      <Section title="10. Changes to terms">
         <div>
-          Questions about these Terms:{" "}
-          <a className="underline text-white/85" href="mailto:support@usechiefos.com">
-            support@usechiefos.com
-          </a>
-          .
+          We may update these Terms periodically. Continued use of the Service
+          constitutes acceptance of updated Terms.
         </div>
       </Section>
 
-      <div className="text-xs text-white/45 leading-relaxed">
-        This page is provided for operational clarity and product credibility. It is not legal advice.
-      </div>
     </main>
   );
 }

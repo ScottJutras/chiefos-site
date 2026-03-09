@@ -21,7 +21,7 @@ export default function FinishSignupClient() {
     return raw;
   }, [sp]);
 
-  const [status, setStatus] = useState("Finishing signup…");
+  const [status, setStatus] = useState("Setting up your workspace…");
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
@@ -39,13 +39,36 @@ export default function FinishSignupClient() {
   const privacyAcceptedAt =
     (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_accepted_at") : null) || null;
 
+  const aiPolicyAcceptedAt =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_accepted_at") : null) || null;
+
+  const dpaAcknowledgedAt =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_acknowledged_at") : null) || null;
+
   const termsVersion =
     (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_version") : null) || null;
 
   const privacyVersion =
     (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_version") : null) || null;
 
-  if (!termsAcceptedAt || !privacyAcceptedAt || !termsVersion || !privacyVersion) return;
+  const aiPolicyVersion =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_version") : null) || null;
+
+  const dpaVersion =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_version") : null) || null;
+
+  if (
+    !termsAcceptedAt ||
+    !privacyAcceptedAt ||
+    !aiPolicyAcceptedAt ||
+    !dpaAcknowledgedAt ||
+    !termsVersion ||
+    !privacyVersion ||
+    !aiPolicyVersion ||
+    !dpaVersion
+  ) {
+    return;
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token || null;
@@ -60,8 +83,12 @@ export default function FinishSignupClient() {
     body: JSON.stringify({
       termsAcceptedAt,
       privacyAcceptedAt,
+      aiPolicyAcceptedAt,
+      dpaAcknowledgedAt,
       termsVersion,
       privacyVersion,
+      aiPolicyVersion,
+      dpaVersion,
       acceptedVia: signupMode === "tester" ? "tester_signup" : "signup",
     }),
   });
@@ -103,7 +130,7 @@ export default function FinishSignupClient() {
     async function run() {
       try {
         setIsError(false);
-        setStatus("Finishing signup…");
+        setStatus("Setting up your workspace…");
 
         let userId: string | null = null;
         for (let i = 0; i < 6; i++) {
@@ -138,17 +165,21 @@ export default function FinishSignupClient() {
           await maybeActivateTester(signupMode);
 
           try {
-            if (typeof window !== "undefined") {
-              localStorage.removeItem("chiefos_company_name");
-              localStorage.removeItem("chiefos_signup_mode");
-              localStorage.removeItem("chiefos_requested_plan_key");
-              localStorage.removeItem("chiefos_terms_accepted");
-              localStorage.removeItem("chiefos_terms_accepted_at");
-              localStorage.removeItem("chiefos_privacy_accepted_at");
-              localStorage.removeItem("chiefos_terms_version");
-              localStorage.removeItem("chiefos_privacy_version");
-            }
-          } catch {}
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("chiefos_company_name");
+    localStorage.removeItem("chiefos_signup_mode");
+    localStorage.removeItem("chiefos_requested_plan_key");
+    localStorage.removeItem("chiefos_terms_accepted");
+    localStorage.removeItem("chiefos_terms_accepted_at");
+    localStorage.removeItem("chiefos_privacy_accepted_at");
+    localStorage.removeItem("chiefos_ai_policy_accepted_at");
+    localStorage.removeItem("chiefos_dpa_acknowledged_at");
+    localStorage.removeItem("chiefos_terms_version");
+    localStorage.removeItem("chiefos_privacy_version");
+    localStorage.removeItem("chiefos_ai_policy_version");
+    localStorage.removeItem("chiefos_dpa_version");
+  }
+} catch {}
 
           router.replace(returnTo);
           return;
@@ -165,7 +196,7 @@ export default function FinishSignupClient() {
 
         if (rpcErr) throw rpcErr;
 
-        if (!cancelled) setStatus("Finalizing your workspace…");
+        if (!cancelled) setStatus("Almost there…");
 
         await maybeWriteLegalAcceptance(signupMode);
         await maybeActivateTester(signupMode);
@@ -183,7 +214,7 @@ export default function FinishSignupClient() {
           }
         } catch {}
 
-        if (!cancelled) setStatus("Done. Redirecting…");
+        if (!cancelled) setStatus("Done — taking you in…");
         router.replace(returnTo);
       } catch (e: any) {
         const msg = e?.message || "Unknown error";
@@ -210,7 +241,9 @@ export default function FinishSignupClient() {
           Workspace setup
         </div>
 
-        <h1 className="mt-6 text-2xl font-bold tracking-tight">Finishing signup</h1>
+        <h1 className="mt-6 text-2xl font-bold tracking-tight">
+  {isError ? "We hit a snag" : "Getting ChiefOS ready for you"}
+</h1>
         <p className="mt-3 text-gray-600">{status}</p>
 
         {isError && (

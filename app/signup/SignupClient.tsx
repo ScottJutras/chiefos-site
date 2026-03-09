@@ -122,7 +122,9 @@ export default function SignupClient() {
       if (!turnstileToken) throw new Error("Please complete the bot check.");
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
-      if (!agreeLegal) throw new Error("You must agree to the Terms of Service and Privacy Policy.");
+      if (!agreeLegal) {
+  throw new Error("You must agree to the Terms, Privacy Policy, AI Usage Policy, and Data Processing Agreement.");
+}
 
       await track("signup_submit", {
         hasCompanyName: Boolean(companyName.trim()),
@@ -135,11 +137,24 @@ export default function SignupClient() {
 
       if (typeof window !== "undefined") {
   const acceptedAt = new Date().toISOString();
+
   localStorage.setItem("chiefos_terms_accepted", "true");
+
+  // Terms
   localStorage.setItem("chiefos_terms_accepted_at", acceptedAt);
-  localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
   localStorage.setItem("chiefos_terms_version", "2026-02-27");
+
+  // Privacy
+  localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
   localStorage.setItem("chiefos_privacy_version", "2026-02-27");
+
+  // AI Policy
+  localStorage.setItem("chiefos_ai_policy_accepted_at", acceptedAt);
+  localStorage.setItem("chiefos_ai_policy_version", "2026-02-27");
+
+  // DPA
+  localStorage.setItem("chiefos_dpa_acknowledged_at", acceptedAt);
+  localStorage.setItem("chiefos_dpa_version", "2026-02-27");
 }
 
       const r = await fetch("/api/auth/signup", {
@@ -190,15 +205,19 @@ export default function SignupClient() {
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">
-          {sent ? "Success!!" : "Create your account"}
-        </h1>
+  {sent
+    ? "Success!!"
+    : signupMode === "tester"
+      ? "Start your tester account"
+      : "Create your account"}
+</h1>
         <p className="mt-2 text-gray-600">
-          {sent
-            ? "Check your email to confirm your account and finish setup."
-            : signupMode === "tester"
-              ? "Create your owner account to continue with Starter tester access."
-              : "Add your company name and email, create a password, verify then submit!"}
-        </p>
+  {sent
+    ? "Check your email to confirm your account and finish setup."
+    : signupMode === "tester"
+      ? "Create your tester account. You’ll confirm your email and start using ChiefOS in minutes."
+      : "Add your company name and email, create a password, verify then submit!"}
+</p>
 
         {sent ? (
           <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
@@ -304,39 +323,63 @@ export default function SignupClient() {
             </div>
 
             <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4">
-              <label htmlFor="agreeLegal" className="flex items-start gap-3">
-                <input
-                  id="agreeLegal"
-                  name="agreeLegal"
-                  type="checkbox"
-                  checked={agreeLegal}
-                  onChange={(e) => setAgreeLegal(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-black/20"
-                  required
-                />
-                <span className="text-sm text-gray-700 leading-relaxed">
-                  I agree to the{" "}
-                  <a
-                    href="/terms"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline font-medium text-black"
-                  >
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline font-medium text-black"
-                  >
-                    Privacy Policy
-                  </a>
-                  .
-                </span>
-              </label>
-            </div>
+  <label htmlFor="agreeLegal" className="flex items-start gap-3">
+    <input
+      id="agreeLegal"
+      name="agreeLegal"
+      type="checkbox"
+      checked={agreeLegal}
+      onChange={(e) => setAgreeLegal(e.target.checked)}
+      className="mt-1 h-4 w-4 rounded border-black/20"
+      required
+    />
+    <span className="text-sm text-gray-700 leading-relaxed">
+      I agree to the{" "}
+      <a
+        href="/terms"
+        target="_blank"
+        rel="noreferrer"
+        className="underline font-medium text-black"
+      >
+        Terms of Service
+      </a>
+      ,{" "}
+      <a
+        href="/privacy"
+        target="_blank"
+        rel="noreferrer"
+        className="underline font-medium text-black"
+      >
+        Privacy Policy
+      </a>
+      ,{" "}
+      <a
+        href="/legal/ai-policy"
+        target="_blank"
+        rel="noreferrer"
+        className="underline font-medium text-black"
+      >
+        AI Usage Policy
+      </a>
+      , and{" "}
+      <a
+        href="/legal/dpa"
+        target="_blank"
+        rel="noreferrer"
+        className="underline font-medium text-black"
+      >
+        Data Processing Agreement
+      </a>
+      .
+    </span>
+  </label>
+
+  <p className="mt-3 text-xs leading-relaxed text-gray-500">
+    By creating an account, you acknowledge that ChiefOS may use automated systems
+    to process submitted records and may use aggregated or de-identified data to
+    improve the platform.
+  </p>
+</div>
 
             <div className="pt-2">
               <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />

@@ -43,11 +43,26 @@ export async function POST(req: Request) {
 
     const termsAcceptedAt = clean(body?.termsAcceptedAt);
     const privacyAcceptedAt = clean(body?.privacyAcceptedAt);
+    const aiPolicyAcceptedAt = clean(body?.aiPolicyAcceptedAt);
+    const dpaAcknowledgedAt = clean(body?.dpaAcknowledgedAt);
+
     const termsVersion = clean(body?.termsVersion);
     const privacyVersion = clean(body?.privacyVersion);
+    const aiPolicyVersion = clean(body?.aiPolicyVersion);
+    const dpaVersion = clean(body?.dpaVersion);
+
     const acceptedVia = clean(body?.acceptedVia) || "signup";
 
-    if (!termsAcceptedAt || !privacyAcceptedAt || !termsVersion || !privacyVersion) {
+    if (
+      !termsAcceptedAt ||
+      !privacyAcceptedAt ||
+      !aiPolicyAcceptedAt ||
+      !dpaAcknowledgedAt ||
+      !termsVersion ||
+      !privacyVersion ||
+      !aiPolicyVersion ||
+      !dpaVersion
+    ) {
       return json(400, { ok: false, error: "Missing legal acceptance fields." });
     }
 
@@ -75,7 +90,10 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (portalErr) {
-      return json(500, { ok: false, error: portalErr.message || "Failed to resolve portal membership." });
+      return json(500, {
+        ok: false,
+        error: portalErr.message || "Failed to resolve portal membership.",
+      });
     }
 
     const tenantId = String(portalUser?.tenant_id || "").trim();
@@ -87,22 +105,33 @@ export async function POST(req: Request) {
     const userAgent = req.headers.get("user-agent") || null;
 
     const { error: upsertErr } = await admin
-      .from("chiefos_legal_acceptances")
-      .upsert(
-        {
-          tenant_id: tenantId,
-          auth_user_id: authUserId,
-          terms_accepted_at: termsAcceptedAt,
-          terms_version: termsVersion,
-          privacy_accepted_at: privacyAcceptedAt,
-          privacy_version: privacyVersion,
-          accepted_via: acceptedVia,
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "tenant_id,auth_user_id" }
-      );
+  .from("chiefos_legal_acceptances")
+  .upsert(
+    {
+      tenant_id: tenantId,
+      auth_user_id: authUserId,
+
+      accepted_at: new Date().toISOString(),
+
+      terms_accepted_at: termsAcceptedAt,
+      terms_version: termsVersion,
+
+      privacy_accepted_at: privacyAcceptedAt,
+      privacy_version: privacyVersion,
+
+      ai_policy_accepted_at: aiPolicyAcceptedAt,
+      ai_policy_version: aiPolicyVersion,
+
+      dpa_acknowledged_at: dpaAcknowledgedAt,
+      dpa_version: dpaVersion,
+
+      accepted_via: acceptedVia,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "tenant_id,auth_user_id" }
+  );
 
     if (upsertErr) {
       return json(500, { ok: false, error: upsertErr.message || "Failed to store legal acceptance." });
@@ -114,6 +143,8 @@ export async function POST(req: Request) {
       authUserId,
       termsVersion,
       privacyVersion,
+      aiPolicyVersion,
+      dpaVersion,
       acceptedVia,
     });
   } catch (e: any) {
