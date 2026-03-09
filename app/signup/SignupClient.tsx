@@ -7,6 +7,7 @@ import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
 
 type Plan = "free" | "starter" | "pro";
+
 function cleanPlan(x: string | null): Plan | null {
   const s = String(x || "").trim().toLowerCase();
   if (s === "free" || s === "starter" || s === "pro") return s;
@@ -78,6 +79,8 @@ export default function SignupClient() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
+  const [agreeLegal, setAgreeLegal] = useState(false);
+
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -90,8 +93,6 @@ export default function SignupClient() {
       localStorage.setItem("chiefos_selected_plan", prefillPlan);
     }
 
-    // Tester mode is a client hint only.
-    // Canonical entitlement must still be assigned server-side later.
     if (typeof window !== "undefined") {
       if (signupMode === "tester") {
         localStorage.setItem("chiefos_signup_mode", "tester");
@@ -101,7 +102,6 @@ export default function SignupClient() {
         localStorage.removeItem("chiefos_requested_plan_key");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillEmail, prefillName, prefillPlan, signupMode]);
 
   function resetTurnstile() {
@@ -122,14 +122,25 @@ export default function SignupClient() {
       if (!turnstileToken) throw new Error("Please complete the bot check.");
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
+      if (!agreeLegal) throw new Error("You must agree to the Terms of Service and Privacy Policy.");
 
       await track("signup_submit", {
         hasCompanyName: Boolean(companyName.trim()),
         signupMode: signupMode || "standard",
+        agreedLegal: true,
       });
 
       if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
       else localStorage.removeItem("chiefos_company_name");
+
+      if (typeof window !== "undefined") {
+  const acceptedAt = new Date().toISOString();
+  localStorage.setItem("chiefos_terms_accepted", "true");
+  localStorage.setItem("chiefos_terms_accepted_at", acceptedAt);
+  localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
+  localStorage.setItem("chiefos_terms_version", "2026-02-27");
+  localStorage.setItem("chiefos_privacy_version", "2026-02-27");
+}
 
       const r = await fetch("/api/auth/signup", {
         method: "POST",
@@ -147,6 +158,7 @@ export default function SignupClient() {
       setSent(true);
       await track("signup_success", {
         signupMode: signupMode || "standard",
+        agreedLegal: true,
       });
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
@@ -177,11 +189,15 @@ export default function SignupClient() {
           {signupMode === "tester" ? "Starter tester account" : "Owner account"}
         </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Create your account</h1>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight">
+          {sent ? "Success!!" : "Create your account"}
+        </h1>
         <p className="mt-2 text-gray-600">
-          {signupMode === "tester"
-            ? "Create your owner account to continue with Starter tester access."
-            : "Add your company name and email, create a password, verify then submit!"}
+          {sent
+            ? "Check your email to confirm your account and finish setup."
+            : signupMode === "tester"
+              ? "Create your owner account to continue with Starter tester access."
+              : "Add your company name and email, create a password, verify then submit!"}
         </p>
 
         {sent ? (
@@ -202,6 +218,8 @@ export default function SignupClient() {
             <div>
               <label className="block text-sm font-medium">Company name</label>
               <input
+                id="companyName"
+                name="companyName"
                 className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
@@ -213,6 +231,8 @@ export default function SignupClient() {
             <div>
               <label className="block text-sm font-medium">Email</label>
               <input
+                id="email"
+                name="email"
                 className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -227,6 +247,8 @@ export default function SignupClient() {
               <label className="block text-sm font-medium">Password</label>
               <div className="relative mt-1">
                 <input
+                  id="password"
+                  name="password"
                   className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -257,6 +279,8 @@ export default function SignupClient() {
               <label className="block text-sm font-medium">Confirm password</label>
               <div className="relative mt-1">
                 <input
+                  id="confirmPassword"
+                  name="confirmPassword"
                   className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -279,6 +303,41 @@ export default function SignupClient() {
               ) : null}
             </div>
 
+            <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4">
+              <label htmlFor="agreeLegal" className="flex items-start gap-3">
+                <input
+                  id="agreeLegal"
+                  name="agreeLegal"
+                  type="checkbox"
+                  checked={agreeLegal}
+                  onChange={(e) => setAgreeLegal(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-black/20"
+                  required
+                />
+                <span className="text-sm text-gray-700 leading-relaxed">
+                  I agree to the{" "}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline font-medium text-black"
+                  >
+                    Terms of Service
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline font-medium text-black"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
+            </div>
+
             <div className="pt-2">
               <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
             </div>
@@ -287,7 +346,7 @@ export default function SignupClient() {
 
             <button
               className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
-              disabled={loading || !turnstileToken}
+              disabled={loading || !turnstileToken || !agreeLegal}
               type="submit"
             >
               {loading ? "Sending link..." : "Sign up"}

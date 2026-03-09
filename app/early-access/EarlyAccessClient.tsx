@@ -103,7 +103,7 @@ export default function EarlyAccessClient() {
       qp.set("mode", "tester");
       if (cleanName) qp.set("name", cleanName);
 
-      router.push(`/early-access/success?${qp.toString()}`);
+      router.push(`/signup?${qp.toString()}`);
     } catch (e: any) {
       const msg = e?.message ?? "Unable to start tester access.";
       setErr(msg);
@@ -205,7 +205,7 @@ export default function EarlyAccessClient() {
           </button>
 
           <p className="text-xs text-gray-500">
-            By continuing, you’re starting self-serve tester access to ChiefOS.
+            By continuing, you’re starting Tester access to ChiefOS.
           </p>
         </form>
       </div>

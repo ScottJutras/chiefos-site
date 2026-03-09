@@ -17,42 +17,43 @@ export default function SuccessClient() {
   const plan = useMemo(() => cleanPlan(sp.get("plan")), [sp]);
   const email = useMemo(() => (sp.get("email") || "").trim(), [sp]);
   const name = useMemo(() => (sp.get("name") || "").trim(), [sp]);
+  const mode = useMemo(() => (sp.get("mode") || "").trim().toLowerCase(), [sp]);
 
   const signupHref = useMemo(() => {
     const qp = new URLSearchParams();
     if (plan) qp.set("plan", plan);
     if (email) qp.set("email", email);
     if (name) qp.set("name", name);
+    if (mode) qp.set("mode", mode);
     const qs = qp.toString();
     return qs ? `/signup?${qs}` : "/signup";
-  }, [plan, email, name]);
+  }, [plan, email, name, mode]);
 
   return (
-    <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
-      <SiteHeader rightLabel="Create account" rightHref={signupHref} />
+    <main
+      className="min-h-screen bg-white text-gray-900"
+      style={{ paddingTop: "var(--early-access-banner-h)" }}
+    >
+      <SiteHeader rightLabel="Log in" rightHref="/login" />
 
       <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          Request received
+          Starter tester access
         </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Perfect, just a couple more steps and you're in.</h1>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight">
+          You’re almost in.
+        </h1>
 
         <p className="mt-3 text-gray-700">
-          Click Create owner account to claim your FREE early access spot for your selected plan: {plan ? (
-            <>
-              {" "}
-              for <b>{plan.toUpperCase()}</b>
-            </>
-          ) : null}
-          .
+          Create your owner account to continue with Starter tester access.
         </p>
 
         <div className="mt-6 rounded-2xl border border-black/10 bg-gray-50 p-5">
           <div className="text-sm font-semibold">Next step</div>
           <p className="mt-2 text-sm text-gray-700">
-            Create your <b>owner account</b> so we can attach approval to the right login.
+            Create your owner account, then confirm your email to finish setup.
           </p>
 
           {email ? (
@@ -78,7 +79,7 @@ export default function SuccessClient() {
           </div>
 
           <p className="mt-4 text-[12px] text-gray-600">
-            After you create your account, check your email to confirm, then log in.
+            After confirming your email, you’ll be signed in and your workspace will finish setting up.
           </p>
         </div>
       </div>

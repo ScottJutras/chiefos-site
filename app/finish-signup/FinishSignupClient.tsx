@@ -27,6 +27,79 @@ export default function FinishSignupClient() {
   useEffect(() => {
     let cancelled = false;
 
+    async function maybeWriteLegalAcceptance(signupMode: string | null) {
+  const accepted =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted") : null) || null;
+
+  if (accepted !== "true") return;
+
+  const termsAcceptedAt =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted_at") : null) || null;
+
+  const privacyAcceptedAt =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_accepted_at") : null) || null;
+
+  const termsVersion =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_version") : null) || null;
+
+  const privacyVersion =
+    (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_version") : null) || null;
+
+  if (!termsAcceptedAt || !privacyAcceptedAt || !termsVersion || !privacyVersion) return;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || null;
+  if (!accessToken) return;
+
+  const res = await fetch("/api/legal/accept", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      termsAcceptedAt,
+      privacyAcceptedAt,
+      termsVersion,
+      privacyVersion,
+      acceptedVia: signupMode === "tester" ? "tester_signup" : "signup",
+    }),
+  });
+
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(j?.error || "Failed to record legal acceptance.");
+  }
+}
+
+    async function maybeActivateTester(signupMode: string | null) {
+      if (signupMode !== "tester") return;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+
+      if (!accessToken) return;
+
+      const activateRes = await fetch("/api/tester-access/activate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      const activateJson = await activateRes.json().catch(() => ({}));
+
+      if (!activateRes.ok) {
+        throw new Error(activateJson?.error || "Tester activation failed.");
+      }
+
+      if (typeof window !== "undefined" && activateJson?.plan) {
+        localStorage.setItem("chiefos_selected_plan", String(activateJson.plan));
+      }
+    }
+
     async function run() {
       try {
         setIsError(false);
@@ -47,6 +120,9 @@ export default function FinishSignupClient() {
           return;
         }
 
+        const signupMode =
+          (typeof window !== "undefined" ? localStorage.getItem("chiefos_signup_mode") : null) || null;
+
         const { data: existing, error: exErr } = await supabase
           .from("chiefos_portal_users")
           .select("tenant_id")
@@ -56,6 +132,24 @@ export default function FinishSignupClient() {
         if (exErr) throw exErr;
 
         if (existing?.tenant_id) {
+          if (!cancelled) setStatus("Finalizing your workspace…");
+
+          await maybeWriteLegalAcceptance(signupMode);
+          await maybeActivateTester(signupMode);
+
+          try {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("chiefos_company_name");
+              localStorage.removeItem("chiefos_signup_mode");
+              localStorage.removeItem("chiefos_requested_plan_key");
+              localStorage.removeItem("chiefos_terms_accepted");
+              localStorage.removeItem("chiefos_terms_accepted_at");
+              localStorage.removeItem("chiefos_privacy_accepted_at");
+              localStorage.removeItem("chiefos_terms_version");
+              localStorage.removeItem("chiefos_privacy_version");
+            }
+          } catch {}
+
           router.replace(returnTo);
           return;
         }
@@ -65,44 +159,27 @@ export default function FinishSignupClient() {
         const companyName =
           (typeof window !== "undefined" ? localStorage.getItem("chiefos_company_name") : null) || null;
 
-        const signupMode =
-  (typeof window !== "undefined" ? localStorage.getItem("chiefos_signup_mode") : null) || null;
+        const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
+          company_name: companyName,
+        });
 
-const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
-  company_name: companyName,
-});
         if (rpcErr) throw rpcErr;
-        if (signupMode === "tester") {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token || null;
 
-  if (accessToken) {
-    const activateRes = await fetch("/api/tester-access/activate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({}),
-    });
+        if (!cancelled) setStatus("Finalizing your workspace…");
 
-    const activateJson = await activateRes.json().catch(() => ({}));
+        await maybeWriteLegalAcceptance(signupMode);
+        await maybeActivateTester(signupMode);
 
-    if (!activateRes.ok) {
-      throw new Error(activateJson?.error || "Tester activation failed.");
-    }
-
-    // Optional UX hint only; canonical plan is still server-side.
-    if (typeof window !== "undefined" && activateJson?.plan) {
-      localStorage.setItem("chiefos_selected_plan", String(activateJson.plan));
-    }
-  }
-}
         try {
           if (typeof window !== "undefined") {
             localStorage.removeItem("chiefos_company_name");
             localStorage.removeItem("chiefos_signup_mode");
             localStorage.removeItem("chiefos_requested_plan_key");
+            localStorage.removeItem("chiefos_terms_accepted");
+            localStorage.removeItem("chiefos_terms_accepted_at");
+            localStorage.removeItem("chiefos_privacy_accepted_at");
+            localStorage.removeItem("chiefos_terms_version");
+            localStorage.removeItem("chiefos_privacy_version");
           }
         } catch {}
 
