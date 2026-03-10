@@ -1,13 +1,39 @@
-// app/finish-signup/FinishSignupClient.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import SiteHeader from "@/app/components/SiteHeader";
+import AuthProgressShell from "@/app/components/AuthProgressShell";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+type StepKey =
+  | "verify-account"
+  | "resolve-workspace"
+  | "create-workspace"
+  | "record-agreement"
+  | "activate-access"
+  | "done";
+
+function clearSignupBootstrapState() {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem("chiefos_company_name");
+  localStorage.removeItem("chiefos_signup_mode");
+  localStorage.removeItem("chiefos_requested_plan_key");
+
+  localStorage.removeItem("chiefos_terms_accepted");
+  localStorage.removeItem("chiefos_terms_accepted_at");
+  localStorage.removeItem("chiefos_privacy_accepted_at");
+  localStorage.removeItem("chiefos_ai_policy_accepted_at");
+  localStorage.removeItem("chiefos_dpa_acknowledged_at");
+
+  localStorage.removeItem("chiefos_terms_version");
+  localStorage.removeItem("chiefos_privacy_version");
+  localStorage.removeItem("chiefos_ai_policy_version");
+  localStorage.removeItem("chiefos_dpa_version");
 }
 
 export default function FinishSignupClient() {
@@ -16,88 +42,89 @@ export default function FinishSignupClient() {
 
   const returnTo = useMemo(() => {
     const raw = sp.get("returnTo") || "";
-    if (!raw.startsWith("/")) return "/app/expenses";
-    if (raw.startsWith("//")) return "/app/expenses";
+    if (!raw.startsWith("/")) return "/app";
+    if (raw.startsWith("//")) return "/app";
     return raw;
   }, [sp]);
 
-  const [status, setStatus] = useState("Setting up your workspace…");
+  const [status, setStatus] = useState("Verifying your account…");
+  const [activeStep, setActiveStep] = useState<StepKey>("verify-account");
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function maybeWriteLegalAcceptance(signupMode: string | null) {
-  const accepted =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted") : null) || null;
+      const accepted =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted") : null) || null;
 
-  if (accepted !== "true") return;
+      if (accepted !== "true") return;
 
-  const termsAcceptedAt =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted_at") : null) || null;
+      const termsAcceptedAt =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted_at") : null) || null;
 
-  const privacyAcceptedAt =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_accepted_at") : null) || null;
+      const privacyAcceptedAt =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_accepted_at") : null) || null;
 
-  const aiPolicyAcceptedAt =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_accepted_at") : null) || null;
+      const aiPolicyAcceptedAt =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_accepted_at") : null) || null;
 
-  const dpaAcknowledgedAt =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_acknowledged_at") : null) || null;
+      const dpaAcknowledgedAt =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_acknowledged_at") : null) || null;
 
-  const termsVersion =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_version") : null) || null;
+      const termsVersion =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_version") : null) || null;
 
-  const privacyVersion =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_version") : null) || null;
+      const privacyVersion =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_version") : null) || null;
 
-  const aiPolicyVersion =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_version") : null) || null;
+      const aiPolicyVersion =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_version") : null) || null;
 
-  const dpaVersion =
-    (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_version") : null) || null;
+      const dpaVersion =
+        (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_version") : null) || null;
 
-  if (
-    !termsAcceptedAt ||
-    !privacyAcceptedAt ||
-    !aiPolicyAcceptedAt ||
-    !dpaAcknowledgedAt ||
-    !termsVersion ||
-    !privacyVersion ||
-    !aiPolicyVersion ||
-    !dpaVersion
-  ) {
-    return;
-  }
+      if (
+        !termsAcceptedAt ||
+        !privacyAcceptedAt ||
+        !aiPolicyAcceptedAt ||
+        !dpaAcknowledgedAt ||
+        !termsVersion ||
+        !privacyVersion ||
+        !aiPolicyVersion ||
+        !dpaVersion
+      ) {
+        return;
+      }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token || null;
-  if (!accessToken) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      if (!accessToken) return;
 
-  const res = await fetch("/api/legal/accept", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      termsAcceptedAt,
-      privacyAcceptedAt,
-      aiPolicyAcceptedAt,
-      dpaAcknowledgedAt,
-      termsVersion,
-      privacyVersion,
-      aiPolicyVersion,
-      dpaVersion,
-      acceptedVia: signupMode === "tester" ? "tester_signup" : "signup",
-    }),
-  });
+      const res = await fetch("/api/legal/accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          termsAcceptedAt,
+          privacyAcceptedAt,
+          aiPolicyAcceptedAt,
+          dpaAcknowledgedAt,
+          termsVersion,
+          privacyVersion,
+          aiPolicyVersion,
+          dpaVersion,
+          acceptedVia: signupMode === "tester" ? "tester_signup" : "signup",
+        }),
+      });
 
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(j?.error || "Failed to record legal acceptance.");
-  }
-}
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(j?.error || "Failed to record legal acceptance.");
+      }
+    }
 
     async function maybeActivateTester(signupMode: string | null) {
       if (signupMode !== "tester") return;
@@ -130,7 +157,8 @@ export default function FinishSignupClient() {
     async function run() {
       try {
         setIsError(false);
-        setStatus("Setting up your workspace…");
+        setActiveStep("verify-account");
+        setStatus("Verifying your account…");
 
         let userId: string | null = null;
         for (let i = 0; i < 6; i++) {
@@ -150,6 +178,9 @@ export default function FinishSignupClient() {
         const signupMode =
           (typeof window !== "undefined" ? localStorage.getItem("chiefos_signup_mode") : null) || null;
 
+        setActiveStep("resolve-workspace");
+        setStatus("Resolving your workspace…");
+
         const { data: existing, error: exErr } = await supabase
           .from("chiefos_portal_users")
           .select("tenant_id")
@@ -159,33 +190,28 @@ export default function FinishSignupClient() {
         if (exErr) throw exErr;
 
         if (existing?.tenant_id) {
-          if (!cancelled) setStatus("Finalizing your workspace…");
-
+          setActiveStep("record-agreement");
+          setStatus("Recording your agreement…");
           await maybeWriteLegalAcceptance(signupMode);
+
+          setActiveStep("activate-access");
+          setStatus(signupMode === "tester" ? "Activating tester access…" : "Preparing ChiefOS…");
           await maybeActivateTester(signupMode);
 
-          try {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("chiefos_company_name");
-    localStorage.removeItem("chiefos_signup_mode");
-    localStorage.removeItem("chiefos_requested_plan_key");
-    localStorage.removeItem("chiefos_terms_accepted");
-    localStorage.removeItem("chiefos_terms_accepted_at");
-    localStorage.removeItem("chiefos_privacy_accepted_at");
-    localStorage.removeItem("chiefos_ai_policy_accepted_at");
-    localStorage.removeItem("chiefos_dpa_acknowledged_at");
-    localStorage.removeItem("chiefos_terms_version");
-    localStorage.removeItem("chiefos_privacy_version");
-    localStorage.removeItem("chiefos_ai_policy_version");
-    localStorage.removeItem("chiefos_dpa_version");
-  }
-} catch {}
+          clearSignupBootstrapState();
 
-          router.replace(returnTo);
+          if (!cancelled) {
+            setActiveStep("done");
+            setStatus("Taking you in…");
+            window.setTimeout(() => {
+              if (!cancelled) router.replace(returnTo);
+            }, 350);
+          }
           return;
         }
 
-        if (!cancelled) setStatus("Creating your workspace…");
+        setActiveStep("create-workspace");
+        setStatus("Creating your workspace…");
 
         const companyName =
           (typeof window !== "undefined" ? localStorage.getItem("chiefos_company_name") : null) || null;
@@ -196,73 +222,89 @@ export default function FinishSignupClient() {
 
         if (rpcErr) throw rpcErr;
 
-        if (!cancelled) setStatus("Almost there…");
-
+        setActiveStep("record-agreement");
+        setStatus("Recording your agreement…");
         await maybeWriteLegalAcceptance(signupMode);
+
+        setActiveStep("activate-access");
+        setStatus(signupMode === "tester" ? "Activating tester access…" : "Preparing ChiefOS…");
         await maybeActivateTester(signupMode);
 
-        try {
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("chiefos_company_name");
-            localStorage.removeItem("chiefos_signup_mode");
-            localStorage.removeItem("chiefos_requested_plan_key");
-            localStorage.removeItem("chiefos_terms_accepted");
-            localStorage.removeItem("chiefos_terms_accepted_at");
-            localStorage.removeItem("chiefos_privacy_accepted_at");
-            localStorage.removeItem("chiefos_terms_version");
-            localStorage.removeItem("chiefos_privacy_version");
-          }
-        } catch {}
+        clearSignupBootstrapState();
 
-        if (!cancelled) setStatus("Done — taking you in…");
-        router.replace(returnTo);
+        if (!cancelled) {
+          setActiveStep("done");
+          setStatus("Taking you in…");
+          window.setTimeout(() => {
+            if (!cancelled) router.replace(returnTo);
+          }, 350);
+        }
       } catch (e: any) {
         const msg = e?.message || "Unknown error";
         if (!cancelled) {
           setIsError(true);
-          setStatus(`Couldn’t finish signup: ${msg}`);
+          setStatus(`We couldn’t finish setting up your workspace. ${msg}`);
         }
       }
     }
 
     run();
+
     return () => {
       cancelled = true;
     };
   }, [router, returnTo]);
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
-      <SiteHeader rightLabel="Log in" rightHref="/login" />
-
-      <div className="max-w-xl mx-auto px-6 pt-24 pb-20">
-        <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
-          <span className={["h-2 w-2 rounded-full", isError ? "bg-red-600/70" : "bg-black/50"].join(" ")} />
-          Workspace setup
+    <AuthProgressShell
+      eyebrow="Workspace setup"
+      title={isError ? "We hit a snag" : "Getting ChiefOS ready"}
+      status={status}
+      activeStepKey={activeStep}
+      isError={isError}
+      steps={[
+        {
+          key: "verify-account",
+          label: "Verify account",
+          description: "Confirm the signed-in user before continuing.",
+        },
+        {
+          key: "resolve-workspace",
+          label: "Resolve workspace",
+          description: "Check whether a workspace already exists for this account.",
+        },
+        {
+          key: "create-workspace",
+          label: "Create workspace",
+          description: "Create the workspace safely if it does not exist yet.",
+        },
+        {
+          key: "record-agreement",
+          label: "Record agreement",
+          description: "Store the accepted legal versions for this workspace.",
+        },
+        {
+          key: "activate-access",
+          label: "Activate access",
+          description: "Apply tester access when required and prepare the app.",
+        },
+      ]}
+      errorActions={
+        <div className="flex flex-col sm:flex-row gap-3">
+          <a
+            href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+            className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+          >
+            Back to login
+          </a>
+          <a
+            href="/signup"
+            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+          >
+            Create account again
+          </a>
         </div>
-
-        <h1 className="mt-6 text-2xl font-bold tracking-tight">
-  {isError ? "We hit a snag" : "Getting ChiefOS ready for you"}
-</h1>
-        <p className="mt-3 text-gray-600">{status}</p>
-
-        {isError && (
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <a
-              href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
-              className="inline-flex items-center justify-center rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition"
-            >
-              Back to login
-            </a>
-            <a
-              href="/signup"
-              className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-black/[0.03] transition"
-            >
-              Create account again
-            </a>
-          </div>
-        )}
-      </div>
-    </main>
+      }
+    />
   );
 }

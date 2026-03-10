@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
@@ -33,8 +33,19 @@ function EyeIcon({ off }: { off?: boolean }) {
   );
 }
 
+function safeReturnTo(raw: string | null | undefined) {
+  const s = String(raw || "").trim();
+  if (!s) return "/app";
+  if (!s.startsWith("/")) return "/app";
+  if (s.startsWith("//")) return "/app";
+  return s;
+}
+
 export default function LoginClient() {
   const router = useRouter();
+  const sp = useSearchParams();
+
+  const returnTo = safeReturnTo(sp.get("returnTo"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,21 +79,20 @@ export default function LoginClient() {
 
       if (error) throw error;
 
-      // Some configs yield no session until email is confirmed
       if (!data?.session) {
         setErr("Verify your email. Click the confirmation link we sent, then sign in again.");
         return;
       }
 
       await track("login_success", {});
-      router.push("/app");
+
+      router.push(`/auth/transition?from=login&returnTo=${encodeURIComponent(returnTo)}`);
     } catch (e: any) {
       const friendly = normalizeAuthMessage(e);
       let message = friendly || e?.message || "Something went wrong.";
 
       const lower = String(message).toLowerCase();
 
-      // Supabase often returns this for wrong pw OR unconfirmed depending on config.
       if (lower.includes("invalid login credentials")) {
         message =
           "That email/password didn’t match. If you’re not sure, use “Forgot password” to reset it. Also make sure you confirmed your email first.";

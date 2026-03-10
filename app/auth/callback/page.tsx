@@ -1,11 +1,10 @@
-// app/auth/callback/page.tsx
 "use client";
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type OtpType = "signup" | "invite" | "magiclink" | "recovery" | "email_change";
 
@@ -15,10 +14,8 @@ function canonicalizeToAppDomain() {
     const u = new URL(window.location.href);
     const targetHost = new URL(targetBase).host;
 
-    // If already on target host, do nothing
     if (u.host === targetHost) return false;
 
-    // Only rewrite if it's your www/root host (avoid breaking preview domains)
     if (u.host === "www.usechiefos.com" || u.host === "usechiefos.com") {
       const newUrl = `${targetBase}${u.pathname}${u.search}${u.hash}`;
       window.location.replace(newUrl);
@@ -30,27 +27,34 @@ function canonicalizeToAppDomain() {
   return false;
 }
 
+function safeReturnTo(raw: string | null | undefined) {
+  const s = String(raw || "").trim();
+  if (!s) return "/app";
+  if (!s.startsWith("/")) return "/app";
+  if (s.startsWith("//")) return "/app";
+  return s;
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [msg, setMsg] = useState("Signing you in…");
+  const sp = useSearchParams();
 
   useEffect(() => {
     async function run() {
       try {
-        // ✅ Ensure callback resolves on canonical app domain
         if (canonicalizeToAppDomain()) return;
 
-        // 0) If we already have a session, go finish signup
+        const returnTo = safeReturnTo(sp.get("returnTo"));
+
         const { data: existingAuth } = await supabase.auth.getUser();
         if (existingAuth.user) {
-          router.replace("/finish-signup");
+          router.replace(`/auth/transition?from=callback&returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
 
         const url = new URL(window.location.href);
         const qs = url.searchParams;
 
-        // Hash-based session redirects:
         const hash = window.location.hash?.startsWith("#") ? window.location.hash.slice(1) : "";
         const hs = new URLSearchParams(hash);
 
@@ -61,21 +65,19 @@ export default function AuthCallbackPage() {
           const { error } = await supabase.auth.setSession({ access_token, refresh_token });
           if (error) throw error;
 
-          router.replace("/finish-signup");
+          router.replace(`/auth/transition?from=callback&returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
 
-        // PKCE code flow:
         const code = qs.get("code");
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
 
-          router.replace("/finish-signup");
+          router.replace(`/auth/transition?from=callback&returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
 
-        // OTP verify flow:
         const token_hash = qs.get("token_hash");
         const type = qs.get("type") as OtpType | null;
 
@@ -83,27 +85,19 @@ export default function AuthCallbackPage() {
           const { error } = await supabase.auth.verifyOtp({ token_hash, type });
           if (error) throw error;
 
-          router.replace("/finish-signup");
+          router.replace(`/auth/transition?from=callback&returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
 
-        setMsg("Missing callback parameters. Please log in.");
-        router.replace("/login");
-      } catch (e: any) {
-        setMsg(`Callback error: ${e?.message ?? "Unknown error"}`);
-        router.replace("/login");
+        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      } catch {
+        const returnTo = safeReturnTo(sp.get("returnTo"));
+        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
       }
     }
 
     run();
-  }, [router]);
+  }, [router, sp]);
 
-  return (
-    <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-xl mx-auto px-6 py-20">
-        <h1 className="text-2xl font-bold">ChiefOS</h1>
-        <p className="mt-4 text-gray-600">{msg}</p>
-      </div>
-    </main>
-  );
+  return null;
 }

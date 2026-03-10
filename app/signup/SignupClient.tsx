@@ -5,6 +5,13 @@ import { useSearchParams } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
+import LegalAgreementModal from "@/app/legal/LegalAgreementModal";
+import {
+  LEGAL_AI_POLICY_VERSION,
+  LEGAL_DPA_VERSION,
+  LEGAL_PRIVACY_VERSION,
+  LEGAL_TERMS_VERSION,
+} from "@/app/legal/LegalAgreementContent";
 
 type Plan = "free" | "starter" | "pro";
 
@@ -80,6 +87,7 @@ export default function SignupClient() {
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 
   const [agreeLegal, setAgreeLegal] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +117,29 @@ export default function SignupClient() {
     setTurnstileResetKey((k) => k + 1);
   }
 
+  function markLegalAccepted() {
+    const acceptedAt = new Date().toISOString();
+
+    setAgreeLegal(true);
+    setLegalModalOpen(false);
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("chiefos_terms_accepted", "true");
+
+      localStorage.setItem("chiefos_terms_accepted_at", acceptedAt);
+      localStorage.setItem("chiefos_terms_version", LEGAL_TERMS_VERSION);
+
+      localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
+      localStorage.setItem("chiefos_privacy_version", LEGAL_PRIVACY_VERSION);
+
+      localStorage.setItem("chiefos_ai_policy_accepted_at", acceptedAt);
+      localStorage.setItem("chiefos_ai_policy_version", LEGAL_AI_POLICY_VERSION);
+
+      localStorage.setItem("chiefos_dpa_acknowledged_at", acceptedAt);
+      localStorage.setItem("chiefos_dpa_version", LEGAL_DPA_VERSION);
+    }
+  }
+
   const checks = useMemo(() => passwordChecks(password), [password]);
   const pwOk = useMemo(() => Object.values(checks).every(Boolean), [checks]);
   const matchOk = useMemo(() => password.length > 0 && password === confirmPassword, [password, confirmPassword]);
@@ -123,8 +154,8 @@ export default function SignupClient() {
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
       if (!agreeLegal) {
-  throw new Error("You must agree to the Terms, Privacy Policy, AI Usage Policy, and Data Processing Agreement.");
-}
+        throw new Error("You must review and accept the legal agreement package before creating your account.");
+      }
 
       await track("signup_submit", {
         hasCompanyName: Boolean(companyName.trim()),
@@ -134,28 +165,6 @@ export default function SignupClient() {
 
       if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
       else localStorage.removeItem("chiefos_company_name");
-
-      if (typeof window !== "undefined") {
-  const acceptedAt = new Date().toISOString();
-
-  localStorage.setItem("chiefos_terms_accepted", "true");
-
-  // Terms
-  localStorage.setItem("chiefos_terms_accepted_at", acceptedAt);
-  localStorage.setItem("chiefos_terms_version", "2026-02-27");
-
-  // Privacy
-  localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
-  localStorage.setItem("chiefos_privacy_version", "2026-02-27");
-
-  // AI Policy
-  localStorage.setItem("chiefos_ai_policy_accepted_at", acceptedAt);
-  localStorage.setItem("chiefos_ai_policy_version", "2026-02-27");
-
-  // DPA
-  localStorage.setItem("chiefos_dpa_acknowledged_at", acceptedAt);
-  localStorage.setItem("chiefos_dpa_version", "2026-02-27");
-}
 
       const r = await fetch("/api/auth/signup", {
         method: "POST",
@@ -195,215 +204,197 @@ export default function SignupClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
-      <SiteHeader rightLabel="Log in" rightHref="/login" />
+    <>
+      <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
+        <SiteHeader rightLabel="Log in" rightHref="/login" />
 
-      <div className="max-w-md mx-auto px-6 pt-24 pb-20">
-        <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
-          <span className="h-2 w-2 rounded-full bg-black/50" />
-          {signupMode === "tester" ? "Starter tester account" : "Owner account"}
-        </div>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">
-  {sent
-    ? "Success!!"
-    : signupMode === "tester"
-      ? "Start your tester account"
-      : "Create your account"}
-</h1>
-        <p className="mt-2 text-gray-600">
-  {sent
-    ? "Check your email to confirm your account and finish setup."
-    : signupMode === "tester"
-      ? "Create your tester account. You’ll confirm your email and start using ChiefOS in minutes."
-      : "Add your company name and email, create a password, verify then submit!"}
-</p>
-
-        {sent ? (
-          <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
-            <p className="font-medium">Check your email</p>
-            <p className="mt-2 text-sm text-gray-600">
-              We sent you a confirmation link. Click it to finish creating your account.
-            </p>
-            <p className="mt-4 text-sm text-gray-600">
-              Already confirmed?{" "}
-              <a className="underline" href="/login">
-                Log in
-              </a>
-            </p>
+        <div className="max-w-md mx-auto px-6 pt-24 pb-20">
+          <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
+            <span className="h-2 w-2 rounded-full bg-black/50" />
+            {signupMode === "tester" ? "Starter tester account" : "Owner account"}
           </div>
-        ) : (
-          <form onSubmit={onSubmit} className="mt-8 space-y-4">
-            <div>
-              <label className="block text-sm font-medium">Company name</label>
-              <input
-                id="companyName"
-                name="companyName"
-                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Mission Exteriors (or your company)"
-                autoComplete="organization"
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium">Email</label>
-              <input
-                id="email"
-                name="email"
-                className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                type="email"
-                required
-                autoComplete="email"
-              />
-            </div>
+          <h1 className="mt-6 text-3xl font-bold tracking-tight">
+            {sent
+              ? "Success!!"
+              : signupMode === "tester"
+                ? "Start your tester account"
+                : "Create your account"}
+          </h1>
 
-            <div>
-              <label className="block text-sm font-medium">Password</label>
-              <div className="relative mt-1">
+          <p className="mt-2 text-gray-600">
+            {sent
+              ? "Check your email to confirm your account and finish setup."
+              : signupMode === "tester"
+                ? "Create your tester account. You’ll confirm your email and start using ChiefOS in minutes."
+                : "Add your company name and email, create a password, review the legal agreement, then submit."}
+          </p>
+
+          {sent ? (
+            <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
+              <p className="font-medium">Check your email</p>
+              <p className="mt-2 text-sm text-gray-600">
+                We sent you a confirmation link. Click it to finish creating your account.
+              </p>
+              <p className="mt-4 text-sm text-gray-600">
+                Already confirmed?{" "}
+                <a className="underline" href="/login">
+                  Log in
+                </a>
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="mt-8 space-y-4">
+              <div>
+                <label className="block text-sm font-medium">Company name</label>
                 <input
-                  id="password"
-                  name="password"
-                  className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  type={showPassword ? "text" : "password"}
-                  required
-                  autoComplete="new-password"
+                  id="companyName"
+                  name="companyName"
+                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Mission Exteriors (or your company)"
+                  autoComplete="organization"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeIcon off /> : <EyeIcon />}
-                </button>
               </div>
 
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <CheckRow ok={checks.len} label="10+ characters" />
-                <CheckRow ok={checks.num} label="A number" />
-                <CheckRow ok={checks.upper} label="An uppercase" />
-                <CheckRow ok={checks.lower} label="A lowercase" />
-                <CheckRow ok={checks.sym} label="A symbol" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium">Confirm password</label>
-              <div className="relative mt-1">
+              <div>
+                <label className="block text-sm font-medium">Email</label>
                 <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  type={showConfirm ? "text" : "password"}
+                  id="email"
+                  name="email"
+                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  type="email"
                   required
-                  autoComplete="new-password"
+                  autoComplete="email"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
-                  aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
-                >
-                  {showConfirm ? <EyeIcon off /> : <EyeIcon />}
-                </button>
               </div>
 
-              {confirmPassword.length > 0 && !matchOk ? (
-                <div className="mt-2 text-xs text-red-700">Passwords don’t match.</div>
-              ) : null}
-            </div>
+              <div>
+                <label className="block text-sm font-medium">Password</label>
+                <div className="relative mt-1">
+                  <input
+                    id="password"
+                    name="password"
+                    className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeIcon off /> : <EyeIcon />}
+                  </button>
+                </div>
 
-            <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4">
-  <label htmlFor="agreeLegal" className="flex items-start gap-3">
-    <input
-      id="agreeLegal"
-      name="agreeLegal"
-      type="checkbox"
-      checked={agreeLegal}
-      onChange={(e) => setAgreeLegal(e.target.checked)}
-      className="mt-1 h-4 w-4 rounded border-black/20"
-      required
-    />
-    <span className="text-sm text-gray-700 leading-relaxed">
-      I agree to the{" "}
-      <a
-        href="/terms"
-        target="_blank"
-        rel="noreferrer"
-        className="underline font-medium text-black"
-      >
-        Terms of Service
-      </a>
-      ,{" "}
-      <a
-        href="/privacy"
-        target="_blank"
-        rel="noreferrer"
-        className="underline font-medium text-black"
-      >
-        Privacy Policy
-      </a>
-      ,{" "}
-      <a
-        href="/legal/ai-policy"
-        target="_blank"
-        rel="noreferrer"
-        className="underline font-medium text-black"
-      >
-        AI Usage Policy
-      </a>
-      , and{" "}
-      <a
-        href="/legal/dpa"
-        target="_blank"
-        rel="noreferrer"
-        className="underline font-medium text-black"
-      >
-        Data Processing Agreement
-      </a>
-      .
-    </span>
-  </label>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <CheckRow ok={checks.len} label="10+ characters" />
+                  <CheckRow ok={checks.num} label="A number" />
+                  <CheckRow ok={checks.upper} label="An uppercase" />
+                  <CheckRow ok={checks.lower} label="A lowercase" />
+                  <CheckRow ok={checks.sym} label="A symbol" />
+                </div>
+              </div>
 
-  <p className="mt-3 text-xs leading-relaxed text-gray-500">
-    By creating an account, you acknowledge that ChiefOS may use automated systems
-    to process submitted records and may use aggregated or de-identified data to
-    improve the platform.
-  </p>
-</div>
+              <div>
+                <label className="block text-sm font-medium">Confirm password</label>
+                <div className="relative mt-1">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    type={showConfirm ? "text" : "password"}
+                    required
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                    aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
+                  >
+                    {showConfirm ? <EyeIcon off /> : <EyeIcon />}
+                  </button>
+                </div>
 
-            <div className="pt-2">
-              <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
-            </div>
+                {confirmPassword.length > 0 && !matchOk ? (
+                  <div className="mt-2 text-xs text-red-700">Passwords don’t match.</div>
+                ) : null}
+              </div>
 
-            {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+              <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Legal agreement package</div>
+                    <p className="mt-2 text-sm text-gray-700 leading-relaxed">
+                      Review the Terms of Service, Privacy Policy, AI Usage Policy, and Data Processing Agreement in one place before creating your account.
+                    </p>
+                  </div>
 
-            <button
-              className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
-              disabled={loading || !turnstileToken || !agreeLegal}
-              type="submit"
-            >
-              {loading ? "Sending link..." : "Sign up"}
-            </button>
+                  {agreeLegal ? (
+                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      Accepted
+                    </span>
+                  ) : null}
+                </div>
 
-            <p className="text-sm text-gray-600">
-              Already have an account?{" "}
-              <a className="underline" href="/login">
-                Log in
-              </a>
-            </p>
-          </form>
-        )}
-      </div>
-    </main>
+                <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setLegalModalOpen(true)}
+                    className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-black/[0.03] transition"
+                  >
+                    {agreeLegal ? "Review again" : "Review and accept"}
+                  </button>
+                </div>
+
+                <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                  Acceptance is recorded during secure workspace setup after your account is confirmed.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
+              </div>
+
+              {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+
+              <button
+                className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
+                disabled={loading || !turnstileToken || !agreeLegal}
+                type="submit"
+              >
+                {loading ? "Sending link..." : "Sign up"}
+              </button>
+
+              <p className="text-sm text-gray-600">
+                Already have an account?{" "}
+                <a className="underline" href="/login">
+                  Log in
+                </a>
+              </p>
+            </form>
+          )}
+        </div>
+      </main>
+
+      <LegalAgreementModal
+        open={legalModalOpen}
+        onClose={() => setLegalModalOpen(false)}
+        onAccept={markLegalAccepted}
+        accepted={agreeLegal}
+      />
+    </>
   );
 }
