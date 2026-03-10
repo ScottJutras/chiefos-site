@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -35,7 +35,7 @@ function safeReturnTo(raw: string | null | undefined) {
   return s;
 }
 
-export default function AuthCallbackPage() {
+function AuthCallbackInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -100,4 +100,12 @@ export default function AuthCallbackPage() {
   }, [router, sp]);
 
   return null;
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthCallbackInner />
+    </Suspense>
+  );
 }
