@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AuthProgressShell from "@/app/components/AuthProgressShell";
@@ -23,7 +23,7 @@ function safeReturnTo(raw: string | null | undefined) {
   return s;
 }
 
-export default function AuthTransitionPage() {
+function AuthTransitionInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -64,7 +64,6 @@ export default function AuthTransitionPage() {
             return;
           }
 
-          // If auth exists but whoami is not ready, send through finish-signup safely.
           router.replace(`/finish-signup?returnTo=${encodeURIComponent(returnTo)}`);
           return;
         }
@@ -156,5 +155,13 @@ export default function AuthTransitionPage() {
         </div>
       }
     />
+  );
+}
+
+export default function AuthTransitionPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthTransitionInner />
+    </Suspense>
   );
 }
