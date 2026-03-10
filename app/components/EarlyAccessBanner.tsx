@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 type BannerKind = "tester" | "auth" | "app";
 
 export default function EarlyAccessBanner() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const ref = useRef<HTMLDivElement | null>(null);
 
   const [signupMode, setSignupMode] = useState<string>("");
@@ -23,22 +22,23 @@ export default function EarlyAccessBanner() {
 
   useEffect(() => {
     try {
-      const fromQuery = String(searchParams.get("mode") || "").trim().toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = String(params.get("mode") || "").trim().toLowerCase();
+
       if (fromQuery) {
         setSignupMode(fromQuery);
         return;
       }
 
-      if (typeof window !== "undefined") {
-        const fromStorage = String(localStorage.getItem("chiefos_signup_mode") || "")
-          .trim()
-          .toLowerCase();
-        setSignupMode(fromStorage);
-      }
+      const fromStorage = String(localStorage.getItem("chiefos_signup_mode") || "")
+        .trim()
+        .toLowerCase();
+
+      setSignupMode(fromStorage);
     } catch {
       setSignupMode("");
     }
-  }, [searchParams]);
+  }, [pathname]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--early-access-banner-h", `0px`);
@@ -100,7 +100,7 @@ export default function EarlyAccessBanner() {
     banner.kind === "tester"
       ? "bg-white/10 text-white"
       : banner.kind === "app"
-        ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/20"
+        ? "border border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
         : "bg-white/10 text-white";
 
   return (
@@ -109,13 +109,13 @@ export default function EarlyAccessBanner() {
       className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/80 backdrop-blur"
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 text-xs text-white/80">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`rounded px-2 py-1 text-[11px] tracking-wide shrink-0 ${badgeClass}`}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`shrink-0 rounded px-2 py-1 text-[11px] tracking-wide ${badgeClass}`}>
             {banner.badge}
           </span>
-          <span className="hidden sm:inline truncate">{banner.message}</span>
+          <span className="hidden truncate sm:inline">{banner.message}</span>
         </div>
-        <div className="text-white/60 shrink-0">ChiefOS</div>
+        <div className="shrink-0 text-white/60">ChiefOS</div>
       </div>
     </div>
   );
