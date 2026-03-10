@@ -9,7 +9,6 @@ export default function SiteHeader() {
   return (
     <header className="w-full border border-white/10 bg-black/70 backdrop-blur-xl rounded-2xl">
       <div className="mx-auto w-full px-4 sm:px-6 h-12 flex items-center justify-between">
-        {/* Left: ChiefOS (home) */}
         <Link href="/#top" className="flex items-center gap-2 group">
           <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center font-bold transition group-hover:-translate-y-[1px]">
             C
@@ -17,13 +16,12 @@ export default function SiteHeader() {
           <div className="font-semibold tracking-tight text-white">ChiefOS</div>
         </Link>
 
-        {/* Right: Auth actions */}
         <div className="flex items-center gap-2">
           <Link
-            href="/pricing"
+            href="/signup"
             className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
           >
-            Get started
+            Start free
           </Link>
 
           <Link

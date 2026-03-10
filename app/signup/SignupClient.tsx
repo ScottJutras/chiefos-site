@@ -88,6 +88,7 @@ export default function SignupClient() {
 
   const [agreeLegal, setAgreeLegal] = useState(false);
   const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalAcceptedAt, setLegalAcceptedAt] = useState<string | null>(null);
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,17 +98,15 @@ export default function SignupClient() {
     if (prefillEmail) setEmail((cur) => cur || prefillEmail);
     if (prefillName) setCompanyName((cur) => cur || prefillName);
 
-    if (prefillPlan && typeof window !== "undefined") {
-      localStorage.setItem("chiefos_selected_plan", prefillPlan);
-    }
-
     if (typeof window !== "undefined") {
+      if (prefillPlan) {
+        localStorage.setItem("chiefos_selected_plan", prefillPlan);
+      }
+
       if (signupMode === "tester") {
         localStorage.setItem("chiefos_signup_mode", "tester");
-        localStorage.setItem("chiefos_requested_plan_key", "starter_tester");
       } else {
         localStorage.removeItem("chiefos_signup_mode");
-        localStorage.removeItem("chiefos_requested_plan_key");
       }
     }
   }, [prefillEmail, prefillName, prefillPlan, signupMode]);
@@ -119,25 +118,9 @@ export default function SignupClient() {
 
   function markLegalAccepted() {
     const acceptedAt = new Date().toISOString();
-
     setAgreeLegal(true);
+    setLegalAcceptedAt(acceptedAt);
     setLegalModalOpen(false);
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("chiefos_terms_accepted", "true");
-
-      localStorage.setItem("chiefos_terms_accepted_at", acceptedAt);
-      localStorage.setItem("chiefos_terms_version", LEGAL_TERMS_VERSION);
-
-      localStorage.setItem("chiefos_privacy_accepted_at", acceptedAt);
-      localStorage.setItem("chiefos_privacy_version", LEGAL_PRIVACY_VERSION);
-
-      localStorage.setItem("chiefos_ai_policy_accepted_at", acceptedAt);
-      localStorage.setItem("chiefos_ai_policy_version", LEGAL_AI_POLICY_VERSION);
-
-      localStorage.setItem("chiefos_dpa_acknowledged_at", acceptedAt);
-      localStorage.setItem("chiefos_dpa_version", LEGAL_DPA_VERSION);
-    }
   }
 
   const checks = useMemo(() => passwordChecks(password), [password]);
@@ -153,7 +136,7 @@ export default function SignupClient() {
       if (!turnstileToken) throw new Error("Please complete the bot check.");
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
-      if (!agreeLegal) {
+      if (!agreeLegal || !legalAcceptedAt) {
         throw new Error("You must review and accept the legal agreement package before creating your account.");
       }
 
@@ -163,8 +146,10 @@ export default function SignupClient() {
         agreedLegal: true,
       });
 
-      if (companyName.trim()) localStorage.setItem("chiefos_company_name", companyName.trim());
-      else localStorage.removeItem("chiefos_company_name");
+      const requestedPlanKey =
+        signupMode === "tester"
+          ? "starter_tester"
+          : (prefillPlan || "free");
 
       const r = await fetch("/api/auth/signup", {
         method: "POST",
@@ -173,6 +158,20 @@ export default function SignupClient() {
           email,
           password,
           turnstileToken,
+
+          companyName: companyName.trim(),
+          signupMode: signupMode || "standard",
+          requestedPlanKey,
+
+          termsAcceptedAt: legalAcceptedAt,
+          privacyAcceptedAt: legalAcceptedAt,
+          aiPolicyAcceptedAt: legalAcceptedAt,
+          dpaAcknowledgedAt: legalAcceptedAt,
+
+          termsVersion: LEGAL_TERMS_VERSION,
+          privacyVersion: LEGAL_PRIVACY_VERSION,
+          aiPolicyVersion: LEGAL_AI_POLICY_VERSION,
+          dpaVersion: LEGAL_DPA_VERSION,
         }),
       });
 
@@ -360,7 +359,7 @@ export default function SignupClient() {
                 </div>
 
                 <p className="mt-3 text-xs leading-relaxed text-gray-500">
-                  Acceptance is recorded during secure workspace setup after your account is confirmed.
+                  Acceptance is stored with your pending signup and finalized during secure workspace setup.
                 </p>
               </div>
 
@@ -368,7 +367,7 @@ export default function SignupClient() {
                 <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
               </div>
 
-              {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+              {err ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div> : null}
 
               <button
                 className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"

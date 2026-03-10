@@ -1,7 +1,7 @@
-// app/api/auth/signup/route.ts
 import { NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import { Ratelimit } from "@upstash/ratelimit";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const redis = new Redis({
 
 const ratelimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(5, "10 m"), // 5 signups / 10 min per key
+  limiter: Ratelimit.slidingWindow(5, "10 m"),
   analytics: true,
   prefix: "chiefos:auth:signup",
 });
@@ -45,9 +45,25 @@ function cleanPassword(x: any) {
   return String(x || "");
 }
 
+function cleanText(x: any) {
+  return String(x || "").trim();
+}
+
 function canonicalCallbackUrl() {
   const base = (process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.usechiefos.com").replace(/\/$/, "");
-  return `${base}/auth/callback`;
+  return `${base}/auth/callback?returnTo=/app`;
+}
+
+function adminClient() {
+  const supabaseUrl = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+  const serviceRoleKey = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 async function verifyTurnstile(token: string, ip?: string | null) {
@@ -74,7 +90,21 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const email = cleanEmail(body?.email);
     const password = cleanPassword(body?.password);
-    const turnstileToken = String(body?.turnstileToken || "");
+    const turnstileToken = cleanText(body?.turnstileToken);
+
+    const companyName = cleanText(body?.companyName);
+    const signupMode = cleanText(body?.signupMode).toLowerCase() === "tester" ? "tester" : "standard";
+    const requestedPlanKey = cleanText(body?.requestedPlanKey) || null;
+
+    const termsAcceptedAt = cleanText(body?.termsAcceptedAt);
+    const privacyAcceptedAt = cleanText(body?.privacyAcceptedAt);
+    const aiPolicyAcceptedAt = cleanText(body?.aiPolicyAcceptedAt);
+    const dpaAcknowledgedAt = cleanText(body?.dpaAcknowledgedAt);
+
+    const termsVersion = cleanText(body?.termsVersion);
+    const privacyVersion = cleanText(body?.privacyVersion);
+    const aiPolicyVersion = cleanText(body?.aiPolicyVersion);
+    const dpaVersion = cleanText(body?.dpaVersion);
 
     if (!email || !email.includes("@")) {
       return json(400, { ok: false, error: "Missing or invalid email." });
@@ -84,6 +114,19 @@ export async function POST(req: Request) {
     }
     if (!turnstileToken) {
       return json(400, { ok: false, error: "Bot check required." });
+    }
+
+    if (
+      !termsAcceptedAt ||
+      !privacyAcceptedAt ||
+      !aiPolicyAcceptedAt ||
+      !dpaAcknowledgedAt ||
+      !termsVersion ||
+      !privacyVersion ||
+      !aiPolicyVersion ||
+      !dpaVersion
+    ) {
+      return json(400, { ok: false, error: "Legal acceptance is required." });
     }
 
     const rlKey = `${String(ip || "noip")}:${email}`;
@@ -100,7 +143,6 @@ export async function POST(req: Request) {
     const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
     const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
-    // ✅ Canonical redirect (do NOT trust window.location.origin)
     const emailRedirectTo = canonicalCallbackUrl();
 
     const r = await fetch(`${url}/auth/v1/signup`, {
@@ -120,13 +162,45 @@ export async function POST(req: Request) {
     const payload = await r.json().catch(() => ({}));
 
     if (!r.ok) {
-      // Supabase commonly returns { msg } or { error_description } etc.
       const msg =
         payload?.msg ||
         payload?.error_description ||
         payload?.error ||
         "Signup failed.";
       return json(400, { ok: false, error: String(msg) });
+    }
+
+    const admin = adminClient();
+
+    const { error: pendingErr } = await admin
+      .from("chiefos_pending_signups")
+      .upsert(
+        {
+          email,
+          company_name: companyName || null,
+          signup_mode: signupMode,
+          requested_plan_key: requestedPlanKey,
+
+          terms_accepted_at: termsAcceptedAt,
+          terms_version: termsVersion,
+
+          privacy_accepted_at: privacyAcceptedAt,
+          privacy_version: privacyVersion,
+
+          ai_policy_accepted_at: aiPolicyAcceptedAt,
+          ai_policy_version: aiPolicyVersion,
+
+          dpa_acknowledged_at: dpaAcknowledgedAt,
+          dpa_version: dpaVersion,
+
+          accepted_via: signupMode === "tester" ? "tester_signup" : "signup",
+          consumed_at: null,
+        },
+        { onConflict: "email" }
+      );
+
+    if (pendingErr) {
+      return json(500, { ok: false, error: pendingErr.message || "Failed to store signup bootstrap." });
     }
 
     return json(200, { ok: true });

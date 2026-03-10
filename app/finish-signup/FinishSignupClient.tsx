@@ -11,30 +11,34 @@ function sleep(ms: number) {
 
 type StepKey =
   | "verify-account"
+  | "load-signup"
   | "resolve-workspace"
   | "create-workspace"
   | "record-agreement"
   | "activate-access"
   | "done";
 
-function clearSignupBootstrapState() {
-  if (typeof window === "undefined") return;
+type PendingSignup = {
+  id: string;
+  email: string;
+  company_name: string | null;
+  signup_mode: string | null;
+  requested_plan_key: string | null;
 
-  localStorage.removeItem("chiefos_company_name");
-  localStorage.removeItem("chiefos_signup_mode");
-  localStorage.removeItem("chiefos_requested_plan_key");
+  terms_accepted_at: string | null;
+  terms_version: string | null;
 
-  localStorage.removeItem("chiefos_terms_accepted");
-  localStorage.removeItem("chiefos_terms_accepted_at");
-  localStorage.removeItem("chiefos_privacy_accepted_at");
-  localStorage.removeItem("chiefos_ai_policy_accepted_at");
-  localStorage.removeItem("chiefos_dpa_acknowledged_at");
+  privacy_accepted_at: string | null;
+  privacy_version: string | null;
 
-  localStorage.removeItem("chiefos_terms_version");
-  localStorage.removeItem("chiefos_privacy_version");
-  localStorage.removeItem("chiefos_ai_policy_version");
-  localStorage.removeItem("chiefos_dpa_version");
-}
+  ai_policy_accepted_at: string | null;
+  ai_policy_version: string | null;
+
+  dpa_acknowledged_at: string | null;
+  dpa_version: string | null;
+
+  accepted_via: string | null;
+};
 
 export default function FinishSignupClient() {
   const router = useRouter();
@@ -54,45 +58,53 @@ export default function FinishSignupClient() {
   useEffect(() => {
     let cancelled = false;
 
-    async function maybeWriteLegalAcceptance(signupMode: string | null) {
-      const accepted =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted") : null) || null;
+    async function getPendingSignup(): Promise<PendingSignup | null> {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      if (!accessToken) return null;
 
-      if (accepted !== "true") return;
+      const res = await fetch("/api/auth/pending-signup", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-      const termsAcceptedAt =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_accepted_at") : null) || null;
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || "Failed to load pending signup.");
+      return j?.pendingSignup || null;
+    }
 
-      const privacyAcceptedAt =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_accepted_at") : null) || null;
+    async function consumePendingSignup() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      if (!accessToken) return;
 
-      const aiPolicyAcceptedAt =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_accepted_at") : null) || null;
+      const res = await fetch("/api/auth/pending-signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ action: "consume" }),
+      });
 
-      const dpaAcknowledgedAt =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_acknowledged_at") : null) || null;
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error || "Failed to consume pending signup.");
+    }
 
-      const termsVersion =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_terms_version") : null) || null;
-
-      const privacyVersion =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_privacy_version") : null) || null;
-
-      const aiPolicyVersion =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_ai_policy_version") : null) || null;
-
-      const dpaVersion =
-        (typeof window !== "undefined" ? localStorage.getItem("chiefos_dpa_version") : null) || null;
+    async function writeLegalAcceptance(pending: PendingSignup | null) {
+      if (!pending) return;
 
       if (
-        !termsAcceptedAt ||
-        !privacyAcceptedAt ||
-        !aiPolicyAcceptedAt ||
-        !dpaAcknowledgedAt ||
-        !termsVersion ||
-        !privacyVersion ||
-        !aiPolicyVersion ||
-        !dpaVersion
+        !pending.terms_accepted_at ||
+        !pending.privacy_accepted_at ||
+        !pending.ai_policy_accepted_at ||
+        !pending.dpa_acknowledged_at ||
+        !pending.terms_version ||
+        !pending.privacy_version ||
+        !pending.ai_policy_version ||
+        !pending.dpa_version
       ) {
         return;
       }
@@ -108,15 +120,15 @@ export default function FinishSignupClient() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          termsAcceptedAt,
-          privacyAcceptedAt,
-          aiPolicyAcceptedAt,
-          dpaAcknowledgedAt,
-          termsVersion,
-          privacyVersion,
-          aiPolicyVersion,
-          dpaVersion,
-          acceptedVia: signupMode === "tester" ? "tester_signup" : "signup",
+          termsAcceptedAt: pending.terms_accepted_at,
+          privacyAcceptedAt: pending.privacy_accepted_at,
+          aiPolicyAcceptedAt: pending.ai_policy_accepted_at,
+          dpaAcknowledgedAt: pending.dpa_acknowledged_at,
+          termsVersion: pending.terms_version,
+          privacyVersion: pending.privacy_version,
+          aiPolicyVersion: pending.ai_policy_version,
+          dpaVersion: pending.dpa_version,
+          acceptedVia: pending.accepted_via || (pending.signup_mode === "tester" ? "tester_signup" : "signup"),
         }),
       });
 
@@ -126,12 +138,11 @@ export default function FinishSignupClient() {
       }
     }
 
-    async function maybeActivateTester(signupMode: string | null) {
-      if (signupMode !== "tester") return;
+    async function maybeActivateTester(pending: PendingSignup | null) {
+      if (!pending || pending.signup_mode !== "tester") return;
 
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || null;
-
       if (!accessToken) return;
 
       const activateRes = await fetch("/api/tester-access/activate", {
@@ -175,8 +186,9 @@ export default function FinishSignupClient() {
           return;
         }
 
-        const signupMode =
-          (typeof window !== "undefined" ? localStorage.getItem("chiefos_signup_mode") : null) || null;
+        setActiveStep("load-signup");
+        setStatus("Loading your signup details…");
+        const pending = await getPendingSignup();
 
         setActiveStep("resolve-workspace");
         setStatus("Resolving your workspace…");
@@ -189,48 +201,26 @@ export default function FinishSignupClient() {
 
         if (exErr) throw exErr;
 
-        if (existing?.tenant_id) {
-          setActiveStep("record-agreement");
-          setStatus("Recording your agreement…");
-          await maybeWriteLegalAcceptance(signupMode);
+        if (!existing?.tenant_id) {
+          setActiveStep("create-workspace");
+          setStatus("Creating your workspace…");
 
-          setActiveStep("activate-access");
-          setStatus(signupMode === "tester" ? "Activating tester access…" : "Preparing ChiefOS…");
-          await maybeActivateTester(signupMode);
+          const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
+            company_name: pending?.company_name || null,
+          });
 
-          clearSignupBootstrapState();
-
-          if (!cancelled) {
-            setActiveStep("done");
-            setStatus("Taking you in…");
-            window.setTimeout(() => {
-              if (!cancelled) router.replace(returnTo);
-            }, 350);
-          }
-          return;
+          if (rpcErr) throw rpcErr;
         }
-
-        setActiveStep("create-workspace");
-        setStatus("Creating your workspace…");
-
-        const companyName =
-          (typeof window !== "undefined" ? localStorage.getItem("chiefos_company_name") : null) || null;
-
-        const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
-          company_name: companyName,
-        });
-
-        if (rpcErr) throw rpcErr;
 
         setActiveStep("record-agreement");
         setStatus("Recording your agreement…");
-        await maybeWriteLegalAcceptance(signupMode);
+        await writeLegalAcceptance(pending);
 
         setActiveStep("activate-access");
-        setStatus(signupMode === "tester" ? "Activating tester access…" : "Preparing ChiefOS…");
-        await maybeActivateTester(signupMode);
+        setStatus(pending?.signup_mode === "tester" ? "Activating tester access…" : "Preparing ChiefOS…");
+        await maybeActivateTester(pending);
 
-        clearSignupBootstrapState();
+        await consumePendingSignup();
 
         if (!cancelled) {
           setActiveStep("done");
@@ -267,6 +257,11 @@ export default function FinishSignupClient() {
           key: "verify-account",
           label: "Verify account",
           description: "Confirm the signed-in user before continuing.",
+        },
+        {
+          key: "load-signup",
+          label: "Load signup details",
+          description: "Recover your setup details even if you confirmed on another device.",
         },
         {
           key: "resolve-workspace",
