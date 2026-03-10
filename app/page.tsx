@@ -1,25 +1,18 @@
-// C:\Users\scott\Documents\Sherpa AI\Chief\chiefos-site\app\page.tsx
-// ChiefOS marketing homepage (Command-centre vibe + contractor clarity)
-// Drop-in + uses small components under app/components/marketing/*
-
+import React from "react";
 import SiteHeader from "@/app/components/marketing/SiteHeader";
 import Section from "@/app/components/marketing/Section";
 import MediaFrame from "@/app/components/marketing/MediaFrame";
 import FAQ from "@/app/components/marketing/FAQ";
-import SiteFooter from "@/app/components/marketing/SiteFooter";
 import WhatsAppIcon from "@/app/components/marketing/WhatsAppIcon";
 import TooltipChip from "@/app/components/marketing/TooltipChip";
 import StackVsChief from "@/app/components/marketing/StackVsChief";
 import { MicroAppsIcon, MobileAppIcon } from "@/app/components/marketing/ToolIcons";
-import HeroGetStartedForm from "@/app/components/marketing/HeroGetStartedForm";
-import React from "react";
 import {
   ExpensesIcon,
   TimeIcon,
   RevenueIcon,
   TasksIcon,
   ReminderIcon,
-  QuotesIcon,
   DocsIcon,
   JobsIcon,
   ChiefIcon,
@@ -28,7 +21,7 @@ import {
 export const metadata = {
   title: "ChiefOS",
   description:
-    "Know if you’re making money—instantly. ChiefOS is a WhatsApp-first operating system for contractors: capture time + money on the go, connect everything to jobs, and ask your business questions grounded in your logged records.",
+    "ChiefOS is a WhatsApp-first operating system for contractors and service businesses. Capture time, expenses, and job activity where work happens, then ask your business questions and get grounded answers.",
 };
 
 function StatCard({
@@ -45,18 +38,14 @@ function StatCard({
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 md:p-5">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] tracking-[0.16em] uppercase text-white/55">
-          {label}
-        </div>
+        <div className="text-[11px] tracking-[0.16em] uppercase text-white/55">{label}</div>
         {delta ? (
           <div className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/65">
             {delta}
           </div>
         ) : null}
       </div>
-      <div className="mt-2 text-2xl md:text-3xl font-semibold tracking-tight text-white">
-        {value}
-      </div>
+      <div className="mt-2 text-2xl md:text-3xl font-semibold tracking-tight text-white">{value}</div>
       {hint ? <div className="mt-1 text-xs text-white/55">{hint}</div> : null}
     </div>
   );
@@ -86,11 +75,11 @@ function PlanCard({
 
   return (
     <div className="relative flex h-full flex-col rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-7">
-      {badge && (
+      {badge ? (
         <div className="absolute -top-3 left-6 rounded-full border border-white/15 bg-black/70 px-3 py-1 text-xs text-white/70 backdrop-blur">
           {badge}
         </div>
-      )}
+      ) : null}
 
       <div>
         <div className="text-sm font-semibold text-white/80">{name}</div>
@@ -118,9 +107,7 @@ function PlanCard({
           {ctaLabel}
         </a>
 
-        {foot && (
-          <div className="mt-4 text-xs text-white/50 leading-relaxed">{foot}</div>
-        )}
+        {foot ? <div className="mt-4 text-xs text-white/50 leading-relaxed">{foot}</div> : null}
       </div>
     </div>
   );
@@ -171,9 +158,7 @@ function ToolCard({
           <div>
             {featured ? (
               <>
-                <div className="text-2xl md:text-3xl font-semibold text-white leading-tight">
-                  {title}
-                </div>
+                <div className="text-2xl md:text-3xl font-semibold text-white leading-tight">{title}</div>
                 <div className="mt-2">
                   <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[11px] text-white/70 tracking-wide">
                     Your business answers back
@@ -182,9 +167,7 @@ function ToolCard({
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="text-base md:text-lg font-semibold text-white/90 leading-tight">
-                  {title}
-                </div>
+                <div className="text-base md:text-lg font-semibold text-white/90 leading-tight">{title}</div>
               </div>
             )}
 
@@ -228,19 +211,17 @@ function ToolCard({
 
 function WhyDifferentTable() {
   const rows = [
-    { left: "You log data", right: "You log & ask" },
+    { left: "You log data", right: "You log and ask" },
     { left: "You run reports", right: "You get answers" },
-    { left: "Dashboards everywhere", right: "Conversational CFO" },
+    { left: "Dashboards everywhere", right: "One reasoning surface" },
     { left: "Time tracking as a timer", right: "Job-level intelligence" },
-    { left: "Accountants tell you later", right: "You know now" },
+    { left: "You find out later", right: "You know now" },
   ];
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 md:p-7">
       <div className="flex items-center justify-between gap-4">
-        <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-          Why ChiefOS is different
-        </div>
+        <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Why ChiefOS is different</div>
         <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
           Control → clarity → confidence
         </div>
@@ -254,16 +235,46 @@ function WhyDifferentTable() {
           >
             <div className="col-span-5 text-sm text-white/65">{r.left}</div>
             <div className="col-span-2 text-center text-white/35">→</div>
-            <div className="col-span-5 text-sm font-semibold text-white/85">
-              {r.right}
-            </div>
+            <div className="col-span-5 text-sm font-semibold text-white/85">{r.right}</div>
           </div>
         ))}
       </div>
 
-      <div className="mt-4 text-xs text-white/45">
-        The magic isn’t “AI.” The magic is you don’t have to dig.
-      </div>
+      <div className="mt-4 text-xs text-white/45">The magic is not “AI.” The magic is you stop digging.</div>
+    </div>
+  );
+}
+
+function CTABar() {
+  return (
+    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+      <a
+        href="/signup"
+        className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+      >
+        Start free
+      </a>
+
+      <a
+        href="/signup?mode=tester&plan=starter"
+        className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+      >
+        Start testing
+      </a>
+
+      <TooltipChip tip="Fastest path: start on WhatsApp in minutes.">
+        <a
+          href="/wa?t=cta"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+        >
+          <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
+            <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
+          </span>
+          Start on WhatsApp
+        </a>
+      </TooltipChip>
     </div>
   );
 }
@@ -273,43 +284,46 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-   {/* HERO */}
-<Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
-  <div className="max-w-4xl mx-auto text-center">
-    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
-      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-      Contractor Grade Business Intelligence
-    </div>
+      {/* HERO */}
+      <Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
+        <div className="max-w-5xl mx-auto text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            Contractor-grade business intelligence
+          </div>
 
-    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-      Know if you’re making money.
-      <br />
-      Instantly.
-    </h1>
+          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.03]">
+            Capture the work.
+            <br />
+            Know the truth.
+          </h1>
 
-    <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
-      ChiefOS captures time, expenses, and job activity where work happens and
-      turns it into answers about your business.
-    </p>
+          <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed max-w-3xl mx-auto">
+            ChiefOS captures time, expenses, and job activity where work happens — then turns it into
+            answers about your business.
+          </p>
 
-    <p className="mt-4 text-base md:text-lg text-white/60 font-medium">
-      Ask your business a question. Get an answer.
-      <br />
-      Powered by intelligent job-level analysis grounded in your records.
-    </p>
+          <p className="mt-4 text-base md:text-lg text-white/60 font-medium max-w-3xl mx-auto">
+            Not another dashboard. Not another timer.
+            <br />
+            One operating system for jobs, money, and decisions.
+          </p>
 
-    {/* CTA */}
-    <HeroGetStartedForm pricingHref="/pricing" />
+          <CTABar />
 
-    <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
-      <span className="text-white/80 font-semibold">
-        Text it → Say it → Snap it → Confirm → Done.
-      </span>
-      <br />
-      Clean records. Clean exports.
-    </div>
-  </div>
+          <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
+            <span className="text-white/80 font-semibold">Text it → Say it → Snap it → Confirm → Done.</span>
+            <br />
+            Clean records. Clean exports. Real answers.
+          </div>
 
+          <div className="mt-6 flex flex-wrap justify-center gap-2 text-[11px] text-white/65">
+            <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">No app required</span>
+            <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">WhatsApp-first</span>
+            <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">Answers from your records</span>
+            <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">Export anytime</span>
+          </div>
+        </div>
 
         {/* QUICK PROOF + DIFFERENTIATION */}
         <div className="mt-12 max-w-5xl mx-auto grid gap-6 md:grid-cols-12 items-start">
@@ -321,9 +335,7 @@ export default function Home() {
             >
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                    Conversation (example)
-                  </div>
+                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Conversation (example)</div>
                   <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
                     Based on confirmed entries
                   </div>
@@ -348,47 +360,29 @@ export default function Home() {
                 <div className="mt-5 space-y-3">
                   <div className="flex justify-end">
                     <div className="max-w-[92%] rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                      <div className="text-xs text-white/50 tracking-[0.16em] uppercase">
-                        You
-                      </div>
-                      <div className="mt-1 text-sm text-white/80">
-                        Did Job 18 make money so far?
-                      </div>
+                      <div className="text-xs text-white/50 tracking-[0.16em] uppercase">You</div>
+                      <div className="mt-1 text-sm text-white/80">Did Job 18 make money so far?</div>
                     </div>
                   </div>
 
                   <div className="flex justify-start">
                     <div className="max-w-[92%] rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
-                      <div className="text-xs text-white/50 tracking-[0.16em] uppercase">
-                        Chief
-                      </div>
+                      <div className="text-xs text-white/50 tracking-[0.16em] uppercase">Chief</div>
                       <div className="mt-1 text-sm text-white/80 leading-relaxed">
-                        Job 18 shows{" "}
-                        <span className="text-white/90 font-semibold">
-                          $12,400 revenue
-                        </span>{" "}
-                        and{" "}
-                        <span className="text-white/90 font-semibold">
-                          $9,980 costs
-                        </span>{" "}
-                        from confirmed entries →{" "}
-                        <span className="text-white/90 font-semibold">
-                          $2,420 profit
-                        </span>{" "}
-                        (+19.5%).
+                        Job 18 shows <span className="text-white/90 font-semibold">$12,400 revenue</span> and{" "}
+                        <span className="text-white/90 font-semibold">$9,980 costs</span> from confirmed entries →{" "}
+                        <span className="text-white/90 font-semibold">$2,420 profit</span> (+19.5%).
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {["Revenue entries: 5", "Cost entries: 21", "Time: 44.0h"].map(
-                          (x) => (
-                            <span
-                              key={x}
-                              className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/65"
-                            >
-                              {x}
-                            </span>
-                          )
-                        )}
+                        {["Revenue entries: 5", "Cost entries: 21", "Time: 44.0h"].map((x) => (
+                          <span
+                            key={x}
+                            className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-white/65"
+                          >
+                            {x}
+                          </span>
+                        ))}
                       </div>
 
                       <div className="mt-3 text-xs text-white/55">
@@ -399,7 +393,7 @@ export default function Home() {
                 </div>
 
                 <div className="mt-4 text-xs text-white/45">
-                  Example UI. Real answers come from your logged and confirmed records.
+                  Real answers come from your logged and confirmed records — not generic AI output.
                 </div>
               </div>
             </MediaFrame>
@@ -411,39 +405,37 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* SYSTEM OVERVIEW */}
+      {/* HOW IT WORKS */}
       <Section id="system" className="pb-16 md:pb-20">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
-            A command centre for job truth.
+            A command center for job truth.
           </h2>
           <p className="mt-4 text-white/70 text-lg md:text-xl leading-relaxed">
             Most owners don’t know true margin, don’t track labour cleanly, and can’t answer profit questions quickly.
             ChiefOS fixes that by connecting time, money, and tasks to every job.
           </p>
           <p className="mt-4 text-white/70 text-lg leading-relaxed">
-            ChiefOS reduces anxiety. Increases Focus.{" "}
-            <span className="text-white/85 font-semibold">Dials-in your margins.</span>
+            Less anxiety. More control.{" "}
+            <span className="text-white/85 font-semibold">Margins you can actually see.</span>
           </p>
         </div>
 
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="mb-6 flex items-center justify-center gap-4 text-sm text-white/50">
-            <span>Capture on-the-go</span>
+            <span>Capture in the field</span>
             <span className="text-white/35">→</span>
             <span>Structured job records</span>
             <span className="text-white/35">→</span>
             <span>Answers on demand</span>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
-              <div className="text-xl md:text-2xl font-semibold text-white">
-                Capture
-              </div>
+              <div className="text-xl md:text-2xl font-semibold text-white">1. Capture</div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {["Text", "Voice", "Receipt Photo (OCR)"].map((s) => (
+                {["Text", "Voice", "Receipt Photo"].map((s) => (
                   <span
                     key={s}
                     className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
@@ -456,19 +448,13 @@ export default function Home() {
               <div className="mt-5 text-sm text-white/60 leading-relaxed">
                 No app switching. No forms. Log it while you’re moving.
               </div>
-
-              <div className="mt-4 text-[11px] uppercase tracking-[0.18em] text-white/40">
-                More inputs coming
-              </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
-              <div className="text-xl md:text-2xl font-semibold text-white">
-                Connect & Integrate
-              </div>
+              <div className="text-xl md:text-2xl font-semibold text-white">2. Structure</div>
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {["Expenses", "Time Clock", "Tasks", "Jobs"].map((t) => (
+                {["Jobs", "Expenses", "Time", "Tasks"].map((t) => (
                   <span
                     key={t}
                     className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
@@ -479,18 +465,31 @@ export default function Home() {
               </div>
 
               <div className="mt-5 text-sm text-white/60 leading-relaxed">
-                Every entry becomes structured, tied to jobs, and traceable back to who logged it.
+                Every entry becomes traceable, job-linked, and export-ready.
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-7">
+              <div className="text-xl md:text-2xl font-semibold text-white">3. Ask</div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {["Profit", "Spend", "Hours", "Jobs"].map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-sm text-white/85"
+                  >
+                    {t}
+                  </span>
+                ))}
               </div>
 
-              <div className="mt-4 text-[11px] uppercase tracking-[0.18em] text-white/40">
-                More tools coming
+              <div className="mt-5 text-sm text-white/60 leading-relaxed">
+                Ask a real business question and get a grounded answer from your records.
               </div>
             </div>
           </div>
 
-          <div className="mt-6 text-center text-xs text-white/45">
-            If it’s not tracked, it’s not profit.
-          </div>
+          <div className="mt-6 text-center text-xs text-white/45">If it’s not tracked, it’s not profit.</div>
         </div>
 
         {/* CURRENT FEATURES GRID */}
@@ -531,9 +530,7 @@ export default function Home() {
 
         {/* COMING SOON */}
         <div className="mt-20">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/50 text-center">
-            Coming Soon
-          </div>
+          <div className="text-xs tracking-[0.18em] uppercase text-white/50 text-center">Coming soon</div>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <ToolCard
@@ -547,7 +544,7 @@ export default function Home() {
               title="Reminders"
               badge="Coming soon"
               icon={<ReminderIcon className="h-6 w-6 text-white/80" />}
-              blurb="Set smart reminders connected to tasks, jobs, and payments so nothing falls through the cracks."
+              blurb="Set reminders connected to tasks, jobs, and payments so nothing falls through the cracks."
             />
 
             <ToolCard
@@ -561,27 +558,243 @@ export default function Home() {
               title="Pictures"
               badge="Coming soon"
               icon={<DocsIcon className="h-6 w-6 text-white/80" />}
-              blurb="Store and organize job site photos and business images, searchable and connected to projects."
+              blurb="Store and organize job-site photos and business images, searchable and connected to projects."
             />
 
             <ToolCard
               title="Micro Apps"
               badge="Coming soon"
               icon={<MicroAppsIcon className="h-6 w-6 text-white/80" />}
-              blurb="Instant, single-purpose tools you can open and use right away — no app store, no downloads. Quick workflows that still write into the same system."
+              blurb="Single-purpose tools you can open instantly. Fast workflows that still write into the same system."
             />
 
             <ToolCard
               title="Mobile App"
               badge="Coming soon"
               icon={<MobileAppIcon className="h-6 w-6 text-white/80" />}
-              blurb="Optional mobile capture for teams that want it. Not required to use ChiefOS — just another way to send time, receipts, and job updates into the same system."
+              blurb="Optional mobile capture for teams that want it. Not required — just another way to send work into the same system."
             />
           </div>
         </div>
       </Section>
 
-      {/* NOTHING TRAPPED */}
+      {/* STOP THE NIGHT SHIFT */}
+      <Section id="night-shift" className="py-14 md:py-20">
+        <div className="grid md:grid-cols-12 gap-10 items-start">
+          <div className="md:col-span-5">
+            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">Stop the night shift.</h2>
+
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">Most owners spend 30 minutes to 1.5 hours a day:</p>
+
+            <div className="mt-6 space-y-3 text-sm text-white/70">
+              {["Cleaning receipts", "Updating spreadsheets", "Reconciling entries", "Moving data between apps"].map(
+                (x) => (
+                  <div key={x} className="flex items-start gap-3">
+                    <span className="mt-2 h-1.5 w-1.5 rounded-full bg-white/60" />
+                    <div>{x}</div>
+                  </div>
+                )
+              )}
+            </div>
+
+            <p className="mt-6 text-white/70 text-lg leading-relaxed">And at the end of it? The data just sits there.</p>
+
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              You can’t talk to it.
+              <br />
+              You can’t ask it questions.
+              <br />
+              You just store it.
+            </p>
+
+            <p className="mt-6 text-white/70 text-lg leading-relaxed">
+              ChiefOS captures it while you work — and makes it usable immediately.
+            </p>
+
+            <div className="mt-6 text-lg font-semibold text-white/90">
+              Text it. <span className="text-white/60">Say it.</span> <span className="text-white/60">Snap it.</span>
+            </div>
+
+            <div className="mt-2 text-sm text-white/70">Confirm. Done.</div>
+          </div>
+
+          <div className="md:col-span-7">
+            <MediaFrame label="Capture flow" title="Capture → confirm → stored clean">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Example</div>
+
+                <div className="mt-4 space-y-3">
+                  {[
+                    { t: "Text", d: "Expense $35.50 at Staples • Job 12", s: "Confirm" },
+                    { t: "Voice", d: "“$120 in materials for Hampton job”", s: "Parsed" },
+                    { t: "Photo", d: "Receipt image • Auto-filled fields", s: "Ready" },
+                    { t: "Stored", d: "Job timeline + export-ready records", s: "Done" },
+                  ].map((row) => (
+                    <div
+                      key={row.t}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+                    >
+                      <div>
+                        <div className="text-sm font-semibold text-white/85">{row.t}</div>
+                        <div className="text-xs text-white/55">{row.d}</div>
+                      </div>
+                      <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
+                        {row.s}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 text-xs text-white/45">Capture once. No nightly cleanup loop.</div>
+              </div>
+            </MediaFrame>
+          </div>
+        </div>
+      </Section>
+
+      {/* TIMESHEET CLARITY */}
+      <Section id="time" className="py-14 md:py-24">
+        <div className="grid md:grid-cols-12 gap-10 items-start">
+          <div className="md:col-span-5">
+            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
+              Not a timer.
+              <br />
+              Payroll-grade shift clarity.
+            </h2>
+
+            <p className="mt-4 text-white/70 text-lg leading-relaxed">
+              Shift time is not one number. ChiefOS tracks the categories that actually matter — legally,
+              financially, and for job costing.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              {[
+                { k: "Shift time", v: "Recorded", d: "Clock in → clock out (raw timeline)" },
+                { k: "Break time", v: "Recorded (separate)", d: "Not mixed into work time" },
+                { k: "Lunch time", v: "Recorded (separate)", d: "Tracked distinctly for payroll rules" },
+                { k: "Drive time", v: "Tracked", d: "Visible for costing and billing" },
+                { k: "Work time", v: "Calculated", d: "Shift − breaks − lunch" },
+                { k: "Paid time", v: "Calculated", d: "Work + paid drive (your rules)" },
+              ].map((x) => (
+                <div
+                  key={x.k}
+                  className="group relative rounded-2xl border border-white/10 bg-white/[0.05] p-5 transition hover:-translate-y-[2px] hover:border-white/20 hover:bg-white/[0.08]"
+                >
+                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-white/[0.08] to-transparent pointer-events-none" />
+                  <div className="relative flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-base font-semibold text-white/90">{x.k}</div>
+                      <div className="mt-1 text-sm text-white/65">{x.d}</div>
+                    </div>
+
+                    <div className="shrink-0 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/70">
+                      {x.v}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 text-sm text-white/55 leading-relaxed">
+              Built to be repairable: confirmations, undo actions, approvals, and an audit trail — so corrections do not destroy trust.
+            </div>
+          </div>
+
+          <div className="md:col-span-7">
+            <MediaFrame
+              label="Time categories"
+              title="A shift that stays traceable"
+              subtitle="Shift • Break • Lunch • Drive • Work • Paid"
+            >
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Example shift</div>
+                  <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
+                    Job 18 • Medway Dr
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    "Mike clocked in",
+                    "Break started",
+                    "Break ended",
+                    "Lunch started",
+                    "Lunch ended",
+                    "Drive started",
+                    "Drive ended",
+                    "Clocked out",
+                  ].map((x) => (
+                    <span
+                      key={x}
+                      className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] text-white/70"
+                    >
+                      {x}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Timeline</div>
+
+                  <div className="mt-3 grid gap-2">
+                    {[
+                      { t: "07:12", d: "Clock in", tag: "Shift" },
+                      { t: "10:05", d: "Break", tag: "Break" },
+                      { t: "12:02", d: "Lunch", tag: "Lunch" },
+                      { t: "14:18", d: "Drive", tag: "Drive" },
+                      { t: "16:41", d: "Clock out", tag: "Shift" },
+                    ].map((row) => (
+                      <div
+                        key={row.t + row.d}
+                        className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/40 px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-white/60 w-[44px]">{row.t}</div>
+                          <div>
+                            <div className="text-sm font-semibold text-white/85">{row.d}</div>
+                            <div className="text-xs text-white/55">Job 18 • Medway Dr</div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] text-white/60">
+                          {row.tag}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 text-xs text-white/45">
+                    Every event is logged. Nothing collapses into a single guessed number.
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <StatCard label="Shift" value="9.5h" hint="Clock in → out" />
+                  <StatCard label="Break" value="0.3h" hint="Separate" />
+                  <StatCard label="Lunch" value="0.5h" hint="Separate" />
+                  <StatCard label="Drive" value="0.8h" hint="Tracked" />
+                  <StatCard label="Work" value="8.7h" hint="Calculated" />
+                  <StatCard label="Paid" value="9.5h" hint="Rules-based" />
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
+                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Example question</div>
+                  <div className="mt-2 text-sm text-white/75 leading-relaxed">
+                    <span className="text-white/85 font-semibold">Q:</span> “How many paid hours did Mike work on Job 18 today?”
+                    <br />
+                    <span className="text-white/85 font-semibold">A:</span> “Mike has{" "}
+                    <span className="text-white/90 font-semibold">9.5 paid hours</span> on Job 18 today. Work time is
+                    8.7h (shift − breaks − lunch) plus 0.8h drive tracked separately.”
+                  </div>
+                </div>
+              </div>
+            </MediaFrame>
+          </div>
+        </div>
+      </Section>
+
+      {/* EXPORTS */}
       <Section id="exports" className="py-14 md:py-20">
         <div className="grid md:grid-cols-12 gap-10 items-start">
           <div className="md:col-span-5">
@@ -607,9 +820,7 @@ export default function Home() {
           <div className="md:col-span-7">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
               <div className="flex items-center justify-between gap-4">
-                <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                  Exportable assets
-                </div>
+                <div className="text-xs text-white/55 tracking-[0.16em] uppercase">Exportable assets</div>
                 <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
                   Download anytime
                 </div>
@@ -663,7 +874,7 @@ export default function Home() {
                     <div>
                       <div className="text-sm font-semibold text-white/85">Voice recordings</div>
                       <div className="mt-1 text-xs text-white/55">
-                        Download audio files (and the structured entry they produced).
+                        Download audio files and the structured entry they produced.
                       </div>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
@@ -688,7 +899,7 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* STACK → SYSTEM */}
+      {/* STACK */}
       <Section id="stack-system" className="py-14 md:py-20">
         <div className="max-w-5xl mx-auto text-center">
           <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
@@ -707,8 +918,7 @@ export default function Home() {
           </div>
 
           <div className="mt-6 text-xs text-white/45 max-w-3xl mx-auto">
-            Typical pricing varies by vendor and plan. This comparison is a conservative snapshot to show the cost of
-            fragmentation (exports, re-entry, and rebuilding jobs by hand).
+            This comparison is a snapshot to show the cost of fragmentation: exports, re-entry, and rebuilding jobs by hand.
           </div>
         </div>
       </Section>
@@ -736,10 +946,10 @@ export default function Home() {
               "Text capture",
               "Core tools: Time + Expenses + Tasks + Jobs",
               "Exports",
-              "WhatsApp Logging",
+              "WhatsApp logging",
             ]}
-            ctaHref="/wa?t=free"
-            ctaLabel="Get it now"
+            ctaHref="/signup?plan=free"
+            ctaLabel="Start free"
             foot="Start logging. Start seeing the truth."
           />
 
@@ -749,17 +959,17 @@ export default function Home() {
             price="$59"
             badge="Most popular"
             bullets={[
-              "Ask Chief. Intelligence Layer",
+              "Ask Chief intelligence layer",
               "1 Owner",
               "Track up to 10 employees",
               "25 Jobs",
-              "Text, Voice, Images",
+              "Text, voice, images",
               "Core tools + job connections",
               "Exports",
-              "WhatsApp Logging",
+              "WhatsApp logging",
             ]}
-            ctaHref="/pricing?plan=starter"
-            ctaLabel="Buy Now"
+            ctaHref="/signup?plan=starter"
+            ctaLabel="Start Starter"
             foot="Stop guessing. Start answering."
           />
 
@@ -769,387 +979,130 @@ export default function Home() {
             price="$149"
             badge="Teams"
             bullets={[
-              "Ask Chief. Intelligence Layer",
+              "Ask Chief intelligence layer",
               "1 Owner",
               "Up to 150 employees: log",
               "Up to 25 admins: log + approve + edit",
               "Unlimited jobs",
-              "Text, Voice, Images",
+              "Text, voice, images",
               "Exports",
-              "WhatsApp Logging",
+              "WhatsApp logging",
               "Approvals + audit trail",
               "Priority onboarding",
             ]}
-            ctaHref="/pricing?plan=pro"
-            ctaLabel="Buy Now"
-            foot="A command centre for teams."
+            ctaHref="/signup?plan=pro"
+            ctaLabel="Start Pro"
+            foot="A command center for teams."
           />
         </div>
 
         <div className="mt-6 text-xs text-white/45">
-          Your data is yours. All plans include exports — nothing trapped.
-        </div>
-      </Section>
-
-      {/* STOP THE NIGHT SHIFT */}
-      <Section id="night-shift" className="py-14 md:py-20">
-        <div className="grid md:grid-cols-12 gap-10 items-start">
-          <div className="md:col-span-5">
-            <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
-              Stop the night shift.
-            </h2>
-
-            <p className="mt-4 text-white/70 text-lg leading-relaxed">
-              Most owners spend 30 minutes to 1.5 hours a day:
-            </p>
-
-            <div className="mt-6 space-y-3 text-sm text-white/70">
-              {["Cleaning receipts", "Updating spreadsheets", "Reconciling entries", "Moving data between apps"].map(
-                (x) => (
-                  <div key={x} className="flex items-start gap-3">
-                    <span className="mt-2 h-1.5 w-1.5 rounded-full bg-white/60" />
-                    <div>{x}</div>
-                  </div>
-                )
-              )}
-            </div>
-
-            <p className="mt-6 text-white/70 text-lg leading-relaxed">
-              And at the end of it? The data just sits there.
-            </p>
-
-            <p className="mt-4 text-white/70 text-lg leading-relaxed">
-              You can’t talk to it.
-              <br />
-              You can’t ask it questions.
-              <br />
-              You just store it.
-            </p>
-
-            <p className="mt-6 text-white/70 text-lg leading-relaxed">
-              ChiefOS captures it while you work — and makes it usable immediately.
-            </p>
-
-            <div className="mt-6 text-lg font-semibold text-white/90">
-              Text it. <span className="text-white/60">Say it.</span>{" "}
-              <span className="text-white/60">Snap it.</span>
-            </div>
-
-            <div className="mt-2 text-sm text-white/70">Confirm. Done.</div>
-          </div>
-
-          <div className="md:col-span-7">
-            <MediaFrame label="Capture flow" title="Capture → confirm → stored clean">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                  Example
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {[
-                    { t: "Text", d: "Expense $35.50 at Staples • Job 12", s: "Confirm" },
-                    { t: "Voice", d: "“$120 in materials for Hampton job”", s: "Parsed" },
-                    { t: "Photo", d: "Receipt image • Auto-filled fields", s: "Ready" },
-                    { t: "Stored", d: "Job timeline + export-ready records", s: "Done" },
-                  ].map((row) => (
-                    <div
-                      key={row.t}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/30 px-4 py-3"
-                    >
-                      <div>
-                        <div className="text-sm font-semibold text-white/85">{row.t}</div>
-                        <div className="text-xs text-white/55">{row.d}</div>
-                      </div>
-                      <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
-                        {row.s}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 text-xs text-white/45">
-                  Capture once. No nightly cleanup loop.
-                </div>
-              </div>
-            </MediaFrame>
-          </div>
-        </div>
-      </Section>
-
-      {/* TIMESHEET CLARITY */}
-      <Section id="time" className="py-14 md:py-24">
-        <div className="grid md:grid-cols-12 gap-10 items-start">
-          <div className="md:col-span-5">
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
-              Not a timer.
-              <br />
-              Payroll-grade shift clarity.
-            </h2>
-
-            <p className="mt-4 text-white/70 text-lg leading-relaxed">
-              Shift time isn’t one number. ChiefOS tracks the categories that actually matter — legally,
-              financially, and for job costing.
-            </p>
-
-            <div className="mt-8 space-y-4">
-              {[
-                { k: "Shift time", v: "Recorded", d: "Clock in → clock out (raw timeline)" },
-                { k: "Break time", v: "Recorded (separate)", d: "Not mixed into work time" },
-                { k: "Lunch time", v: "Recorded (separate)", d: "Tracked distinctly for payroll rules" },
-                { k: "Drive time", v: "Tracked (not deducted)", d: "Visible for costing and billing" },
-                { k: "Work time", v: "Calculated", d: "Shift − breaks − lunch" },
-                { k: "Paid time", v: "Calculated", d: "Work + paid drive (your rules)" },
-              ].map((x) => (
-                <div
-                  key={x.k}
-                  className="group relative rounded-2xl border border-white/10 bg-white/[0.05] p-5 transition hover:-translate-y-[2px] hover:border-white/20 hover:bg-white/[0.08]"
-                >
-                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition bg-gradient-to-b from-white/[0.08] to-transparent pointer-events-none" />
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-base font-semibold text-white/90">{x.k}</div>
-                      <div className="mt-1 text-sm text-white/65">{x.d}</div>
-                    </div>
-
-                    <div className="shrink-0 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/70">
-                      {x.v}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 text-sm text-white/55 leading-relaxed">
-              Built to be repairable: confirmations, undo actions, approvals, and an audit trail — so corrections don’t destroy trust.
-            </div>
-          </div>
-
-          <div className="md:col-span-7">
-            <MediaFrame
-              label="Time categories"
-              title="A shift that stays traceable"
-              subtitle="Shift • Break • Lunch • Drive • Work • Paid"
-            >
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                    Example shift
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[11px] text-white/60">
-                    Job 18 • Medway Dr
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {[
-                    "Mike clocked in",
-                    "Break started",
-                    "Break ended",
-                    "Lunch started",
-                    "Lunch ended",
-                    "Drive started",
-                    "Drive ended",
-                    "Clocked out",
-                  ].map((x) => (
-                    <span
-                      key={x}
-                      className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] text-white/70"
-                    >
-                      {x}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                    Timeline
-                  </div>
-
-                  <div className="mt-3 grid gap-2">
-                    {[
-                      { t: "07:12", d: "Clock in", tag: "Shift" },
-                      { t: "10:05", d: "Break", tag: "Break" },
-                      { t: "12:02", d: "Lunch", tag: "Lunch" },
-                      { t: "14:18", d: "Drive", tag: "Drive" },
-                      { t: "16:41", d: "Clock out", tag: "Shift" },
-                    ].map((row) => (
-                      <div
-                        key={row.t + row.d}
-                        className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/40 px-4 py-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="text-xs text-white/60 w-[44px]">{row.t}</div>
-                          <div>
-                            <div className="text-sm font-semibold text-white/85">{row.d}</div>
-                            <div className="text-xs text-white/55">Job 18 • Medway Dr</div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] text-white/60">
-                          {row.tag}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 text-xs text-white/45">
-                    Every event is logged. Nothing collapses into a single guessed number.
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <StatCard label="Shift" value="9.5h" hint="Clock in → out" />
-                  <StatCard label="Break" value="0.3h" hint="Separate" />
-                  <StatCard label="Lunch" value="0.5h" hint="Separate" />
-                  <StatCard label="Drive" value="0.8h" hint="Tracked" />
-                  <StatCard label="Work" value="8.7h" hint="Calculated" />
-                  <StatCard label="Paid" value="9.5h" hint="Rules-based" />
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4">
-                  <div className="text-xs text-white/55 tracking-[0.16em] uppercase">
-                    Example question
-                  </div>
-                  <div className="mt-2 text-sm text-white/75 leading-relaxed">
-                    <span className="text-white/85 font-semibold">Q:</span> “How many paid hours did Mike work on Job 18 today?”
-                    <br />
-                    <span className="text-white/85 font-semibold">A:</span> “Mike has{" "}
-                    <span className="text-white/90 font-semibold">9.5 paid hours</span> on Job 18 today.
-                    Work time is 8.7h (shift − breaks − lunch) plus 0.8h drive tracked separately.”
-                  </div>
-                </div>
-              </div>
-            </MediaFrame>
-          </div>
+          Start inside the product first. Billing and upgrades can happen after you experience the system.
         </div>
       </Section>
 
       {/* FINAL CLOSE */}
       <Section id="close" className="py-14 md:py-24">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center">
-            <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
-              Ask your business anything.
-              <br />
-              Get answers instantly.
-            </h2>
+        <div className="max-w-5xl mx-auto text-center">
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05]">
+            Ask your business anything.
+            <br />
+            Get answers from your records.
+          </h2>
 
-            <p className="mt-4 text-white/70 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
-              Capture time, money, and job activity where work happens — then ask Chief what it means.
-              Powered by intelligent job-level analysis, grounded in your records.
-            </p>
+          <p className="mt-4 text-white/70 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
+            Capture time, money, and job activity where work happens — then ask Chief what it means.
+            Grounded in your records. Clear when something is missing. Never pretending to know.
+          </p>
 
-            <div className="mt-4 text-sm md:text-base text-white/70 leading-relaxed">
-              <span className="text-white/80 font-semibold">
-                Text it → Say it → Snap it → Confirm → Done.
-              </span>
-              <br />
-              Clean records. Clean exports.
-            </div>
+          <div className="mt-4 text-sm md:text-base text-white/70 leading-relaxed">
+            <span className="text-white/80 font-semibold">Text it → Say it → Snap it → Confirm → Done.</span>
+            <br />
+            Clean records. Clean exports. Real answers.
+          </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center overflow-visible">
-              <TooltipChip tip="Fastest path: start on WhatsApp in minutes.">
-                <a
-                  href="/wa?t=cta"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
-                >
-                  <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-white/10 bg-black/30">
-                    <WhatsAppIcon className="h-5 w-5 text-white translate-y-[0.5px]" />
-                  </span>
-                  Start on WhatsApp
-                </a>
-              </TooltipChip>
+          <CTABar />
 
-              <a
-  href="/signup?mode=tester&plan=starter"
-  className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
->
-  Start Testing
-</a>
-            </div>
-
-            <div className="mt-3 text-xs text-white/45">
-              One price per tier. Export anytime. Nothing trapped.
-            </div>
+          <div className="mt-3 text-xs text-white/45">
+            Start free, test the flow, or go straight to WhatsApp.
           </div>
         </div>
       </Section>
 
       {/* FAQ */}
-<Section id="faq" className="py-14 md:py-24">
-  <div className="max-w-3xl">
-    <h2 className="text-3xl md:text-5xl font-semibold tracking-tight">FAQ</h2>
-    <p className="mt-4 text-white/70 text-lg leading-relaxed">
-      Short answers. No fluff.
-    </p>
-  </div>
+      <Section id="faq" className="py-14 md:py-24">
+        <div className="max-w-3xl">
+          <h2 className="text-3xl md:text-5xl font-semibold tracking-tight">FAQ</h2>
+          <p className="mt-4 text-white/70 text-lg leading-relaxed">Short answers. No fluff.</p>
+        </div>
 
-  <div className="mt-10">
-    <FAQ
-      items={[
-        {
-          q: "Is ChiefOS accounting software?",
-          a: "No. ChiefOS is the operating system for running the business day-to-day: time, expenses, tasks, and jobs captured in one place. Export clean data to your accountant or accounting tool.",
-        },
-        {
-          q: "Do my workers need an app?",
-          a: "No app download. ChiefOS runs in WhatsApp. Depending on your plan, crew can log from their own phones or the owner can log for the crew.",
-        },
-        {
-          q: "How does Chief answer questions?",
-          a: "Chief answers from what you’ve logged and confirmed — time, expenses, revenue, jobs, and related activity. If something important is missing, Chief tells you what’s missing instead of making it up.",
-        },
-        {
-          q: "What if I log something wrong?",
-          a: "ChiefOS is built to be repairable: confirmations, undo, edit flows, approvals (plan-dependent), and an audit trail so fixes don’t break trust.",
-        },
-        {
-          q: "Can I export my data?",
-          a: "Yes. Export anytime — CSV/XLS/PDF for spreadsheets and accountants, plus downloadable attachments like receipts and voice notes where applicable. Nothing trapped.",
-        },
-        {
-          q: "Is my data private?",
-          a: "Your business data stays scoped to your account. Chief doesn’t answer from other companies’ data, and your team only sees what their role allows.",
-        },
-        {
-          q: "Does ChiefOS use AI?",
-          a: "Yes. Chief uses AI to help organize records and answer questions from your submitted business data — but it is designed to say when something is missing instead of pretending to know.",
-        },
-        {
-          q: "Will my data be used to train AI?",
-          a: "ChiefOS may use aggregated or de-identified data to improve the platform and its AI systems. We do not sell your business data, and we do not position raw customer records as public training data.",
-        },
-        {
-          q: "Is ChiefOS replacing my accountant?",
-          a: "No. ChiefOS helps you capture and structure records during the day so your books are cleaner and easier to review. It does not replace professional accounting, tax, or legal advice.",
-        },
-        {
-          q: "What exactly can I capture in WhatsApp?",
-          a: "Text, voice, and receipt photos. You can log expenses, revenue, time events, tasks, and job activity — then organize and export it later.",
-        },
-        {
-          q: "How fast can I get set up?",
-          a: "Minutes. Start in WhatsApp, answer a couple setup questions, create your first job, and begin logging immediately. Chief starts answering as soon as data exists.",
-        },
-        {
-          q: "What if I already use other tools?",
-          a: "Keep them. ChiefOS doesn’t force a rip-and-replace. Use ChiefOS to capture and structure work during the day, then export clean records into whatever tools you already rely on.",
-        },
-        {
-          q: "What happens if I stop using ChiefOS?",
-          a: "Your data is yours. You can request export of your records, and the goal is to make sure your information is not trapped in the platform.",
-        },
-        {
-          q: "Is ChiefOS in beta?",
-          a: "Yes. ChiefOS is in beta, which means features may improve quickly as the product hardens — but the core goal stays the same: trusted capture, clean records, and clear answers.",
-        },
-      ]}
-    />
-  </div>
-</Section>
-
+        <div className="mt-10">
+          <FAQ
+            items={[
+              {
+                q: "Is ChiefOS accounting software?",
+                a: "No. ChiefOS is the operating system for running the business day-to-day: time, expenses, tasks, and jobs captured in one place. Export clean data to your accountant or accounting tool.",
+              },
+              {
+                q: "Do I have to pay before I try it?",
+                a: "No. Start free, start testing, or begin on WhatsApp first. The goal is to let you experience the system before worrying about billing.",
+              },
+              {
+                q: "Do my workers need an app?",
+                a: "No app download. ChiefOS runs in WhatsApp. Depending on your plan, crew can log from their own phones or the owner can log for the crew.",
+              },
+              {
+                q: "How does Chief answer questions?",
+                a: "Chief answers from what you’ve logged and confirmed — time, expenses, revenue, jobs, and related activity. If something important is missing, Chief tells you what’s missing instead of making it up.",
+              },
+              {
+                q: "What if I log something wrong?",
+                a: "ChiefOS is built to be repairable: confirmations, undo, edit flows, approvals (plan-dependent), and an audit trail so fixes don’t break trust.",
+              },
+              {
+                q: "Can I export my data?",
+                a: "Yes. Export anytime — CSV, XLS, and PDF for spreadsheets and accountants, plus downloadable attachments like receipts and voice notes where applicable. Nothing trapped.",
+              },
+              {
+                q: "Is my data private?",
+                a: "Your business data stays scoped to your account. Chief does not answer from other companies’ data, and your team only sees what their role allows.",
+              },
+              {
+                q: "Does ChiefOS use AI?",
+                a: "Yes. Chief uses AI to help organize records and answer questions from your submitted business data — but it is designed to say when something is missing instead of pretending to know.",
+              },
+              {
+                q: "Will my data be used to train AI?",
+                a: "ChiefOS may use aggregated or de-identified data to improve the platform and its AI systems. We do not sell your business data, and we do not position raw customer records as public training data.",
+              },
+              {
+                q: "Is ChiefOS replacing my accountant?",
+                a: "No. ChiefOS helps you capture and structure records during the day so your books are cleaner and easier to review. It does not replace professional accounting, tax, or legal advice.",
+              },
+              {
+                q: "What exactly can I capture in WhatsApp?",
+                a: "Text, voice, and receipt photos. You can log expenses, revenue, time events, tasks, and job activity — then organize and export it later.",
+              },
+              {
+                q: "How fast can I get set up?",
+                a: "Minutes. Start in WhatsApp, answer a couple setup questions, create your first job, and begin logging immediately. Chief starts answering as soon as data exists.",
+              },
+              {
+                q: "What if I already use other tools?",
+                a: "Keep them. ChiefOS does not force a rip-and-replace. Use ChiefOS to capture and structure work during the day, then export clean records into whatever tools you already rely on.",
+              },
+              {
+                q: "What happens if I stop using ChiefOS?",
+                a: "Your data is yours. You can request export of your records, and the goal is to make sure your information is not trapped in the platform.",
+              },
+              {
+                q: "Is ChiefOS in beta?",
+                a: "Yes. ChiefOS is in beta, which means features may improve quickly as the product hardens — but the core goal stays the same: trusted capture, clean records, and clear answers.",
+              },
+            ]}
+          />
+        </div>
+      </Section>
     </main>
   );
 }
