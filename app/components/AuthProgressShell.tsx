@@ -33,6 +33,17 @@ function stepState(
   return "upcoming";
 }
 
+function progressPercent(steps: AuthProgressStep[], activeStepKey?: string | null, isError?: boolean) {
+  if (!steps.length) return 8;
+
+  const activeIdx = steps.findIndex((s) => s.key === activeStepKey);
+  if (activeIdx === -1) return 12;
+
+  const base = ((activeIdx + 1) / steps.length) * 100;
+  if (isError) return Math.max(18, Math.min(92, base));
+  return Math.max(12, Math.min(100, base));
+}
+
 export default function AuthProgressShell({
   eyebrow = "Workspace setup",
   title,
@@ -42,15 +53,18 @@ export default function AuthProgressShell({
   isError = false,
   errorActions,
 }: Props) {
-  return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_38%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),transparent_35%)] pointer-events-none" />
+  const pct = progressPercent(steps, activeStepKey, isError);
 
-      <div className="relative mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16">
-        <div className="grid w-full gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10">
+  return (
+    <main className="min-h-screen overflow-hidden bg-black text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.11),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/10" />
+
+      <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12 md:py-16">
+        <div className="grid w-full gap-8 lg:grid-cols-[1.18fr_0.82fr] lg:gap-10">
           {/* Left */}
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.05] p-6 md:p-8 shadow-[0_40px_140px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <section className="rounded-[30px] border border-white/10 bg-white/[0.05] p-6 shadow-[0_40px_140px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
               <span
                 className={[
@@ -61,32 +75,39 @@ export default function AuthProgressShell({
               {eyebrow}
             </div>
 
-            <h1 className="mt-6 text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
+            <h1 className="mt-6 text-3xl font-semibold tracking-tight leading-tight md:text-4xl">
               {title}
             </h1>
 
-            <p className={["mt-4 text-base md:text-lg leading-relaxed", isError ? "text-red-200/90" : "text-white/70"].join(" ")}>
+            <p
+              className={[
+                "mt-4 max-w-2xl text-base leading-relaxed md:text-lg",
+                isError ? "text-red-200/90" : "text-white/70",
+              ].join(" ")}
+            >
               {status}
             </p>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className={[
-                      "h-full rounded-full transition-all duration-500",
-                      isError ? "w-[72%] bg-red-400/80" : "w-[72%] bg-white",
-                    ].join(" ")}
-                  />
+            <div className="mt-7 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-white/50">
+                  {isError ? "Setup paused" : "Secure setup in progress"}
                 </div>
+                <div className="text-xs text-white/40">{Math.round(pct)}%</div>
+              </div>
 
-                <div className="shrink-0 text-xs text-white/50">
-                  {isError ? "Paused" : "In progress"}
-                </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className={[
+                    "h-full rounded-full transition-all duration-500",
+                    isError ? "bg-red-400/80" : "bg-white",
+                  ].join(" ")}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
             </div>
 
-            <div className="mt-8 grid gap-3">
+            <div className="mt-7 grid gap-3">
               {steps.map((step) => {
                 const state = stepState(steps, step.key, activeStepKey, isError);
 
@@ -107,7 +128,7 @@ export default function AuthProgressShell({
                     <div className="flex items-start gap-3">
                       <div
                         className={[
-                          "mt-0.5 h-5 w-5 shrink-0 rounded-full border flex items-center justify-center text-[10px] font-semibold",
+                          "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold",
                           state === "done"
                             ? "border-white/20 bg-white text-black"
                             : state === "active"
@@ -151,12 +172,12 @@ export default function AuthProgressShell({
           </section>
 
           {/* Right */}
-          <aside className="rounded-[28px] border border-white/10 bg-black/40 p-6 md:p-8 backdrop-blur-xl">
-            <div className="text-xs tracking-[0.18em] uppercase text-white/45">
+          <aside className="rounded-[30px] border border-white/10 bg-black/40 p-6 backdrop-blur-xl md:p-8">
+            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
               What ChiefOS is doing
             </div>
 
-            <div className="mt-4 space-y-4 text-sm text-white/70 leading-relaxed">
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-white/70">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 Verifying your account and resolving the correct workspace for this session.
               </div>
@@ -172,9 +193,17 @@ export default function AuthProgressShell({
 
             <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
               <div className="text-xs text-white/45">Trust-first note</div>
-              <div className="mt-2 text-sm text-white/65 leading-relaxed">
+              <div className="mt-2 text-sm leading-relaxed text-white/65">
                 ChiefOS does not skip required setup steps behind the scenes. If your workspace
                 needs to be created or linked safely, that happens before you enter.
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-xs text-white/45">Why this matters</div>
+              <div className="mt-2 text-sm leading-relaxed text-white/65">
+                This is the handoff from account creation into your operating system. The goal is
+                not speed at any cost — it is clean setup, durable trust, and a calmer first entry.
               </div>
             </div>
           </aside>
