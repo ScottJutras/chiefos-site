@@ -1,39 +1,49 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type JobRow = {
-  id: number; // serial
-  job_no: number;
-  job_name: string;
-  status: string;
+  id: number;
+  job_no: number | null;
+  job_name: string | null;
+  name?: string | null;
+  status: string | null;
   active: boolean | null;
   created_at: string | null;
   updated_at: string | null;
 };
 
-type StatusKey = "active" | "paused" | "cancelled" | "closed" | "unknown";
+type StatusKey = "active" | "paused" | "closed" | "other";
 
-function normalizeStatus(raw?: string | null): StatusKey {
-  const s = (raw || "").trim().toLowerCase();
-  if (!s) return "unknown";
-  if (s === "active" || s === "open" || s.includes("active")) return "active";
+function normalizeStatus(raw?: string | null, active?: boolean | null): StatusKey {
+  const s = String(raw || "").trim().toLowerCase();
+
+  if (active || s === "active" || s === "open" || s.includes("active")) return "active";
   if (s.includes("pause") || s.includes("hold")) return "paused";
-  if (s.includes("cancel")) return "cancelled";
-  if (s.includes("close") || s.includes("done") || s.includes("complete")) return "closed";
-  return "unknown";
+  if (s.includes("closed") || s.includes("done") || s.includes("complete")) return "closed";
+  return "other";
 }
 
-function statusLabel(k: StatusKey) {
-  switch (k) {
+function statusTone(status: StatusKey) {
+  switch (status) {
+    case "active":
+      return "bg-emerald-400";
+    case "paused":
+      return "bg-amber-400";
+    case "closed":
+      return "bg-white/35";
+    default:
+      return "bg-white/20";
+  }
+}
+
+function statusLabel(status: StatusKey) {
+  switch (status) {
     case "active":
       return "Active";
     case "paused":
       return "Paused";
-    case "cancelled":
-      return "Cancelled";
     case "closed":
       return "Closed";
     default:
@@ -41,107 +51,15 @@ function statusLabel(k: StatusKey) {
   }
 }
 
-function statusBadgeClass(k: StatusKey) {
-  switch (k) {
-    case "active":
-      return "border-emerald-400/20 bg-emerald-500/10 text-emerald-200";
-    case "paused":
-      return "border-amber-400/20 bg-amber-500/10 text-amber-200";
-    case "cancelled":
-      return "border-white/10 bg-white/5 text-white/60";
-    case "closed":
-      return "border-sky-400/20 bg-sky-500/10 text-sky-200";
-    default:
-      return "border-white/10 bg-white/5 text-white/60";
-  }
-}
-
-function DrawerShell({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    if (!open) return;
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", onKey);
-    // lock scroll (simple, safe)
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60"
-        aria-label="Close drawer"
-      />
-
-      {/* Panel */}
-      <div className="absolute right-0 top-0 h-full w-full max-w-[640px] border-l border-white/10 bg-black/80 backdrop-blur">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <div>
-            <div className="text-xs text-white/55">Decision Center</div>
-            <div className="mt-1 text-sm font-semibold text-white/90">{title}</div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/75 hover:bg-white/10 transition"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="h-[calc(100%-64px)] overflow-hidden p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 export default function JobsDecisionCenterPanel(props: {
-  title?: string;
-  href?: string; // optional link if you ever add a jobs page later
-  maxHeightClassName?: string;
-  enableDrawer?: boolean; // default true
+  selectedJobId?: number | null;
+  onSelectJob?: (job: JobRow) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [q, setQ] = useState("");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const [open, setOpen] = useState<Record<StatusKey, boolean>>({
-    active: true,
-    paused: false,
-    cancelled: false,
-    closed: false,
-    unknown: false,
-  });
-
-  const maxH = props.maxHeightClassName ?? "max-h-[70vh]";
-  const enableDrawer = props.enableDrawer ?? true;
+  const [statusFilter, setStatusFilter] = useState<"all" | StatusKey>("all");
 
   useEffect(() => {
     let alive = true;
@@ -153,17 +71,19 @@ export default function JobsDecisionCenterPanel(props: {
 
         const { data, error } = await supabase
           .from("jobs")
-          .select("id, job_no, job_name, status, active, created_at, updated_at")
-          .order("job_no", { ascending: true });
+          .select("id, job_no, job_name, name, status, active, created_at, updated_at")
+          .order("created_at", { ascending: false })
+          .limit(1000);
 
         if (!alive) return;
 
         if (error) {
           setErr(error.message);
           setJobs([]);
-        } else {
-          setJobs((data as JobRow[]) || []);
+          return;
         }
+
+        setJobs((data as JobRow[]) || []);
       } catch (e: any) {
         if (!alive) return;
         setErr(e?.message || "Failed to load jobs.");
@@ -180,201 +100,143 @@ export default function JobsDecisionCenterPanel(props: {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return jobs;
 
-    return jobs.filter((j) => {
-      const no = String(j.job_no ?? "").toLowerCase();
-      const name = (j.job_name || "").toLowerCase();
-      const st = (j.status || "").toLowerCase();
-      return no.includes(needle) || name.includes(needle) || st.includes(needle);
+    let rows = jobs.filter((job) => {
+      const name = String(job.job_name || job.name || "").toLowerCase();
+      const no = String(job.job_no || "").toLowerCase();
+      const st = String(job.status || "").toLowerCase();
+
+      const matchesText =
+        !needle || name.includes(needle) || no.includes(needle) || st.includes(needle);
+
+      const normalized = normalizeStatus(job.status, job.active);
+      const matchesStatus = statusFilter === "all" || normalized === statusFilter;
+
+      return matchesText && matchesStatus;
     });
-  }, [jobs, q]);
 
-  const grouped = useMemo(() => {
-    const g: Record<StatusKey, JobRow[]> = {
-      active: [],
-      paused: [],
-      cancelled: [],
-      closed: [],
-      unknown: [],
-    };
-    for (const j of filtered) g[normalizeStatus(j.status)].push(j);
-    return g;
-  }, [filtered]);
+    rows = rows.sort((a, b) => {
+      const sa = normalizeStatus(a.status, a.active);
+      const sb = normalizeStatus(b.status, b.active);
 
-  const totalCount = jobs.length;
-  const visibleCount = filtered.length;
+      const rank = (s: StatusKey) => {
+        if (s === "active") return 0;
+        if (s === "paused") return 1;
+        if (s === "other") return 2;
+        return 3;
+      };
 
-  const PanelBody = ({ heightClass }: { heightClass: string }) => (
-    <div className={`${heightClass} overflow-auto`}>
-      {loading ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-          Loading jobs…
-        </div>
-      ) : totalCount === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-sm text-white/60">
-          No jobs yet. Create one to unlock job-first totals (profit, spend, revenue).
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {(Object.keys(grouped) as StatusKey[]).map((k) => {
-            const list = grouped[k];
-            if (!list.length) return null;
+      const ra = rank(sa);
+      const rb = rank(sb);
+      if (ra !== rb) return ra - rb;
 
-            const isOpen = open[k];
+      const ad = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bd = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bd - ad;
+    });
 
-            return (
-              <div key={k} className="rounded-2xl border border-white/10 bg-black/20">
-                <button
-                  type="button"
-                  onClick={() => setOpen((s) => ({ ...s, [k]: !s[k] }))}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={[
-                        "rounded-full border px-2 py-1 text-[11px] font-semibold",
-                        statusBadgeClass(k),
-                      ].join(" ")}
-                    >
-                      {statusLabel(k)}
-                    </span>
-                    <span className="text-sm font-semibold text-white/85">{list.length}</span>
-                    <span className="text-xs text-white/55">jobs</span>
-                  </div>
-                  <span className="text-xs text-white/55">{isOpen ? "Collapse" : "Expand"}</span>
-                </button>
-
-                {isOpen ? (
-                  <div className="border-t border-white/10 p-3">
-                    <div className="space-y-2">
-                      {list.map((j) => (
-                        <div
-                          key={j.id}
-                          className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/75">
-                                #{j.job_no}
-                              </span>
-                              <div className="truncate text-sm font-semibold text-white/85">
-                                {j.job_name || "Untitled job"}
-                              </div>
-                            </div>
-                            <div className="mt-0.5 text-xs text-white/55">
-                              Status: {j.status || "unknown"}
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 text-[11px] text-white/45">
-                            {j.active ? "Active" : ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 text-[11px] text-white/45">
-                      Rule: calm truth surface. No mutation, no “dashboard theatre.”
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+    return rows;
+  }, [jobs, q, statusFilter]);
 
   return (
-    <>
-      <aside className="rounded-2xl border border-white/10 bg-black/30">
-        {/* Header */}
-        <div className="sticky top-0 z-10 rounded-t-2xl border-b border-white/10 bg-black/60 p-4 backdrop-blur">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs text-white/55">Decision Center</div>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="text-sm font-semibold text-white/90">
-                  {props.title || "Jobs"}
-                </div>
-
-                {props.href ? (
-                  <Link
-                    href={props.href}
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/75 hover:bg-white/10 transition"
-                  >
-                    Open Jobs →
-                  </Link>
-                ) : null}
-
-                {enableDrawer ? (
-                  <button
-                    type="button"
-                    onClick={() => setDrawerOpen(true)}
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/75 hover:bg-white/10 transition"
-                    title="Expand jobs list"
-                  >
-                    Expand →
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="mt-1 text-xs text-white/55">
-                Search + expand groups without leaving the dashboard.
-              </div>
-            </div>
-
-            <div className="text-right text-xs text-white/55">
-              <div>{loading ? "Loading…" : `${visibleCount}/${totalCount}`}</div>
-              <div>visible</div>
+    <div className="flex h-full min-h-[72vh] flex-col bg-black">
+      {/* Header */}
+      <div className="border-b border-white/10 px-4 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Jobs</div>
+            <div className="mt-1 text-base font-semibold text-white/90">
+              Find the job first
             </div>
           </div>
 
-          <div className="mt-3">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by job #, name, or status"
+          <a
+            href="/app/chief?q=Create%20job%20"
+            className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 transition"
+          >
+            Create job
+          </a>
+        </div>
+
+        <div className="mt-4">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search jobs by name, number, or status"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/20"
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(["all", "active", "paused", "closed", "other"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setStatusFilter(key)}
               className={[
-                "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm",
-                "text-white/85 placeholder:text-white/35 outline-none",
-                "focus:border-white/20",
+                "rounded-full px-3 py-1.5 text-xs font-medium transition border",
+                statusFilter === key
+                  ? "border-white/20 bg-white text-black"
+                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
               ].join(" ")}
-            />
+            >
+              {key === "all" ? "All" : statusLabel(key)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="px-4 py-4 text-sm text-white/60">Loading jobs…</div>
+        ) : err ? (
+          <div className="px-4 py-4 text-sm text-red-200">{err}</div>
+        ) : filtered.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-white/55">
+            No jobs found.
           </div>
+        ) : (
+          <div>
+            {filtered.map((job) => {
+              const normalized = normalizeStatus(job.status, job.active);
+              const selected = props.selectedJobId != null && Number(props.selectedJobId) === Number(job.id);
+              const title = String(job.job_name || job.name || "Untitled job");
 
-          {err ? (
-            <div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
-              {err}
-              <div className="mt-1 text-[11px] text-red-200/80">
-                If this is permissions-related, confirm: portal membership → tenant mapping → jobs RLS.
-              </div>
-            </div>
-          ) : null}
-        </div>
+              return (
+                <button
+                  key={job.id}
+                  type="button"
+                  onClick={() => props.onSelectJob?.(job)}
+                  className={[
+                    "flex w-full items-start justify-between gap-3 border-b border-white/6 px-4 py-3 text-left transition",
+                    selected ? "bg-white/10" : "hover:bg-white/[0.04]",
+                  ].join(" ")}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={["h-2 w-2 rounded-full", statusTone(normalized)].join(" ")} />
+                      <div className="truncate text-sm font-semibold text-white/90">
+                        {title}
+                      </div>
+                    </div>
 
-        {/* Body */}
-        <div className={`${maxH} p-4`}>
-          <PanelBody heightClass="max-h-[70vh]" />
-        </div>
-      </aside>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/45">
+                      <span>{job.job_no ? `#${job.job_no}` : "No number"}</span>
+                      <span>•</span>
+                      <span>{statusLabel(normalized)}</span>
+                    </div>
+                  </div>
 
-      {/* Drawer (expanded jobs) */}
-      <DrawerShell
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={props.title || "Jobs"}
-      >
-        {/* Bigger body in drawer */}
-        <div className="h-full">
-          <div className="mb-3 text-xs text-white/55">
-            Expanded view — still read-only.
+                  <div className="shrink-0 text-[11px] text-white/35">
+                    Open
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          <PanelBody heightClass="h-[calc(100%-20px)]" />
-        </div>
-      </DrawerShell>
-    </>
+        )}
+      </div>
+    </div>
   );
 }
