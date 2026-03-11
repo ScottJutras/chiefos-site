@@ -34,7 +34,9 @@ async function getTenantContext(req: Request) {
 
   const admin = adminClient();
   const { data: authData, error: authErr } = await admin.auth.getUser(token);
-  if (authErr || !authData?.user?.id) return { ok: false as const, error: "Invalid session." };
+  if (authErr || !authData?.user?.id) {
+    return { ok: false as const, error: "Invalid session." };
+  }
 
   const authUserId = String(authData.user.id);
 
@@ -57,42 +59,165 @@ async function getTenantContext(req: Request) {
   };
 }
 
+function normalizeFlags(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value.map((x) => String(x || "").trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function hasBlockingFlags(flags: string[]) {
+  const blocking = new Set([
+    "missing_amount",
+    "missing_vendor",
+    "missing_date",
+    "job_unresolved",
+    "job_ambiguous",
+    "possible_duplicate_attachment",
+    "possible_duplicate_content",
+    "unsupported_file_type",
+  ]);
+
+  return flags.some((flag) => blocking.has(String(flag || "")));
+}
+
+function isReadyForFastConfirm(row: any) {
+  const status = String(row?.status || "").trim();
+  const confidence = Number(row?.confidence_score || 0);
+  const jobName = String(row?.job_name || row?.draft_job_name || "").trim();
+  const amount = Number(row?.draft_amount_cents || 0);
+  const vendor = String(row?.draft_vendor || "").trim();
+  const eventDate = String(row?.draft_event_date || "").trim();
+  const flags = normalizeFlags(row?.draft_validation_flags);
+
+  if (status !== "pending_review") return false;
+  if (confidence < 0.85) return false;
+  if (!jobName) return false;
+  if (!amount || amount <= 0) return false;
+  if (!vendor) return false;
+  if (!eventDate) return false;
+  if (hasBlockingFlags(flags)) return false;
+
+  return true;
+}
+
+function compareRowsForReview(a: any, b: any) {
+  const aReady = isReadyForFastConfirm(a) ? 1 : 0;
+  const bReady = isReadyForFastConfirm(b) ? 1 : 0;
+
+  if (aReady !== bReady) return bReady - aReady;
+
+  const aConfidence = Number(a?.confidence_score || 0);
+  const bConfidence = Number(b?.confidence_score || 0);
+  if (aConfidence !== bConfidence) return bConfidence - aConfidence;
+
+  const aCreated = String(a?.created_at || "");
+  const bCreated = String(b?.created_at || "");
+  return aCreated.localeCompare(bCreated);
+}
+
+function escapeLikeQuery(value: string) {
+  return value.replace(/[%_]/g, "\\$&");
+}
+
 export async function GET(req: Request) {
   try {
     const ctx = await getTenantContext(req);
     if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
 
+    const admin = ctx.admin;
     const url = new URL(req.url);
+
     const status = String(url.searchParams.get("status") || "").trim();
     const kind = String(url.searchParams.get("kind") || "").trim();
     const batchId = String(url.searchParams.get("batchId") || "").trim();
     const q = String(url.searchParams.get("q") || "").trim();
     const limit = Math.max(1, Math.min(200, Number(url.searchParams.get("limit") || 50)));
+    const onlyFastConfirm = String(url.searchParams.get("fastConfirm") || "").trim() === "1";
 
-    let query = ctx.admin
+    let itemQuery = admin
       .from("intake_items")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
-      .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (status) query = query.eq("status", status);
-    if (kind) query = query.eq("kind", kind);
-    if (batchId) query = query.eq("batch_id", batchId);
+    if (status) itemQuery = itemQuery.eq("status", status);
+    if (kind) itemQuery = itemQuery.eq("kind", kind);
+    if (batchId) itemQuery = itemQuery.eq("batch_id", batchId);
 
     if (q) {
-      query = query.or(
-        `source_filename.ilike.%${q}%,job_name.ilike.%${q}%,ocr_text.ilike.%${q}%,transcript_text.ilike.%${q}%`
+      const escaped = escapeLikeQuery(q);
+      const token = `%${escaped}%`;
+      itemQuery = itemQuery.or(
+        `source_filename.ilike.${token},job_name.ilike.${token},ocr_text.ilike.${token},transcript_text.ilike.${token}`
       );
     }
 
-    const { data, error } = await query;
+    const { data: items, error: itemsErr } = await itemQuery;
 
-    if (error) {
-      return json(500, { ok: false, error: error.message || "Failed to load intake items." });
+    if (itemsErr) {
+      return json(500, { ok: false, error: itemsErr.message || "Failed to load intake items." });
     }
 
-    return json(200, { ok: true, rows: data || [] });
+    const rows = Array.isArray(items) ? items : [];
+    const itemIds = rows.map((row) => String(row.id)).filter(Boolean);
+
+    let draftMap = new Map<string, any>();
+
+    if (itemIds.length > 0) {
+      const { data: drafts, error: draftsErr } = await admin
+        .from("intake_item_drafts")
+        .select("*")
+        .eq("tenant_id", ctx.tenantId)
+        .in("intake_item_id", itemIds);
+
+      if (draftsErr) {
+        return json(500, { ok: false, error: draftsErr.message || "Failed to load intake drafts." });
+      }
+
+      draftMap = new Map(
+        (drafts || []).map((draft: any) => [String(draft.intake_item_id), draft])
+      );
+    }
+
+    const enrichedRows = rows.map((row: any) => {
+      const draft = draftMap.get(String(row.id)) || null;
+      const draftFlags = normalizeFlags(draft?.validation_flags);
+
+      return {
+        ...row,
+        draft_amount_cents: draft?.amount_cents ?? null,
+        draft_currency: draft?.currency ?? null,
+        draft_vendor: draft?.vendor ?? null,
+        draft_description: draft?.description ?? null,
+        draft_event_date: draft?.event_date ?? null,
+        draft_job_name: draft?.job_name ?? null,
+        draft_validation_flags: draftFlags,
+        fast_confirm_ready: isReadyForFastConfirm({
+          ...row,
+          draft_amount_cents: draft?.amount_cents ?? null,
+          draft_vendor: draft?.vendor ?? null,
+          draft_event_date: draft?.event_date ?? null,
+          draft_job_name: draft?.job_name ?? null,
+          draft_validation_flags: draftFlags,
+        }),
+      };
+    });
+
+    const filteredRows = onlyFastConfirm
+      ? enrichedRows.filter((row) => row.fast_confirm_ready)
+      : enrichedRows;
+
+    const sortedRows = [...filteredRows].sort(compareRowsForReview);
+
+    return json(200, {
+      ok: true,
+      rows: sortedRows,
+      meta: {
+        total: sortedRows.length,
+        fastConfirmReady: sortedRows.filter((row) => row.fast_confirm_ready).length,
+      },
+    });
   } catch (e: any) {
     return json(500, { ok: false, error: e?.message || "Items lookup failed." });
   }

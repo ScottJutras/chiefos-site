@@ -30,10 +30,6 @@ function adminClient() {
   );
 }
 
-function digitsOnly(x: any) {
-  return String(x || "").replace(/\D/g, "");
-}
-
 async function getPortalContext(req: Request) {
   const token = bearerFromReq(req);
   if (!token) return { ok: false as const, error: "Missing bearer token." };
@@ -110,6 +106,24 @@ function buildExpenseDescription(payload: {
   return "Expense";
 }
 
+function escapeIlike(value: string) {
+  return value.replace(/[%_]/g, "\\$&");
+}
+
+function normalizeFlags(flags: any): string[] {
+  if (Array.isArray(flags)) return flags.map((x) => String(x || "").trim()).filter(Boolean);
+  return [];
+}
+
+function hasBlockingFlags(flags: string[]) {
+  const blocking = new Set([
+    "possible_duplicate_attachment",
+    "possible_duplicate_content",
+    "unsupported_file_type",
+  ]);
+  return flags.some((flag) => blocking.has(String(flag || "")));
+}
+
 export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -117,6 +131,8 @@ export async function POST(
   try {
     const ctx = await getPortalContext(req);
     if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
+
+    const admin = ctx.admin;
 
     if (!(ctx.role === "owner" || ctx.role === "admin" || ctx.role === "board")) {
       return json(403, {
@@ -132,7 +148,7 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}));
 
-    const { data: item, error: itemErr } = await ctx.admin
+    const { data: item, error: itemErr } = await admin
       .from("intake_items")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
@@ -143,7 +159,22 @@ export async function POST(
       return json(404, { ok: false, error: itemErr?.message || "Intake item not found." });
     }
 
-    const { data: existingDraft, error: draftErr } = await ctx.admin
+    const currentStatus = String(item.status || "").trim();
+    if (["persisted", "confirmed"].includes(currentStatus)) {
+      return json(409, {
+        ok: false,
+        error: "This intake item has already been confirmed.",
+      });
+    }
+
+    if (["duplicate", "skipped", "failed"].includes(currentStatus)) {
+      return json(409, {
+        ok: false,
+        error: `This intake item cannot be confirmed from status "${currentStatus}".`,
+      });
+    }
+
+    const { data: existingDraft, error: draftErr } = await admin
       .from("intake_item_drafts")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
@@ -153,6 +184,14 @@ export async function POST(
 
     if (draftErr) {
       return json(500, { ok: false, error: draftErr.message || "Failed to load draft." });
+    }
+
+    const existingFlags = normalizeFlags(existingDraft?.validation_flags);
+    if (hasBlockingFlags(existingFlags)) {
+      return json(409, {
+        ok: false,
+        error: "This item has blocking review flags and cannot be confirmed until resolved.",
+      });
     }
 
     const beforePayload = {
@@ -170,35 +209,85 @@ export async function POST(
 
     const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);
     if (amountCents == null || amountCents <= 0) {
-      return json(400, { ok: false, error: "Amount is required." });
+      return json(400, { ok: false, error: "A valid amount is required." });
     }
 
     const vendor = toNullableText(body?.vendor ?? existingDraft?.vendor);
     const description = toNullableText(body?.description ?? existingDraft?.description);
-    const eventDate =
-      toNullableDate(body?.eventDate ?? existingDraft?.event_date) ||
-      new Date().toISOString().slice(0, 10);
+    const eventDate = toNullableDate(body?.eventDate ?? existingDraft?.event_date);
 
-    const jobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? item?.job_name);
+    if (!eventDate) {
+      return json(400, { ok: false, error: "A valid date is required." });
+    }
+
+    const providedJobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? item?.job_name);
+    if (!providedJobName) {
+      return json(400, {
+        ok: false,
+        error: "Job is required before confirming this draft.",
+      });
+    }
+
     const currency = toNullableText(body?.currency ?? existingDraft?.currency) || "USD";
 
-    let resolvedJobName = jobName;
+    const escapedJobName = escapeIlike(providedJobName);
+    const likeToken = `%${escapedJobName}%`;
+
+    let resolvedJobName: string | null = null;
     let resolvedJobId: number | null = null;
 
-    if (jobName) {
-      const { data: jobRow } = await ctx.admin
-        .from("jobs")
-        .select("id, job_name, name, job_no")
-        .eq("owner_id", ctx.ownerId)
-        .or(`job_name.ilike.${jobName},name.ilike.${jobName}`)
-        .limit(1)
-        .maybeSingle();
+    const { data: exactJob, error: exactJobErr } = await admin
+      .from("jobs")
+      .select("id, job_name, name, job_no, status")
+      .eq("owner_id", ctx.ownerId)
+      .or(`job_name.ilike.${likeToken},name.ilike.${likeToken}`)
+      .order("created_at", { ascending: false })
+      .limit(5);
 
-      if (jobRow) {
-        resolvedJobId = Number((jobRow as any).id || 0) || null;
-        resolvedJobName =
-          String((jobRow as any).job_name || (jobRow as any).name || jobName).trim() || jobName;
+    if (exactJobErr) {
+      return json(500, {
+        ok: false,
+        error: exactJobErr.message || "Failed to resolve job.",
+      });
+    }
+
+    const jobCandidates = Array.isArray(exactJob) ? exactJob : [];
+
+    if (jobCandidates.length === 0) {
+      return json(400, {
+        ok: false,
+        error: "Select a valid existing job before confirming this draft.",
+      });
+    }
+
+    if (jobCandidates.length > 1) {
+      const exactNameMatches = jobCandidates.filter((row: any) => {
+        const a = String(row?.job_name || row?.name || "").trim().toLowerCase();
+        const b = providedJobName.trim().toLowerCase();
+        return a === b;
+      });
+
+      if (exactNameMatches.length === 1) {
+        const row: any = exactNameMatches[0];
+        resolvedJobId = Number(row?.id || 0) || null;
+        resolvedJobName = String(row?.job_name || row?.name || providedJobName).trim() || providedJobName;
+      } else {
+        return json(409, {
+          ok: false,
+          error: "Job is still ambiguous. Pick one job from the suggested list before confirming.",
+        });
       }
+    } else {
+      const row: any = jobCandidates[0];
+      resolvedJobId = Number(row?.id || 0) || null;
+      resolvedJobName = String(row?.job_name || row?.name || providedJobName).trim() || providedJobName;
+    }
+
+    if (!resolvedJobName || resolvedJobId == null) {
+      return json(400, {
+        ok: false,
+        error: "A valid job is required before confirming this draft.",
+      });
     }
 
     const txDescription = buildExpenseDescription({
@@ -206,6 +295,11 @@ export async function POST(
       description,
     });
 
+    // ----------------------------------------------------
+    // Interim bridge:
+    // This still writes to canonical transactions directly.
+    // Long-term this should call a domain mutation surface.
+    // ----------------------------------------------------
     const transactionInsert: Record<string, any> = {
       tenant_id: ctx.tenantId,
       owner_id: ctx.ownerId,
@@ -215,14 +309,15 @@ export async function POST(
       date: eventDate,
       description: txDescription,
       source: vendor || "upload",
-      source_msg_id: item.id,
+      source_msg_id: item.source_msg_id || item.id,
       created_at: new Date().toISOString(),
+      job_name: resolvedJobName,
     };
 
-    if (resolvedJobName) transactionInsert.job_name = resolvedJobName;
-    if (resolvedJobId != null) transactionInsert.job_id = resolvedJobId;
+    // Keep the current schema assumption used in your project.
+    transactionInsert.job_id = resolvedJobId;
 
-    const { data: tx, error: txErr } = await ctx.admin
+    const { data: tx, error: txErr } = await admin
       .from("transactions")
       .insert(transactionInsert)
       .select("id")
@@ -250,7 +345,7 @@ export async function POST(
     };
 
     if (existingDraft?.id) {
-      const { error: updDraftErr } = await ctx.admin
+      const { error: updDraftErr } = await admin
         .from("intake_item_drafts")
         .update(nextDraftPayload)
         .eq("tenant_id", ctx.tenantId)
@@ -260,7 +355,7 @@ export async function POST(
         return json(500, { ok: false, error: updDraftErr.message || "Failed to update draft." });
       }
     } else {
-      const { error: insDraftErr } = await ctx.admin
+      const { error: insDraftErr } = await admin
         .from("intake_item_drafts")
         .insert({
           intake_item_id: itemId,
@@ -275,13 +370,14 @@ export async function POST(
       }
     }
 
-    const { error: itemUpdErr } = await ctx.admin
+    const { error: itemUpdErr } = await admin
       .from("intake_items")
       .update({
         status: "persisted",
         draft_type: "expense",
         job_name: resolvedJobName,
         job_int_id: resolvedJobId,
+        confidence_score: item.confidence_score,
         updated_at: new Date().toISOString(),
       })
       .eq("tenant_id", ctx.tenantId)
@@ -302,7 +398,7 @@ export async function POST(
       job_int_id: resolvedJobId,
     };
 
-    const { error: reviewErr } = await ctx.admin
+    const { error: reviewErr } = await admin
       .from("intake_item_reviews")
       .insert({
         intake_item_id: itemId,
@@ -321,11 +417,18 @@ export async function POST(
     }
 
     if (item.batch_id) {
-      const { data: batchItems } = await ctx.admin
+      const { data: batchItems, error: batchItemsErr } = await admin
         .from("intake_items")
         .select("id,status")
         .eq("tenant_id", ctx.tenantId)
         .eq("batch_id", item.batch_id);
+
+      if (batchItemsErr) {
+        return json(500, {
+          ok: false,
+          error: batchItemsErr.message || "Failed to update batch progress.",
+        });
+      }
 
       const confirmedItems = (batchItems || []).filter((r) =>
         ["confirmed", "persisted"].includes(String(r.status || ""))
@@ -339,7 +442,7 @@ export async function POST(
           ["persisted", "skipped", "duplicate", "failed"].includes(String(r.status || ""))
         );
 
-      await ctx.admin
+      const { error: batchUpdErr } = await admin
         .from("intake_batches")
         .update({
           confirmed_items: confirmedItems,
@@ -350,6 +453,13 @@ export async function POST(
         })
         .eq("tenant_id", ctx.tenantId)
         .eq("id", item.batch_id);
+
+      if (batchUpdErr) {
+        return json(500, {
+          ok: false,
+          error: batchUpdErr.message || "Failed to update intake batch.",
+        });
+      }
     }
 
     return json(200, {
@@ -357,6 +467,8 @@ export async function POST(
       intakeItemId: itemId,
       transactionId: tx.id,
       status: "persisted",
+      jobName: resolvedJobName,
+      jobId: resolvedJobId,
     });
   } catch (e: any) {
     return json(500, { ok: false, error: e?.message || "Confirm failed." });

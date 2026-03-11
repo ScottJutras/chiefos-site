@@ -37,6 +37,27 @@ function centsToDisplay(value?: string | number | null) {
   return String(Math.round(n));
 }
 
+function formatFlag(flag: string) {
+  return String(flag || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function flagSeverity(flag: string) {
+  const hardBlock = new Set([
+    "missing_amount",
+    "missing_vendor",
+    "missing_date",
+    "job_unresolved",
+    "job_ambiguous",
+    "possible_duplicate_attachment",
+    "possible_duplicate_content",
+    "unsupported_file_type",
+  ]);
+
+  return hardBlock.has(String(flag || "")) ? "hard" : "soft";
+}
+
 export default function ReviewConveyor({
   itemId,
   itemKind,
@@ -68,6 +89,46 @@ export default function ReviewConveyor({
     );
   }, [amountCents, vendor, description, eventDate, jobName, currency, initialDraft]);
 
+  const hardFlags = useMemo(
+    () => validationFlags.filter((flag) => flagSeverity(flag) === "hard"),
+    [validationFlags]
+  );
+
+  const softFlags = useMemo(
+    () => validationFlags.filter((flag) => flagSeverity(flag) === "soft"),
+    [validationFlags]
+  );
+
+  const hasAmount = Number(amountCents || 0) > 0;
+  const hasVendor = vendor.trim().length > 0;
+  const hasDate = eventDate.trim().length > 0;
+  const hasJob = jobName.trim().length > 0;
+  const hasCurrency = currency.trim().length > 0;
+
+  const readyForFastConfirm = useMemo(() => {
+    if (!hasAmount || !hasVendor || !hasDate || !hasJob || !hasCurrency) return false;
+    if (hardFlags.length > 0) return false;
+    return true;
+  }, [hasAmount, hasVendor, hasDate, hasJob, hasCurrency, hardFlags.length]);
+
+  const confirmLabel = readyForFastConfirm
+    ? edited
+      ? "Edit + confirm now"
+      : "Confirm now"
+    : edited
+    ? "Edit + confirm"
+    : "Confirm";
+
+  const confirmHint = readyForFastConfirm
+    ? "This draft looks structurally ready. Review and confirm."
+    : !hasJob
+    ? "Add a job to unlock fast confirm."
+    : !hasAmount || !hasVendor || !hasDate
+    ? "Complete the missing fields before confirming."
+    : hardFlags.length > 0
+    ? "This item still has blocking review flags."
+    : "Review this draft before confirming.";
+
   return (
     <section className="rounded-2xl border border-white/10 bg-black/40 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -79,21 +140,107 @@ export default function ReviewConveyor({
           <div className="mt-1 text-xs text-white/55">{itemKind}</div>
         </div>
 
-        <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
-          {edited ? "Edited" : "Unedited"}
+        <div className="flex flex-wrap gap-2">
+          <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
+            {edited ? "Edited" : "Unedited"}
+          </div>
+
+          {readyForFastConfirm ? (
+            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+              Ready now
+            </div>
+          ) : (
+            <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200">
+              Needs review
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={`mt-4 rounded-2xl border p-4 ${
+          readyForFastConfirm
+            ? "border-emerald-500/20 bg-emerald-500/10"
+            : "border-white/10 bg-white/[0.03]"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div
+              className={`text-xs uppercase tracking-[0.12em] ${
+                readyForFastConfirm ? "text-emerald-200/70" : "text-white/45"
+              }`}
+            >
+              Confirm state
+            </div>
+            <div
+              className={`mt-1 text-sm font-semibold ${
+                readyForFastConfirm ? "text-emerald-100" : "text-white/90"
+              }`}
+            >
+              {readyForFastConfirm ? "Ready for one-tap confirm" : "Needs owner review first"}
+            </div>
+            <div className="mt-1 text-xs text-white/60">{confirmHint}</div>
+          </div>
+
+          <button
+            type="button"
+            disabled={busy || !readyForFastConfirm}
+            onClick={() =>
+              onConfirm({
+                amountCents: Number(amountCents || 0),
+                vendor: vendor.trim() || null,
+                description: description.trim() || null,
+                eventDate: eventDate || null,
+                jobName: jobName.trim() || null,
+                currency: currency.trim() || "USD",
+                edited,
+              })
+            }
+            className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50 ${
+              readyForFastConfirm
+                ? "bg-white text-black hover:bg-white/90"
+                : "border border-white/10 bg-white/5 text-white/70"
+            }`}
+          >
+            {busy ? "Working…" : confirmLabel}
+          </button>
         </div>
       </div>
 
       {validationFlags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {validationFlags.map((flag) => (
-            <span
-              key={flag}
-              className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200"
-            >
-              {flag}
-            </span>
-          ))}
+        <div className="mt-4 space-y-3">
+          {hardFlags.length > 0 ? (
+            <div>
+              <div className="mb-2 text-xs text-white/45">Blocking flags</div>
+              <div className="flex flex-wrap gap-2">
+                {hardFlags.map((flag) => (
+                  <span
+                    key={flag}
+                    className="rounded-full border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[11px] text-red-200"
+                  >
+                    {formatFlag(flag)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {softFlags.length > 0 ? (
+            <div>
+              <div className="mb-2 text-xs text-white/45">Review flags</div>
+              <div className="flex flex-wrap gap-2">
+                {softFlags.map((flag) => (
+                  <span
+                    key={flag}
+                    className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200"
+                  >
+                    {formatFlag(flag)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -154,8 +301,17 @@ export default function ReviewConveyor({
             value={jobName}
             onChange={(e) => setJobName(e.target.value)}
             placeholder="Kitchen Remodel - Harris"
-            className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+            className={`mt-1 w-full rounded-xl border px-3 py-2 text-sm text-white outline-none ${
+              hasJob
+                ? "border-white/10 bg-black/40"
+                : "border-amber-400/20 bg-amber-500/10"
+            }`}
           />
+          {!hasJob ? (
+            <div className="mt-2 text-xs text-amber-200">
+              Job is still required before fast confirm is allowed.
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -202,7 +358,7 @@ export default function ReviewConveyor({
           }
           className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
         >
-          {edited ? "Edit + confirm" : "Confirm"}
+          {busy ? "Working…" : confirmLabel}
         </button>
 
         <button

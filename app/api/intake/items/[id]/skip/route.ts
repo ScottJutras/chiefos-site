@@ -74,6 +74,11 @@ async function getPortalContext(req: Request) {
   };
 }
 
+function toNullableText(x: any) {
+  const s = String(x ?? "").trim();
+  return s ? s : null;
+}
+
 export async function POST(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -81,6 +86,8 @@ export async function POST(
   try {
     const ctx = await getPortalContext(req);
     if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
+
+    const admin = ctx.admin;
 
     if (!(ctx.role === "owner" || ctx.role === "admin" || ctx.role === "board")) {
       return json(403, { ok: false, error: "Owner-only or approver-only action." });
@@ -91,8 +98,9 @@ export async function POST(
     if (!itemId) return json(400, { ok: false, error: "Missing item id." });
 
     const body = await req.json().catch(() => ({}));
+    const comment = toNullableText(body?.comment);
 
-    const { data: item, error: itemErr } = await ctx.admin
+    const { data: item, error: itemErr } = await admin
       .from("intake_items")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
@@ -103,7 +111,30 @@ export async function POST(
       return json(404, { ok: false, error: itemErr?.message || "Intake item not found." });
     }
 
-    const { data: existingDraft } = await ctx.admin
+    const currentStatus = String(item.status || "").trim();
+    if (["persisted", "confirmed"].includes(currentStatus)) {
+      return json(409, {
+        ok: false,
+        error: "This intake item has already been confirmed and cannot be skipped.",
+      });
+    }
+
+    if (currentStatus === "skipped") {
+      return json(200, {
+        ok: true,
+        intakeItemId: itemId,
+        status: "skipped",
+      });
+    }
+
+    if (currentStatus === "duplicate") {
+      return json(409, {
+        ok: false,
+        error: "This intake item is already marked duplicate and cannot also be skipped.",
+      });
+    }
+
+    const { data: existingDraft, error: existingDraftErr } = await admin
       .from("intake_item_drafts")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
@@ -111,12 +142,19 @@ export async function POST(
       .limit(1)
       .maybeSingle();
 
+    if (existingDraftErr) {
+      return json(500, {
+        ok: false,
+        error: existingDraftErr.message || "Failed to load draft.",
+      });
+    }
+
     const beforePayload = {
       item,
       draft: existingDraft || null,
     };
 
-    const { error: updErr } = await ctx.admin
+    const { error: updErr } = await admin
       .from("intake_items")
       .update({
         status: "skipped",
@@ -129,7 +167,7 @@ export async function POST(
       return json(500, { ok: false, error: updErr.message || "Failed to skip item." });
     }
 
-    const { error: reviewErr } = await ctx.admin
+    const { error: reviewErr } = await admin
       .from("intake_item_reviews")
       .insert({
         intake_item_id: itemId,
@@ -139,12 +177,58 @@ export async function POST(
         action: "skip",
         before_payload: beforePayload,
         after_payload: { status: "skipped" },
-        comment: String(body?.comment || "").trim() || null,
+        comment,
         created_at: new Date().toISOString(),
       });
 
     if (reviewErr) {
       return json(500, { ok: false, error: reviewErr.message || "Failed to create review log." });
+    }
+
+    if (item.batch_id) {
+      const { data: batchItems, error: batchItemsErr } = await admin
+        .from("intake_items")
+        .select("id,status")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("batch_id", item.batch_id);
+
+      if (batchItemsErr) {
+        return json(500, {
+          ok: false,
+          error: batchItemsErr.message || "Failed to update batch progress.",
+        });
+      }
+
+      const confirmedItems = (batchItems || []).filter((r) =>
+        ["confirmed", "persisted"].includes(String(r.status || ""))
+      ).length;
+      const skippedItems = (batchItems || []).filter((r) => String(r.status || "") === "skipped").length;
+      const duplicateItems = (batchItems || []).filter((r) => String(r.status || "") === "duplicate").length;
+
+      const batchComplete =
+        (batchItems || []).length > 0 &&
+        (batchItems || []).every((r) =>
+          ["persisted", "skipped", "duplicate", "failed"].includes(String(r.status || ""))
+        );
+
+      const { error: batchUpdErr } = await admin
+        .from("intake_batches")
+        .update({
+          confirmed_items: confirmedItems,
+          skipped_items: skippedItems,
+          duplicate_items: duplicateItems,
+          status: batchComplete ? "completed" : "pending_review",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("tenant_id", ctx.tenantId)
+        .eq("id", item.batch_id);
+
+      if (batchUpdErr) {
+        return json(500, {
+          ok: false,
+          error: batchUpdErr.message || "Failed to update intake batch.",
+        });
+      }
     }
 
     return json(200, {

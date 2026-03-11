@@ -34,8 +34,11 @@ export type WhoamiOk = {
   hasWhatsApp: boolean;
   email: string | null;
 
-  // ✅ these were being dropped before
-  betaPlan: BetaPlan | null; // only when approved
+  // canonical paid plan
+  planKey: BetaPlan | null;
+
+  // beta-compatible fields
+  betaPlan: BetaPlan | null;
   betaStatus: BetaStatus | null;
   betaEntitlementPlan: BetaPlan | null;
 };
@@ -86,10 +89,10 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
     hasWhatsApp: !!j.hasWhatsApp,
     email: j.email ?? null,
 
+    planKey: j.planKey ?? null,
+
     betaPlan: j.betaPlan ?? null,
     betaStatus: j.betaStatus ?? null,
     betaEntitlementPlan: j.betaEntitlementPlan ?? null,
-
-   
   };
 }

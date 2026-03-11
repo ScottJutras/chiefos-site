@@ -13,14 +13,18 @@ type GateState = {
   tenantId: string | null;
   hasWhatsApp: boolean;
 
-  // ✅ beta entitlement passthrough (from /api/whoami)
-  email?: string | null;
-  betaPlan?: BetaPlan | null; // only when approved
-  betaStatus?: BetaStatus | null; // requested|approved|denied|null
-  betaEntitlementPlan?: BetaPlan | null; // what they requested / would be approved into
+  email: string | null;
 
-  role?: string | null;
-  reason?: string | null;
+  // Canonical paid plan from /api/whoami
+  planKey: BetaPlan | null;
+
+  // Backward-compatible entitlement fields
+  betaPlan: BetaPlan | null;
+  betaStatus: BetaStatus | null;
+  betaEntitlementPlan: BetaPlan | null;
+
+  role: string | null;
+  reason: string | null;
 };
 
 export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
@@ -35,6 +39,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     hasWhatsApp: false,
 
     email: null,
+    planKey: null,
     betaPlan: null,
     betaStatus: null,
     betaEntitlementPlan: null,
@@ -49,7 +54,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
 
     function safeSet(next: Partial<GateState>) {
       if (cancelled) return;
-      setState((s) => ({ ...s, ...next }));
+      setState((prev) => ({ ...prev, ...next }));
     }
 
     function safePush(target: string) {
@@ -66,12 +71,12 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     async function run() {
       try {
         const w: any = await fetchWhoami();
-               if (!w?.ok) {
-          // hydration/login race (session token not ready yet)
+
+        if (!w?.ok) {
           if (w?.error === "no-session-token") {
             safeSet({ loading: true, reason: "waiting-session" });
 
-            attempts++;
+            attempts += 1;
             if (attempts > 6) {
               safeSet({ loading: false, reason: "no-session-token" });
               safePush("/login");
@@ -79,7 +84,7 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
             }
 
             setTimeout(() => {
-              if (!cancelled) run();
+              if (!cancelled) void run();
             }, 350);
             return;
           }
@@ -93,14 +98,27 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
         const tenantId = w.tenantId ? String(w.tenantId) : null;
         const hasWhatsApp = !!w.hasWhatsApp;
 
-        // ✅ beta fields from whoami
         const email = w.email ? String(w.email) : null;
+        const planKey = (w.planKey as BetaPlan) ?? null;
         const betaPlan = (w.betaPlan as BetaPlan) ?? null;
         const betaStatus = (w.betaStatus as BetaStatus) ?? null;
         const betaEntitlementPlan = (w.betaEntitlementPlan as BetaPlan) ?? null;
+        const role = w.role ? String(w.role) : null;
 
         if (!userId) {
-          safeSet({ loading: false, reason: "no-auth" });
+          safeSet({
+            loading: false,
+            userId: null,
+            tenantId: null,
+            hasWhatsApp: false,
+            email,
+            planKey,
+            betaPlan,
+            betaStatus,
+            betaEntitlementPlan,
+            role,
+            reason: "no-auth",
+          });
           safePush("/login");
           return;
         }
@@ -112,9 +130,11 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
             tenantId: null,
             hasWhatsApp,
             email,
+            planKey,
             betaPlan,
             betaStatus,
             betaEntitlementPlan,
+            role,
             reason: "no-tenant",
           });
           safePush(withReturnTo("/finish-signup"));
@@ -128,9 +148,11 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
             tenantId,
             hasWhatsApp: false,
             email,
+            planKey,
             betaPlan,
             betaStatus,
             betaEntitlementPlan,
+            role,
             reason: "no-whatsapp",
           });
           safePush(withReturnTo("/app/connect-whatsapp"));
@@ -143,9 +165,11 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
           tenantId,
           hasWhatsApp,
           email,
+          planKey,
           betaPlan,
           betaStatus,
           betaEntitlementPlan,
+          role,
           reason: null,
         });
       } catch {
@@ -154,7 +178,8 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
       }
     }
 
-    run();
+    void run();
+
     return () => {
       cancelled = true;
     };

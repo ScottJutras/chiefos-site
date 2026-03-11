@@ -15,6 +15,24 @@ type IntakeItem = {
   confidence_score: number | null;
   job_name: string | null;
   created_at: string;
+
+  draft_amount_cents?: number | null;
+  draft_currency?: string | null;
+  draft_vendor?: string | null;
+  draft_description?: string | null;
+  draft_event_date?: string | null;
+  draft_job_name?: string | null;
+  draft_validation_flags?: string[];
+  fast_confirm_ready?: boolean;
+};
+
+type IntakeListResponse = {
+  ok: true;
+  rows: IntakeItem[];
+  meta?: {
+    total: number;
+    fastConfirmReady: number;
+  };
 };
 
 function fmtDate(ts?: string | null) {
@@ -31,12 +49,64 @@ function kindLabel(kind?: string | null) {
   return "Unknown";
 }
 
+function confidencePct(score?: number | null) {
+  if (score == null) return "—";
+  return `${Math.round(Number(score) * 100)}%`;
+}
+
+function normalizeFlags(flags?: string[] | null) {
+  return Array.isArray(flags) ? flags.filter(Boolean) : [];
+}
+
+function flagLabel(flag: string) {
+  return String(flag || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function isReadyForOneTapConfirm(item: IntakeItem) {
+  return Boolean(item.fast_confirm_ready);
+}
+
+function compareItemsForReview(a: IntakeItem, b: IntakeItem) {
+  const aReady = isReadyForOneTapConfirm(a) ? 1 : 0;
+  const bReady = isReadyForOneTapConfirm(b) ? 1 : 0;
+
+  if (aReady !== bReady) return bReady - aReady;
+
+  const aScore = Number(a.confidence_score || 0);
+  const bScore = Number(b.confidence_score || 0);
+  if (aScore !== bScore) return bScore - aScore;
+
+  return String(a.created_at).localeCompare(String(b.created_at));
+}
+
+function pickBestBatchItem(items: IntakeItem[]) {
+  const sorted = [...items].sort(compareItemsForReview);
+  return sorted[0] || null;
+}
+
+function money(cents?: number | null, currency?: string | null) {
+  if (cents == null) return "—";
+  const code = String(currency || "USD").toUpperCase();
+
+  try {
+    return (Number(cents) / 100).toLocaleString(undefined, {
+      style: "currency",
+      currency: code,
+    });
+  } catch {
+    return `${(Number(cents) / 100).toFixed(2)} ${code}`;
+  }
+}
+
 export default function PendingReviewPage() {
   const gate = useTenantGate({ requireWhatsApp: false });
   const [loading, setLoading] = useState(true);
   const [busyBatchId, setBusyBatchId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<IntakeItem[]>([]);
+  const [meta, setMeta] = useState<IntakeListResponse["meta"] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   async function authHeader() {
@@ -61,12 +131,18 @@ export default function PendingReviewPage() {
         cache: "no-store",
       });
 
-      const j = await r.json().catch(() => ({}));
+      const j = (await r.json().catch(() => ({}))) as Partial<IntakeListResponse> & {
+        ok?: boolean;
+        error?: string;
+      };
+
       if (!r.ok || !j?.ok) throw new Error(j?.error || "Failed to load pending review.");
 
       setRows(Array.isArray(j.rows) ? j.rows : []);
+      setMeta(j.meta || null);
     } catch (e: any) {
       setRows([]);
+      setMeta(null);
       setErr(e?.message || "Failed to load pending review.");
     } finally {
       setLoading(false);
@@ -113,8 +189,25 @@ export default function PendingReviewPage() {
       list.push(row);
       map.set(key, list);
     }
-    return Array.from(map.entries());
+
+    return Array.from(map.entries())
+      .map(([batchId, items]) => [batchId, [...items].sort(compareItemsForReview)] as const)
+      .sort((a, b) => {
+        const bestA = pickBestBatchItem(a[1]);
+        const bestB = pickBestBatchItem(b[1]);
+        if (!bestA && !bestB) return 0;
+        if (!bestA) return 1;
+        if (!bestB) return -1;
+        return compareItemsForReview(bestA, bestB);
+      });
   }, [rows]);
+
+  const totalReady = useMemo(
+    () =>
+      meta?.fastConfirmReady ??
+      rows.filter((item) => isReadyForOneTapConfirm(item)).length,
+    [rows, meta]
+  );
 
   if (gate.loading || loading) {
     return <div className="p-8 text-white/70">Loading Pending Review…</div>;
@@ -128,7 +221,7 @@ export default function PendingReviewPage() {
             <div className="text-xs uppercase tracking-[0.16em] text-white/45">Owner review</div>
             <h1 className="mt-1 text-3xl font-semibold tracking-tight">Pending Review</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/65">
-              Low-confidence or newly uploaded drafts live here before touching canonical truth.
+              Drafts live here before they can touch canonical truth.
             </p>
           </div>
 
@@ -138,6 +231,23 @@ export default function PendingReviewPage() {
           >
             Upload receipts / voice / PDFs
           </a>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs text-white/45">Items in queue</div>
+            <div className="mt-2 text-2xl font-semibold">{meta?.total ?? rows.length}</div>
+          </div>
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+            <div className="text-xs text-emerald-200/70">Ready for one-tap confirm</div>
+            <div className="mt-2 text-2xl font-semibold text-emerald-100">{totalReady}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs text-white/45">Needs deeper review</div>
+            <div className="mt-2 text-2xl font-semibold">
+              {Math.max((meta?.total ?? rows.length) - totalReady, 0)}
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -170,83 +280,125 @@ export default function PendingReviewPage() {
           </div>
         ) : (
           <div className="mt-6 space-y-5">
-            {grouped.map(([batchId, items]) => (
-              <section key={batchId} className="rounded-[24px] border border-white/10 bg-black/40">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-                  <div>
-                    <div className="text-xs text-white/45">Batch</div>
-                    <div className="mt-1 text-sm font-semibold text-white/90">{batchId}</div>
-                    <div className="mt-1 text-xs text-white/50">{items.length} item(s)</div>
+            {grouped.map(([batchId, items]) => {
+              const bestItem = pickBestBatchItem(items);
+              const readyCount = items.filter((item) => isReadyForOneTapConfirm(item)).length;
+
+              return (
+                <section key={batchId} className="rounded-[24px] border border-white/10 bg-black/40">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+                    <div>
+                      <div className="text-xs text-white/45">Batch</div>
+                      <div className="mt-1 text-sm font-semibold text-white/90">{batchId}</div>
+                      <div className="mt-1 text-xs text-white/50">
+                        {items.length} item(s) • {readyCount} ready now
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void processBatch(batchId)}
+                        disabled={busyBatchId === batchId}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                      >
+                        {busyBatchId === batchId ? "Processing…" : "Re-process batch"}
+                      </button>
+
+                      {bestItem ? (
+                        <a
+                          href={`/app/pending-review/${bestItem.id}`}
+                          className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+                        >
+                          {isReadyForOneTapConfirm(bestItem) ? "One-tap confirm next" : "Open best next item"}
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void processBatch(batchId)}
-                      disabled={busyBatchId === batchId}
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                    >
-                      {busyBatchId === batchId ? "Processing…" : "Re-process batch"}
-                    </button>
+                  <div className="divide-y divide-white/10">
+                    {items.map((item) => {
+                      const ready = isReadyForOneTapConfirm(item);
+                      const flags = normalizeFlags(item.draft_validation_flags);
+                      const displayJob = String(item.draft_job_name || item.job_name || "").trim();
 
-                    <a
-  href={`/app/pending-review/${items
-    .slice()
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
-    .find((x) => ["pending_review", "uploaded", "validated", "extracted"].includes(String(x.status || "")))?.id || items[0].id}`}
-  className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
->
-  Open first item
-</a>
+                      return (
+                        <a
+                          key={item.id}
+                          href={`/app/pending-review/${item.id}`}
+                          className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] transition"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70">
+                                {kindLabel(item.kind)}
+                              </span>
+                              <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/60">
+                                {item.status}
+                              </span>
+                              {item.draft_type ? (
+                                <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/60">
+                                  {item.draft_type}
+                                </span>
+                              ) : null}
+                              {ready ? (
+                                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+                                  Ready now
+                                </span>
+                              ) : null}
+                              {flags.length > 0 && !ready ? (
+                                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200">
+                                  {flags.length} flag{flags.length === 1 ? "" : "s"}
+                                </span>
+                              ) : null}
+                            </div>
 
+                            <div className="mt-2 truncate text-sm font-semibold text-white/90">
+                              {item.source_filename || item.id}
+                            </div>
+
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/50">
+                              {displayJob ? <span>Job: {displayJob}</span> : null}
+                              {item.draft_vendor ? <span>Vendor: {item.draft_vendor}</span> : null}
+                              {item.draft_event_date ? <span>Date: {item.draft_event_date}</span> : null}
+                              {item.draft_amount_cents != null ? (
+                                <span>Amount: {money(item.draft_amount_cents, item.draft_currency)}</span>
+                              ) : null}
+                              <span>{fmtDate(item.created_at)}</span>
+                            </div>
+
+                            {flags.length > 0 && !ready ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {flags.slice(0, 3).map((flag) => (
+                                  <span
+                                    key={flag}
+                                    className="rounded-full border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-white/50"
+                                  >
+                                    {flagLabel(flag)}
+                                  </span>
+                                ))}
+                                {flags.length > 3 ? (
+                                  <span className="rounded-full border border-white/10 bg-black/40 px-2 py-1 text-[10px] text-white/50">
+                                    +{flags.length - 3} more
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="text-right text-xs text-white/55">
+                            <div>Confidence: {confidencePct(item.confidence_score)}</div>
+                            <div className="mt-1 text-white/40">
+                              {ready ? "Fast confirm path" : "Needs review"}
+                            </div>
+                          </div>
+                        </a>
+                      );
+                    })}
                   </div>
-                </div>
-
-                <div className="divide-y divide-white/10">
-                  {items.map((item) => (
-                    <a
-                      key={item.id}
-                      href={`/app/pending-review/${item.id}`}
-                      className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] transition"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70">
-                            {kindLabel(item.kind)}
-                          </span>
-                          <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/60">
-                            {item.status}
-                          </span>
-                          {item.draft_type ? (
-                            <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/60">
-                              {item.draft_type}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-2 truncate text-sm font-semibold text-white/90">
-                          {item.source_filename || item.id}
-                        </div>
-
-                        <div className="mt-1 text-xs text-white/50">
-                          {item.job_name ? `Job: ${item.job_name} • ` : ""}
-                          {fmtDate(item.created_at)}
-                        </div>
-                      </div>
-
-                      <div className="text-right text-xs text-white/55">
-                        <div>
-                          Confidence:{" "}
-                          {item.confidence_score == null
-                            ? "—"
-                            : `${Math.round(Number(item.confidence_score) * 100)}%`}
-                        </div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </section>
-            ))}
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
