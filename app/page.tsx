@@ -28,7 +28,7 @@ import {
 export const metadata = {
   title: "ChiefOS",
   description:
-    "Know if you’re making money—instantly. ChiefOS is a WhatsApp-first operating system for contractors: capture time + money on the go, connect everything to jobs, and ask your business questions grounded in your logged records.",
+    "Stop guessing if your jobs are making money. ChiefOS captures receipts, time, tasks, and job activity as you work — then turns it into answers about your business.",
 };
 
 function StatCard({
@@ -273,40 +273,92 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white">
       <SiteHeader />
 
-   {/* HERO */}
+     {/* HERO */}
 <Section id="top" className="pt-8 md:pt-10 pb-14 md:pb-18">
-  <div className="max-w-4xl mx-auto text-center">
-    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
-      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-      Contractor Grade Business Intelligence
+  <div className="mx-auto max-w-5xl">
+    <div className="text-center">
+      <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/70">
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+        Built for contractors and service businesses
+      </div>
+
+      <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.02]">
+        Stop guessing if your jobs are making money.
+      </h1>
+
+      <p className="mx-auto mt-5 max-w-3xl text-lg md:text-xl text-white/75 leading-relaxed">
+        ChiefOS captures receipts, time, tasks, and job activity as you work —
+        then turns it into answers about your business.
+      </p>
+
+      <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
+        <span className="text-white/85 font-semibold">
+          Text it. Say it. Snap it. Confirm it. Done.
+        </span>
+      </div>
+
+      <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
+        <TooltipChip tip="Fastest path: start logging immediately in WhatsApp.">
+          <a
+            href="/wa?t=hero"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-white/90 transition hover:-translate-y-[1px] active:translate-y-0"
+          >
+            <span className="inline-grid h-8 w-8 place-items-center rounded-xl border border-black/10 bg-black text-white">
+              <WhatsAppIcon className="h-5 w-5 translate-y-[0.5px]" />
+            </span>
+            Start on WhatsApp
+          </a>
+        </TooltipChip>
+
+        <a
+          href="/pricing"
+          className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition hover:-translate-y-[1px] active:translate-y-0"
+        >
+          See plans
+        </a>
+      </div>
+
+      <div className="mt-4 text-xs text-white/45">
+        No app stack. No spreadsheet rebuild. No nightly cleanup loop.
+      </div>
     </div>
 
-    <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
-      Know if you’re making money.
-      <br />
-      Instantly.
-    </h1>
+    <div className="mt-12 grid gap-4 md:grid-cols-3">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-left">
+        <div className="text-xs tracking-[0.16em] uppercase text-white/45">
+          The problem
+        </div>
+        <div className="mt-3 text-lg font-semibold text-white/90">
+          Work happens fast. Tracking falls behind.
+        </div>
+        <div className="mt-2 text-sm text-white/65 leading-relaxed">
+          Receipts end up in the truck. Time ends up in texts. Job updates live in people’s heads.
+        </div>
+      </div>
 
-    <p className="mt-5 text-lg md:text-xl text-white/75 leading-relaxed">
-      ChiefOS captures time, expenses, and job activity where work happens and
-      turns it into answers about your business.
-    </p>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-left">
+        <div className="text-xs tracking-[0.16em] uppercase text-white/45">
+          The result
+        </div>
+        <div className="mt-3 text-lg font-semibold text-white/90">
+          Profit turns into a question mark.
+        </div>
+        <div className="mt-2 text-sm text-white/65 leading-relaxed">
+          You finish the day still unsure what you spent, what got done, and whether the job is actually making money.
+        </div>
+      </div>
 
-    <p className="mt-4 text-base md:text-lg text-white/60 font-medium">YY
-      Ask your business a question. Get an answer.
-      <br />
-      Powered by intelligent job-level analysis grounded in your records.
-    </p>
-
-    {/* CTA */}
-    <HeroGetStartedForm pricingHref="/pricing" />
-
-    <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
-      <span className="text-white/80 font-semibold">
-        Text it → Say it → Snap it → Confirm → Done.
-      </span>
-      <br />
-      Clean records. Clean exports.
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-left">
+        <div className="text-xs tracking-[0.16em] uppercase text-white/45">
+          The fix
+        </div>
+        <div className="mt-3 text-lg font-semibold text-white/90">
+          ChiefOS turns messy field activity into job truth.
+        </div>
+        <div className="mt-2 text-sm text-white/65 leading-relaxed">
+          Capture it once, confirm it cleanly, and ask real questions without digging through apps and spreadsheets.
+        </div>
+      </div>
     </div>
   </div>
 
