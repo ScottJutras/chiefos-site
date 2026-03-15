@@ -72,9 +72,11 @@ async function getPortalContext(req: Request) {
   };
 }
 
-function uniqueJobSuggestions(rows: Array<{ id: number; job_name: string; status?: string | null }>) {
+function uniqueJobSuggestions(
+  rows: Array<{ id: string; job_name: string; status?: string | null }>
+) {
   const seen = new Set<string>();
-  const out: Array<{ id: number; job_name: string; status?: string | null }> = [];
+  const out: Array<{ id: string; job_name: string; status?: string | null }> = [];
 
   for (const row of rows) {
     const key = String(row.job_name || "").trim().toLowerCase();
@@ -194,103 +196,135 @@ export async function GET(
       return json(500, { ok: false, error: reviewsErr.message || "Failed to load reviews." });
     }
 
-    const { data: batchItems, error: batchItemsErr } = await admin
-      .from("intake_items")
-      .select("id, status, created_at, source_filename, kind, confidence_score, job_name")
-      .eq("tenant_id", ctx.tenantId)
-      .eq("batch_id", item.batch_id)
-      .order("created_at", { ascending: true });
-
-    if (batchItemsErr) {
-      return json(500, { ok: false, error: batchItemsErr.message || "Failed to load batch items." });
-    }
-
-    const rows = batchItems || [];
-    const pendingStatuses = new Set(["pending_review", "uploaded", "validated", "extracted", "normalized"]);
-    const currentIdx = rows.findIndex((r: any) => String(r.id) === itemId);
-
+    // -----------------------------
+    // Batch context (fail-soft)
+    // -----------------------------
+    let rows: any[] = [];
+    let currentIdx = -1;
     let prevItemId: string | null = null;
     let nextItemId: string | null = null;
+    let nextPendingItemId: string | null = null;
 
-    if (currentIdx > 0) prevItemId = String(rows[currentIdx - 1]?.id || "") || null;
-    if (currentIdx > -1 && currentIdx < rows.length - 1) {
-      nextItemId = String(rows[currentIdx + 1]?.id || "") || null;
-    }
-
-    const nextPending = rows.find(
-      (r: any) => pendingStatuses.has(String(r.status || "")) && String(r.id) !== itemId
-    );
-
-    const batchProgress = {
-      total: rows.length,
-      pending: rows.filter((r: any) => String(r.status) === "pending_review").length,
-      persisted: rows.filter((r: any) => String(r.status) === "persisted").length,
-      skipped: rows.filter((r: any) => String(r.status) === "skipped").length,
-      duplicate: rows.filter((r: any) => String(r.status) === "duplicate").length,
-      failed: rows.filter((r: any) => String(r.status) === "failed").length,
-      currentIndex: currentIdx >= 0 ? currentIdx + 1 : 1,
+    let batchProgress = {
+      total: 1,
+      pending: String(item.status || "") === "pending_review" ? 1 : 0,
+      persisted: String(item.status || "") === "persisted" ? 1 : 0,
+      skipped: String(item.status || "") === "skipped" ? 1 : 0,
+      duplicate: String(item.status || "") === "duplicate" ? 1 : 0,
+      failed: String(item.status || "") === "failed" ? 1 : 0,
+      currentIndex: 1,
     };
 
-    const jobSuggestions: Array<{ id: number; job_name: string; status?: string | null }> = [];
-    const parseJobTerms: string[] = Array.isArray(draft?.raw_model_output?.enrich?.suggested_job_terms)
-      ? (draft.raw_model_output.enrich.suggested_job_terms as string[])
-      : [];
+    try {
+      const { data: batchItems, error: batchItemsErr } = await admin
+        .from("intake_items")
+        .select("id, status, created_at, source_filename, kind, confidence_score")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("batch_id", item.batch_id)
+        .order("created_at", { ascending: true });
 
-    const draftJobName = String(draft?.job_name || item?.job_name || "").trim();
-    const jobSearchTerms = [draftJobName, ...parseJobTerms]
-      .map((s) => String(s || "").trim())
-      .filter(Boolean)
-      .slice(0, 4);
+      if (batchItemsErr) {
+        console.warn("[INTAKE_ITEM_DETAIL] batch items load failed:", batchItemsErr.message);
+      } else {
+        rows = batchItems || [];
+        const pendingStatuses = new Set([
+          "pending_review",
+          "uploaded",
+          "validated",
+          "extracted",
+          "normalized",
+        ]);
 
-    for (const rawTerm of jobSearchTerms) {
-      const term = escapeLikeQuery(rawTerm);
-      const token = `%${term}%`;
+        currentIdx = rows.findIndex((r: any) => String(r.id) === itemId);
 
-      const { data: fuzzyJobs, error: fuzzyJobsErr } = await admin
-        .from("jobs")
-        .select("id, job_name, name, status")
-        .eq("owner_id", ctx.ownerId)
-        .or(`job_name.ilike.${token},name.ilike.${token}`)
-        .limit(8);
+        if (currentIdx > 0) prevItemId = String(rows[currentIdx - 1]?.id || "") || null;
+        if (currentIdx > -1 && currentIdx < rows.length - 1) {
+          nextItemId = String(rows[currentIdx + 1]?.id || "") || null;
+        }
 
-      if (fuzzyJobsErr) {
-        return json(500, {
-          ok: false,
-          error: fuzzyJobsErr.message || "Failed to load job suggestions.",
-        });
+        const nextPending = rows.find(
+          (r: any) => pendingStatuses.has(String(r.status || "")) && String(r.id) !== itemId
+        );
+
+        nextPendingItemId = nextPending ? String((nextPending as any).id) : null;
+
+        batchProgress = {
+          total: rows.length || 1,
+          pending: rows.filter((r: any) => String(r.status) === "pending_review").length,
+          persisted: rows.filter((r: any) => String(r.status) === "persisted").length,
+          skipped: rows.filter((r: any) => String(r.status) === "skipped").length,
+          duplicate: rows.filter((r: any) => String(r.status) === "duplicate").length,
+          failed: rows.filter((r: any) => String(r.status) === "failed").length,
+          currentIndex: currentIdx >= 0 ? currentIdx + 1 : 1,
+        };
       }
-
-      for (const row of fuzzyJobs || []) {
-        jobSuggestions.push({
-          id: Number((row as any).id),
-          job_name: String((row as any).job_name || (row as any).name || ""),
-          status: (row as any).status ?? null,
-        });
-      }
+    } catch (e: any) {
+      console.warn("[INTAKE_ITEM_DETAIL] batch context fallback:", e?.message || e);
     }
 
-    if (jobSuggestions.length === 0) {
-      const { data: recentJobs, error: recentJobsErr } = await admin
-        .from("jobs")
-        .select("id, job_name, name, status, created_at")
-        .eq("owner_id", ctx.ownerId)
-        .order("created_at", { ascending: false })
-        .limit(8);
+    // -----------------------------
+    // Job suggestions (fail-soft)
+    // -----------------------------
+    const jobSuggestions: Array<{ id: string; job_name: string; status?: string | null }> = [];
 
-      if (recentJobsErr) {
-        return json(500, {
-          ok: false,
-          error: recentJobsErr.message || "Failed to load recent jobs.",
-        });
+    try {
+      const parseJobTerms: string[] = Array.isArray(draft?.raw_model_output?.enrich?.suggested_job_terms)
+        ? (draft.raw_model_output.enrich.suggested_job_terms as string[])
+        : [];
+
+      const draftJobName = String(draft?.job_name || item?.job_name || "").trim();
+      const jobSearchTerms = [draftJobName, ...parseJobTerms]
+        .map((s) => String(s || "").trim())
+        .filter(Boolean)
+        .slice(0, 4);
+
+      for (const rawTerm of jobSearchTerms) {
+        const term = escapeLikeQuery(rawTerm);
+        const token = `%${term}%`;
+
+        const { data: fuzzyJobs, error: fuzzyJobsErr } = await admin
+          .from("jobs")
+          .select("id, job_name, name, status")
+          .eq("owner_id", ctx.ownerId)
+          .or(`job_name.ilike.${token},name.ilike.${token}`)
+          .limit(8);
+
+        if (fuzzyJobsErr) {
+          console.warn("[INTAKE_ITEM_DETAIL] fuzzy job suggestions failed:", fuzzyJobsErr.message);
+          continue;
+        }
+
+        for (const row of fuzzyJobs || []) {
+          jobSuggestions.push({
+            id: String((row as any).id ?? ""),
+            job_name: String((row as any).job_name || (row as any).name || ""),
+            status: (row as any).status ?? null,
+          });
+        }
       }
 
-      for (const row of recentJobs || []) {
-        jobSuggestions.push({
-          id: Number((row as any).id),
-          job_name: String((row as any).job_name || (row as any).name || ""),
-          status: (row as any).status ?? null,
-        });
+      if (jobSuggestions.length === 0) {
+        const { data: recentJobs, error: recentJobsErr } = await admin
+          .from("jobs")
+          .select("id, job_name, name, status, created_at")
+          .eq("owner_id", ctx.ownerId)
+          .order("created_at", { ascending: false })
+          .limit(8);
+
+        if (recentJobsErr) {
+          console.warn("[INTAKE_ITEM_DETAIL] recent jobs fallback failed:", recentJobsErr.message);
+        } else {
+          for (const row of recentJobs || []) {
+            jobSuggestions.push({
+              id: String((row as any).id ?? ""),
+              job_name: String((row as any).job_name || (row as any).name || ""),
+              status: (row as any).status ?? null,
+            });
+          }
+        }
       }
+    } catch (e: any) {
+      console.warn("[INTAKE_ITEM_DETAIL] job suggestions fallback:", e?.message || e);
     }
 
     const validationFlags = normalizeFlags(draft?.validation_flags);
@@ -306,7 +340,7 @@ export async function GET(
       nav: {
         prevItemId,
         nextItemId,
-        nextPendingItemId: nextPending ? String((nextPending as any).id) : null,
+        nextPendingItemId,
       },
       jobSuggestions: uniqueJobSuggestions(jobSuggestions).slice(0, 8),
       evidence: {

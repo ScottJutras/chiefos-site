@@ -76,6 +76,47 @@ function adminClient(): any {
   );
 }
 
+async function resolveOwnerPlanKey(admin: any, ownerId: string): Promise<string> {
+  const owner = String(ownerId || "").trim();
+  if (!owner) return "free";
+
+  try {
+    const { data } = await admin
+      .from("users")
+      .select("plan_key, subscription_tier, stripe_subscription_id, current_period_end, trial_end, sub_status")
+      .eq("user_id", owner)
+      .limit(1)
+      .maybeSingle();
+
+    const row = data || null;
+    const planKey = String(row?.plan_key || "").toLowerCase().trim();
+    const tier = String(row?.subscription_tier || "").toLowerCase().trim();
+    const subId = String(row?.stripe_subscription_id || "").trim();
+    const status = String(row?.sub_status || "").toLowerCase().trim();
+
+    const now = Date.now();
+    const trialEnd = row?.trial_end ? new Date(row.trial_end).getTime() : 0;
+    const periodEnd = row?.current_period_end ? new Date(row.current_period_end).getTime() : 0;
+
+    const onTrial = !!trialEnd && trialEnd > now;
+    const inPeriod = !!periodEnd && periodEnd > now;
+
+    if (
+      onTrial ||
+      inPeriod ||
+      (!!subId && status !== "canceled" && status !== "cancelled") ||
+      ["starter", "pro", "beta", "paid"].includes(planKey) ||
+      ["starter", "pro"].includes(tier)
+    ) {
+      return ["pro"].includes(planKey) || ["pro"].includes(tier) ? "pro" : "starter";
+    }
+
+    return "free";
+  } catch {
+    return "free";
+  }
+}
+
 async function getPortalContext(req: Request): Promise<PortalContext> {
   const token = bearerFromReq(req);
   if (!token) return { ok: false, error: "Missing bearer token." };
@@ -332,7 +373,7 @@ function extractCandidateFields(kind: IntakeKind, text: string, existingJobName:
 
   const vendor = pickVendorFromLines(normalized);
   const event_date = parseDateCandidate(normalized);
-  const currency = detectCurrency(normalized) || "USD";
+  const currency = detectCurrency(normalized);
   const description = buildDescription(kind, vendor, normalized);
 
   const source: "ocr_text" | "transcript_text" | "none" =
@@ -490,7 +531,12 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
   return normalizeWhitespace(cleaned);
 }
 
-async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: IntakeKind }) {
+async function hydrateEvidenceText(
+  admin: any,
+  item: any,
+  inferred: { kind: IntakeKind },
+  ownerId: string
+) {
   const existingOcr = normalizeWhitespace(item?.ocr_text);
   const existingTranscript = normalizeWhitespace(item?.transcript_text);
 
@@ -501,17 +547,79 @@ async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: Inta
       transcript_text: existingTranscript || null,
       hydratedFromStorage: false,
       hydrationNote: existingTranscript ? "Used existing transcript_text." : "No transcript available yet.",
+      documentAiFields: null,
     };
   }
 
   if (inferred.kind === "receipt_image") {
-    return {
-      bestText: existingOcr,
-      ocr_text: existingOcr || null,
-      transcript_text: item?.transcript_text || null,
-      hydratedFromStorage: false,
-      hydrationNote: existingOcr ? "Used existing ocr_text." : "No OCR available yet.",
-    };
+    if (existingOcr) {
+      return {
+        bestText: existingOcr,
+        ocr_text: existingOcr || null,
+        transcript_text: item?.transcript_text || null,
+        hydratedFromStorage: false,
+        hydrationNote: "Used existing ocr_text.",
+        documentAiFields: null,
+      };
+    }
+
+    try {
+      const bytes = await downloadStorageBytes(
+        admin,
+        String(item?.storage_bucket || ""),
+        String(item?.storage_path || "")
+      );
+
+      const mod: any = await import("../../../../../utils/documentAiExpense.js");
+      const processExpenseReceipt =
+        mod?.processExpenseReceipt || mod?.default?.processExpenseReceipt || null;
+
+      if (typeof processExpenseReceipt !== "function") {
+        return {
+          bestText: "",
+          ocr_text: null,
+          transcript_text: item?.transcript_text || null,
+          hydratedFromStorage: false,
+          hydrationNote: "Document AI receipt OCR helper is unavailable.",
+          documentAiFields: null,
+        };
+      }
+
+      const planKey = await resolveOwnerPlanKey(admin, ownerId);
+
+      const out = await processExpenseReceipt({
+        projectId: process.env.GOOGLE_DOCUMENT_AI_PROJECT_ID,
+        processorId: process.env.GOOGLE_DOCUMENT_AI_RECEIPT_PROCESSOR_ID,
+        location: process.env.GOOGLE_DOCUMENT_AI_LOCATION || "us",
+        bytes,
+        mimeType: item?.mime_type || "image/jpeg",
+        ownerId: String(ownerId || "").trim(),
+        planKey,
+      });
+
+      const text = normalizeWhitespace(out?.text || "");
+      const fields = out?.fields || null;
+
+      return {
+        bestText: text,
+        ocr_text: text || null,
+        transcript_text: item?.transcript_text || null,
+        hydratedFromStorage: Boolean(text),
+        hydrationNote: text
+          ? "Hydrated OCR text from receipt image using Document AI."
+          : "Receipt image OCR ran, but no reliable text was extracted.",
+        documentAiFields: fields,
+      };
+    } catch (e: any) {
+      return {
+        bestText: "",
+        ocr_text: item?.ocr_text || null,
+        transcript_text: item?.transcript_text || null,
+        hydratedFromStorage: false,
+        hydrationNote: e?.message || "Receipt image OCR failed.",
+        documentAiFields: null,
+      };
+    }
   }
 
   if (inferred.kind === "pdf_document") {
@@ -522,6 +630,7 @@ async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: Inta
         transcript_text: item?.transcript_text || null,
         hydratedFromStorage: false,
         hydrationNote: "Used existing PDF text already stored on item.",
+        documentAiFields: null,
       };
     }
 
@@ -542,6 +651,7 @@ async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: Inta
         hydrationNote: pdfText
           ? "Hydrated text from digital PDF content."
           : "PDF downloaded, but no reliable text could be extracted.",
+        documentAiFields: null,
       };
     } catch (e: any) {
       return {
@@ -550,6 +660,7 @@ async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: Inta
         transcript_text: item?.transcript_text || null,
         hydratedFromStorage: false,
         hydrationNote: e?.message || "Failed PDF hydration.",
+        documentAiFields: null,
       };
     }
   }
@@ -560,6 +671,7 @@ async function hydrateEvidenceText(admin: any, item: any, inferred: { kind: Inta
     transcript_text: existingTranscript || null,
     hydratedFromStorage: false,
     hydrationNote: "Unsupported file type.",
+    documentAiFields: null,
   };
 }
 
@@ -633,14 +745,47 @@ export async function POST(req: Request) {
       }
 
       const inferred = draftFromMime(item?.mime_type, item?.source_filename);
-      const hydrated = await hydrateEvidenceText(admin, item, inferred);
-      const normalizedEvidenceText = normalizeWhitespace(hydrated.bestText);
+      const hydrated = await hydrateEvidenceText(admin, item, inferred, ownerId);
+const normalizedEvidenceText = normalizeWhitespace(hydrated.bestText);
 
-      const extraction = extractCandidateFields(
-        inferred.kind,
-        normalizedEvidenceText,
-        item?.job_name || null
-      );
+const extraction = extractCandidateFields(
+  inferred.kind,
+  normalizedEvidenceText,
+  item?.job_name || null
+);
+
+// Merge stronger structured OCR fields when available
+const docFields = hydrated.documentAiFields || null;
+if (docFields) {
+  const supplier = String(docFields.supplier || "").trim() || null;
+  const receiptDateRaw = String(docFields.receiptDate || "").trim() || null;
+  const totalRaw = String(docFields.total || "").trim() || null;
+  const currencyRaw = String(docFields.currency || "").trim().toUpperCase() || null;
+
+  const receiptDate = receiptDateRaw ? parseDateCandidate(receiptDateRaw) || receiptDateRaw : null;
+  const totalCents = totalRaw ? parseMoneyToCents(totalRaw) : null;
+
+  if (!extraction.candidate_fields.vendor && supplier) {
+    extraction.candidate_fields.vendor = supplier;
+  }
+
+  if (!extraction.candidate_fields.event_date && receiptDate) {
+    extraction.candidate_fields.event_date = receiptDate;
+  }
+
+  if (totalCents != null) {
+    extraction.candidate_fields.total_cents = totalCents;
+    extraction.candidate_fields.amount_cents = totalCents;
+  }
+
+  if (!extraction.candidate_fields.currency && currencyRaw) {
+    extraction.candidate_fields.currency = currencyRaw;
+  }
+
+  if (!extraction.candidate_fields.description && supplier) {
+    extraction.candidate_fields.description = `Expense from ${supplier}`;
+  }
+}
 
       const validation = validateExtraction(
         inferred.kind,
