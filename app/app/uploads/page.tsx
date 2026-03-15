@@ -6,9 +6,16 @@ import { useTenantGate } from "@/lib/useTenantGate";
 
 type UploadPhase = "idle" | "uploading" | "processing" | "done" | "error";
 
+type UploadErrorDetail = {
+  message: string;
+  code?: string | null;
+  hint?: string | null;
+  bucket?: string | null;
+};
+
 type UploadState = {
   phase: UploadPhase;
-  error: string | null;
+  error: UploadErrorDetail | null;
   batchId: string | null;
   uploadedCount: number;
   processedCount: number;
@@ -90,8 +97,19 @@ export default function UploadsPage() {
       });
 
       const token = await getToken();
-      if (!token) throw new Error("Missing session.");
-      if (!files.length) throw new Error("Choose at least one file.");
+      if (!token) {
+        throw {
+          message: "Missing session.",
+          code: "AUTH_REQUIRED",
+        };
+      }
+
+      if (!files.length) {
+        throw {
+          message: "Choose at least one file.",
+          code: "NO_FILES",
+        };
+      }
 
       const form = new FormData();
       for (const file of files) form.append("files", file);
@@ -103,12 +121,23 @@ export default function UploadsPage() {
       });
 
       const uploadJson = await uploadRes.json().catch(() => ({}));
+
       if (!uploadRes.ok || !uploadJson?.ok) {
-        throw new Error(uploadJson?.error || "Upload failed.");
+        throw {
+          message: uploadJson?.error || "Upload failed.",
+          code: uploadJson?.code || `HTTP_${uploadRes.status}`,
+          hint: uploadJson?.hint || null,
+          bucket: uploadJson?.bucket || null,
+        };
       }
 
       const batchId = String(uploadJson.batchId || "").trim();
-      if (!batchId) throw new Error("Upload succeeded but no batchId was returned.");
+      if (!batchId) {
+        throw {
+          message: "Upload succeeded but no batchId was returned.",
+          code: "BATCH_ID_MISSING",
+        };
+      }
 
       setState((prev) => ({
         ...prev,
@@ -127,8 +156,13 @@ export default function UploadsPage() {
       });
 
       const processJson = await processRes.json().catch(() => ({}));
+
       if (!processRes.ok || !processJson?.ok) {
-        throw new Error(processJson?.error || "Upload succeeded but processing failed.");
+        throw {
+          message: processJson?.error || "Upload succeeded but processing failed.",
+          code: processJson?.code || `HTTP_${processRes.status}`,
+          hint: processJson?.hint || null,
+        };
       }
 
       setState({
@@ -148,7 +182,12 @@ export default function UploadsPage() {
       setState((prev) => ({
         ...prev,
         phase: "error",
-        error: e?.message || "Upload failed.",
+        error: {
+          message: e?.message || "Upload failed.",
+          code: e?.code || null,
+          hint: e?.hint || null,
+          bucket: e?.bucket || null,
+        },
       }));
     }
   }
@@ -218,7 +257,20 @@ export default function UploadsPage() {
 
           {state.error && (
             <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {state.error}
+              <div className="font-semibold">Upload failed</div>
+              <div className="mt-1">{state.error.message}</div>
+
+              {state.error.code ? (
+                <div className="mt-2 text-xs text-red-100/75">Code: {state.error.code}</div>
+              ) : null}
+
+              {state.error.bucket ? (
+                <div className="mt-1 text-xs text-red-100/75">Bucket: {state.error.bucket}</div>
+              ) : null}
+
+              {state.error.hint ? (
+                <div className="mt-2 text-xs text-red-100/85">{state.error.hint}</div>
+              ) : null}
             </div>
           )}
 
