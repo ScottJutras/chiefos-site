@@ -242,15 +242,23 @@ function ChiefClientInner() {
 
       if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Please log in again." };
       if (status === 403) return { ok: false, code: "PERMISSION_DENIED", message: "Access denied." };
-      if (status === 402)
-        return {
-          ok: false,
-          code: "PLAN_REQUIRED",
-          message: "Ask Chief unlocks on Starter.",
-          upgrade_url: "/app/settings/billing",
-        };
+    if (status === 402)
+  return {
+    ok: false,
+    code: "PLAN_REQUIRED",
+    message: "Ask Chief unlocks on Starter.",
+    upgrade_url: "/app/settings/billing",
+  };
 
-      return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief failed." };
+if (j?.code === "UPSTREAM_TIMEOUT") {
+  return {
+    ok: false,
+    code: "UPSTREAM_TIMEOUT",
+    message: j?.message || "I’m having trouble reasoning right now. Your data is safe. Try again.",
+  };
+}
+
+return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief failed." };
     };
 
     try {
@@ -309,191 +317,234 @@ function ChiefClientInner() {
   }
 
   function renderChiefBubble(m: Msg) {
-    if (m.pending) {
-      return (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-          <div className="text-xs text-white/55">Chief</div>
-          <div className="mt-2 space-y-2">
-            <div className="h-3 w-1/2 rounded bg-white/10 animate-pulse" />
-            <div className="h-3 w-2/3 rounded bg-white/10 animate-pulse" />
-            <div className="h-3 w-1/3 rounded bg-white/10 animate-pulse" />
-          </div>
-          <div className="mt-3 text-xs text-white/40">Chief is checking your ledger…</div>
+  if (m.pending) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+        <div className="text-xs text-white/55">Chief</div>
+        <div className="mt-2 space-y-2">
+          <div className="h-3 w-1/2 rounded bg-white/10 animate-pulse" />
+          <div className="h-3 w-2/3 rounded bg-white/10 animate-pulse" />
+          <div className="h-3 w-1/3 rounded bg-white/10 animate-pulse" />
         </div>
+        <div className="mt-3 text-xs text-white/40">Chief is checking your ledger…</div>
+      </div>
+    );
+  }
+
+  const resp = m.resp;
+  if (!resp) return null;
+
+  // Find the most recent user prompt before this Chief message.
+  const chiefIdx = msgs.findIndex((x) => x.id === m.id);
+  const retryPrompt =
+    chiefIdx > 0
+      ? [...msgs.slice(0, chiefIdx)].reverse().find((x) => x.role === "user")?.prompt?.trim() || ""
+      : "";
+
+  if (resp.ok === false) {
+    if (resp.code === "PLAN_REQUIRED") {
+      return (
+        <StateCard
+          title="Ask Chief unlocks on Starter"
+          body="Chief can answer from your real ledger, but Ask Chief is available on Starter and above."
+          actions={[
+            {
+              label: "Go to Billing",
+              href: resp.upgrade_url || "/app/settings/billing",
+              kind: "primary",
+            },
+            { label: "See plans", href: "/pricing", kind: "secondary" },
+          ]}
+        />
       );
     }
 
-    const resp = m.resp;
-    if (!resp) return null;
-
-    if (resp.ok === false) {
-      if (resp.code === "PLAN_REQUIRED") {
-        return (
-          <StateCard
-            title="Ask Chief unlocks on Starter"
-            body="Chief can answer from your real ledger, but Ask Chief is available on Starter and above."
-            actions={[
-              { label: "Go to Billing", href: resp.upgrade_url || "/app/settings/billing", kind: "primary" },
-              { label: "See plans", href: "/pricing", kind: "secondary" },
-            ]}
-          />
-        );
-      }
-
-      if (resp.code === "NOT_LINKED") {
-        return (
-          <StateCard
-            title="Connect WhatsApp to this business"
-            body="Your portal account isn’t linked to a WhatsApp identity for this tenant yet."
-            actions={[
-              { label: "Connect WhatsApp", href: "/app/connect-whatsapp", kind: "primary" },
-              { label: "Back to app", href: "/app/expenses", kind: "secondary" },
-            ]}
-          />
-        );
-      }
-
-      if (resp.code === "PERMISSION_DENIED") {
-        return (
-          <StateCard
-            title="You don’t have access to Ask Chief"
-            body="Ask the owner or a board member to grant you access."
-            actions={[{ label: "Back to app", href: "/app/expenses", kind: "secondary" }]}
-          />
-        );
-      }
-
-      if (resp.code === "AUTH_REQUIRED") {
-        return (
-          <StateCard
-            title="Session expired"
-            body="Please log in again to continue."
-            actions={[{ label: "Log in", href: "/login", kind: "primary" }]}
-          />
-        );
-      }
-
+    if (resp.code === "UPSTREAM_TIMEOUT") {
       return (
         <StateCard
-          title="Chief couldn’t answer that"
-          body={resp.message || "Try again, or narrow the question (e.g., WTD, by job, or by vendor)."}
+          title="Chief is taking too long"
+          body={resp.message || "I’m having trouble reasoning right now. Your data is safe. Try again."}
+          actions={[
+            ...(retryPrompt
+              ? [
+                  {
+                    label: "Try again",
+                    onClick: () => void callAskChief(retryPrompt),
+                    kind: "primary" as const,
+                  },
+                ]
+              : []),
+            { label: "Back to app", href: "/app/expenses", kind: "secondary" },
+          ]}
+        />
+      );
+    }
+
+    if (resp.code === "NOT_LINKED") {
+      return (
+        <StateCard
+          title="Connect WhatsApp to this business"
+          body="Your portal account isn’t linked to a WhatsApp identity for this tenant yet."
+          actions={[
+            { label: "Connect WhatsApp", href: "/app/connect-whatsapp", kind: "primary" },
+            { label: "Back to app", href: "/app/expenses", kind: "secondary" },
+          ]}
+        />
+      );
+    }
+
+    if (resp.code === "PERMISSION_DENIED") {
+      return (
+        <StateCard
+          title="You don’t have access to Ask Chief"
+          body="Ask the owner or a board member to grant you access."
           actions={[{ label: "Back to app", href: "/app/expenses", kind: "secondary" }]}
         />
       );
     }
 
-    const ok = resp as AskChiefOk;
+    if (resp.code === "AUTH_REQUIRED") {
+      return (
+        <StateCard
+          title="Session expired"
+          body="Please log in again to continue."
+          actions={[{ label: "Log in", href: "/login", kind: "primary" }]}
+        />
+      );
+    }
 
     return (
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-          <div className="text-xs text-white/55">Chief</div>
-          <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{ok.answer}</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-xs font-semibold text-white/85">Scope & Evidence</div>
-
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-white/70">
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <div className="text-white/45">Range</div>
-              <div className="mt-1 text-white/85">
-                {typeof ok.evidence_meta?.range === "string"
-                  ? ok.evidence_meta.range.toUpperCase()
-                  : `${ok.evidence_meta.range.start} → ${ok.evidence_meta.range.end}`}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3">
-              <div className="text-white/45">Job</div>
-              <div className="mt-1 text-white/85">
-                {ok.evidence_meta?.job?.name || ok.evidence_meta?.job?.id || "All jobs"}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
-              <div className="text-white/45">Rows scanned</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {Object.entries(ok.evidence_meta?.tables || {}).length ? (
-                  Object.entries(ok.evidence_meta.tables || {}).map(([k, v]) => (
-                    <span
-                      key={k}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75"
-                    >
-                      {k}: <b className="text-white">{v}</b>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-white/55">—</span>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
-              <div className="text-white/45">Totals (computed server-side)</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ok.evidence_meta?.totals ? (
-                  <>
-                    {"revenue" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Revenue: <b className="text-white">${money(ok.evidence_meta.totals.revenue)}</b>
-                      </span>
-                    ) : null}
-                    {"expenses" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Expenses: <b className="text-white">${money(ok.evidence_meta.totals.expenses)}</b>
-                      </span>
-                    ) : null}
-                    {"net" in ok.evidence_meta.totals ? (
-                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
-                        Net: <b className="text-white">${money(ok.evidence_meta.totals.net)}</b>
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="text-white/55">—</span>
-                )}
-              </div>
-
-              <div className="mt-2 text-[11px] text-white/45">
-                Totals reflect the full filtered ledger (not just what’s visible on screen).
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {ok.warnings?.length ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <div className="text-xs font-semibold text-white/85">Warnings</div>
-            <ul className="mt-2 space-y-1 text-xs text-white/70 list-disc pl-5">
-              {ok.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {ok.actions?.length ? (
-          <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-            <div className="text-xs font-semibold text-white/85">Next best actions</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {ok.actions.slice(0, 7).map((a, i) => {
-                const primary = a.kind === "primary";
-                const cls = primary
-                  ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90"
-                  : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/80 hover:bg-white/10";
-                return (
-                  <a key={i} href={a.href} className={cls}>
-                    {a.label}
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <StateCard
+        title="Chief couldn’t answer that"
+        body={resp.message || "Try again, or narrow the question (e.g., WTD, by job, or by vendor)."}
+        actions={[
+          ...(retryPrompt
+            ? [
+                {
+                  label: "Try again",
+                  onClick: () => void callAskChief(retryPrompt),
+                  kind: "primary" as const,
+                },
+              ]
+            : []),
+          { label: "Back to app", href: "/app/expenses", kind: "secondary" },
+        ]}
+      />
     );
   }
+
+  const ok = resp as AskChiefOk;
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+        <div className="text-xs text-white/55">Chief</div>
+        <div className="mt-2 text-sm text-white/90 whitespace-pre-wrap">{ok.answer}</div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="text-xs font-semibold text-white/85">Scope & Evidence</div>
+
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-white/70">
+          <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+            <div className="text-white/45">Range</div>
+            <div className="mt-1 text-white/85">
+              {typeof ok.evidence_meta?.range === "string"
+                ? ok.evidence_meta.range.toUpperCase()
+                : `${ok.evidence_meta.range.start} → ${ok.evidence_meta.range.end}`}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+            <div className="text-white/45">Job</div>
+            <div className="mt-1 text-white/85">
+              {ok.evidence_meta?.job?.name || ok.evidence_meta?.job?.id || "All jobs"}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
+            <div className="text-white/45">Rows scanned</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(ok.evidence_meta?.tables || {}).length ? (
+                Object.entries(ok.evidence_meta.tables || {}).map(([k, v]) => (
+                  <span
+                    key={k}
+                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75"
+                  >
+                    {k}: <b className="text-white">{v}</b>
+                  </span>
+                ))
+              ) : (
+                <span className="text-white/55">—</span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/40 p-3 md:col-span-2">
+            <div className="text-white/45">Totals (computed server-side)</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {ok.evidence_meta?.totals ? (
+                <>
+                  {"revenue" in ok.evidence_meta.totals ? (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
+                      Revenue: <b className="text-white">${money(ok.evidence_meta.totals.revenue)}</b>
+                    </span>
+                  ) : null}
+                  {"expenses" in ok.evidence_meta.totals ? (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
+                      Expenses: <b className="text-white">${money(ok.evidence_meta.totals.expenses)}</b>
+                    </span>
+                  ) : null}
+                  {"net" in ok.evidence_meta.totals ? (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75">
+                      Net: <b className="text-white">${money(ok.evidence_meta.totals.net)}</b>
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="text-white/55">—</span>
+              )}
+            </div>
+
+            <div className="mt-2 text-[11px] text-white/45">
+              Totals reflect the full filtered ledger (not just what’s visible on screen).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {ok.warnings?.length ? (
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+          <div className="text-xs font-semibold text-white/85">Warnings</div>
+          <ul className="mt-2 space-y-1 text-xs text-white/70 list-disc pl-5">
+            {ok.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {ok.actions?.length ? (
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+          <div className="text-xs font-semibold text-white/85">Next best actions</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ok.actions.slice(0, 7).map((a, i) => {
+              const primary = a.kind === "primary";
+              const cls = primary
+                ? "rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90"
+                : "rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/80 hover:bg-white/10";
+              return (
+                <a key={i} href={a.href} className={cls}>
+                  {a.label}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
   function renderUserBubble(m: Msg) {
     return (
