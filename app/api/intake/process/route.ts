@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { processExpenseReceipt } from "@/lib/server/documentAiExpense";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -570,31 +571,12 @@ async function hydrateEvidenceText(
         String(item?.storage_path || "")
       );
 
-      const mod: any = await import("../../../../../utils/documentAiExpense.js");
-      const processExpenseReceipt =
-        mod?.processExpenseReceipt || mod?.default?.processExpenseReceipt || null;
-
-      if (typeof processExpenseReceipt !== "function") {
-        return {
-          bestText: "",
-          ocr_text: null,
-          transcript_text: item?.transcript_text || null,
-          hydratedFromStorage: false,
-          hydrationNote: "Document AI receipt OCR helper is unavailable.",
-          documentAiFields: null,
-        };
-      }
-
-      const planKey = await resolveOwnerPlanKey(admin, ownerId);
-
       const out = await processExpenseReceipt({
-        projectId: process.env.GOOGLE_DOCUMENT_AI_PROJECT_ID,
-        processorId: process.env.GOOGLE_DOCUMENT_AI_RECEIPT_PROCESSOR_ID,
+        projectId: mustEnv("GOOGLE_DOCUMENT_AI_PROJECT_ID"),
+        processorId: mustEnv("GOOGLE_DOCUMENT_AI_RECEIPT_PROCESSOR_ID"),
         location: process.env.GOOGLE_DOCUMENT_AI_LOCATION || "us",
         bytes,
         mimeType: item?.mime_type || "image/jpeg",
-        ownerId: String(ownerId || "").trim(),
-        planKey,
       });
 
       const text = normalizeWhitespace(out?.text || "");

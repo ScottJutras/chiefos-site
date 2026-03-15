@@ -2,8 +2,8 @@
   "name": "chiefos-site",
   "version": "0.1.0",
   "private": true,
-  "engines":{  
-      "node": "22.x"
+  "engines": {
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -12,6 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google-cloud/documentai": "^9.5.0",
     "@marsidev/react-turnstile": "^1.4.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.0",
