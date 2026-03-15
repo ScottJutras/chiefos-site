@@ -29,6 +29,21 @@ function cls(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+function canonicalAppPath(path: string) {
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+
+  if (typeof window === "undefined") return safePath;
+
+  const host = window.location.host.toLowerCase();
+  const isMarketingHost = host === "www.usechiefos.com" || host === "usechiefos.com";
+
+  if (isMarketingHost) {
+    return `https://app.usechiefos.com${safePath}`;
+  }
+
+  return safePath;
+}
+
 export default function CreateJobForm() {
   const router = useRouter();
 
@@ -84,18 +99,15 @@ export default function CreateJobForm() {
           message: j?.message || "Job created.",
         });
 
-        const jobId = j?.job?.id;
-        if (jobId != null && String(jobId).trim()) {
-          window.setTimeout(() => {
-            router.push(`/app/jobs?jobId=${encodeURIComponent(String(jobId))}`);
-            router.refresh();
-          }, 600);
-        } else {
-          window.setTimeout(() => {
-            router.push("/app/jobs");
-            router.refresh();
-          }, 600);
-        }
+        const jobId = j?.job?.id != null ? String(j.job.id).trim() : "";
+        const target = jobId
+          ? canonicalAppPath(`/app/dashboard?jobId=${encodeURIComponent(jobId)}`)
+          : canonicalAppPath("/app/dashboard");
+
+        window.setTimeout(() => {
+          router.push(target);
+          router.refresh();
+        }, 600);
 
         return;
       }
@@ -146,7 +158,7 @@ export default function CreateJobForm() {
           <ul className="mt-3 space-y-2 text-sm text-white/65">
             <li>• Create the job through a portal-safe route</li>
             <li>• Keep this flow deterministic and out of Ask Chief</li>
-            <li>• Return you to Jobs after success</li>
+            <li>• Return you to the dashboard workspace after success</li>
           </ul>
         </div>
 
@@ -194,7 +206,7 @@ export default function CreateJobForm() {
           </button>
 
           <Link
-            href="/app/jobs"
+            href="/app/dashboard"
             className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10"
           >
             Cancel
