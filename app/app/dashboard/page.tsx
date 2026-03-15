@@ -219,7 +219,7 @@ function CenterWorkspace({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <UtilityLink href="/app/chief?q=Create%20job%20" label="Create job" />
+            <UtilityLink href="/app/jobs/new" label="Create job" tone="primary" />
             <UtilityLink href="/app/uploads" label="Upload files" />
             <UtilityLink href="/app/pending-review" label="Pending Review" />
           </div>
@@ -262,7 +262,7 @@ function CenterWorkspace({
               </div>
 
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                <UtilityLink href="/app/chief?q=Create%20job%20" label="Create job" tone="primary" />
+                <UtilityLink href="/app/jobs/new" label="Create job" tone="primary" />
                 <UtilityLink href="/app/uploads" label="Upload receipts / files" />
               </div>
             </div>
