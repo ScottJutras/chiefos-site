@@ -29,6 +29,14 @@ function bearerFromReq(req: Request) {
   return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : "";
 }
 
+function getIntakeUploadsBucket() {
+  return (
+    process.env.INTAKE_UPLOADS_BUCKET ||
+    process.env.SUPABASE_INTAKE_UPLOADS_BUCKET ||
+    "intake-uploads"
+  ).trim();
+}
+
 function adminClient() {
   return createClient(
     mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, ""),
@@ -211,6 +219,7 @@ export async function POST(req: Request) {
     }
 
     const batchKind = detectBatchKind(files);
+    const storageBucket = getIntakeUploadsBucket();
 
     const { data: batch, error: batchErr } = await ctx.admin
       .from("intake_batches")
@@ -241,17 +250,24 @@ export async function POST(req: Request) {
       const kind = classifyFile(file);
 
       const upload = await ctx.admin.storage
-        .from("intake-uploads")
+        .from(storageBucket)
         .upload(objectPath, buffer, {
           contentType: file.type || "application/octet-stream",
           upsert: false,
         });
 
       if (upload.error) {
+        const msg = String(upload.error.message || "");
+        const isMissingBucket = /bucket.*not.*found/i.test(msg);
+
         return json(500, {
           ok: false,
+          code: isMissingBucket ? "STORAGE_BUCKET_MISSING" : "STORAGE_UPLOAD_FAILED",
           error: upload.error.message || "Storage upload failed.",
-          hint: "Confirm the private bucket intake-uploads exists.",
+          hint: isMissingBucket
+            ? `Confirm the private Supabase bucket "${storageBucket}" exists in the production project.`
+            : undefined,
+          bucket: storageBucket,
         });
       }
 
@@ -287,7 +303,7 @@ export async function POST(req: Request) {
           created_by_auth_user_id: ctx.authUserId,
           kind: kind.itemKind,
           status,
-          storage_bucket: "intake-uploads",
+          storage_bucket: storageBucket,
           storage_path: objectPath,
           source_filename: file.name,
           mime_type: file.type || null,
@@ -312,7 +328,7 @@ export async function POST(req: Request) {
         itemKind: kind.itemKind,
         draftType: kind.draftType,
         file,
-        storageBucket: "intake-uploads",
+        storageBucket,
         storagePath: objectPath,
         sourceHash,
       });
@@ -399,6 +415,7 @@ export async function POST(req: Request) {
       uploadedCount: uploadedItemIds.length,
       duplicateCount: duplicateItemIds.length,
       itemIds: uploadedItemIds,
+      bucket: storageBucket,
       message:
         duplicateItemIds.length > 0
           ? "Files uploaded and normalized. Some items were flagged as possible duplicates for owner review."
