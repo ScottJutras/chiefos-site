@@ -85,7 +85,7 @@ async function resolveOwnerPlanKey(admin: any, ownerId: string): Promise<string>
     const { data } = await admin
       .from("users")
       .select("plan_key, subscription_tier, stripe_subscription_id, current_period_end, trial_end, sub_status")
-      .eq("user_id", owner)
+      .eq("owner_id", owner)
       .limit(1)
       .maybeSingle();
 

@@ -147,17 +147,32 @@ function buildBestText(item: any, draft: any) {
 
 export async function GET(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   try {
+    console.info("[INTAKE_ITEM_DETAIL_ROUTE_HIT]", {
+      url: req.url,
+      itemIdFromParams: context?.params?.id || null,
+    });
+
     const ctx = await getPortalContext(req);
-    if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
+    if (!ctx.ok) {
+      console.warn("[INTAKE_ITEM_DETAIL_UNAUTHORIZED]", {
+        url: req.url,
+        error: ctx.error,
+      });
+      return json(401, { ok: false, error: ctx.error });
+    }
 
     const admin = ctx.admin;
-    const params = await context.params;
-    const itemId = String(params.id || "").trim();
+    const itemId = String(context?.params?.id || "").trim();
 
     if (!itemId) {
+      console.warn("[INTAKE_ITEM_DETAIL_BAD_REQUEST]", {
+        url: req.url,
+        tenantId: ctx.tenantId,
+        error: "Missing item id.",
+      });
       return json(400, { ok: false, error: "Missing item id." });
     }
 
@@ -169,6 +184,11 @@ export async function GET(
       .maybeSingle();
 
     if (itemAnyTenantErr) {
+      console.error("[INTAKE_ITEM_DETAIL_LOOKUP_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: itemAnyTenantErr.message || "Failed to look up intake item.",
+      });
       return json(500, {
         ok: false,
         error: itemAnyTenantErr.message || "Failed to look up intake item.",
@@ -176,6 +196,11 @@ export async function GET(
     }
 
     if (!itemAnyTenant) {
+      console.warn("[INTAKE_ITEM_DETAIL_NOT_FOUND]", {
+        itemId,
+        tenantId: ctx.tenantId,
+      });
+
       return json(404, {
         ok: false,
         error: "Intake item not found.",
@@ -185,6 +210,12 @@ export async function GET(
     }
 
     if (String(itemAnyTenant.tenant_id || "") !== ctx.tenantId) {
+      console.warn("[INTAKE_ITEM_DETAIL_TENANT_MISMATCH]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        itemTenantId: String(itemAnyTenant.tenant_id || ""),
+      });
+
       return json(403, {
         ok: false,
         error: "Item exists but does not belong to this tenant context.",
@@ -206,6 +237,11 @@ export async function GET(
       .maybeSingle();
 
     if (draftErr) {
+      console.error("[INTAKE_ITEM_DETAIL_DRAFT_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: draftErr.message || "Failed to load draft.",
+      });
       return json(500, { ok: false, error: draftErr.message || "Failed to load draft." });
     }
 
@@ -217,6 +253,11 @@ export async function GET(
       .order("created_at", { ascending: false });
 
     if (reviewsErr) {
+      console.error("[INTAKE_ITEM_DETAIL_REVIEWS_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: reviewsErr.message || "Failed to load reviews.",
+      });
       return json(500, { ok: false, error: reviewsErr.message || "Failed to load reviews." });
     }
 
@@ -228,6 +269,12 @@ export async function GET(
       .order("created_at", { ascending: true });
 
     if (batchItemsErr) {
+      console.error("[INTAKE_ITEM_DETAIL_BATCH_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        batchId: item.batch_id || null,
+        error: batchItemsErr.message || "Failed to load batch items.",
+      });
       return json(500, { ok: false, error: batchItemsErr.message || "Failed to load batch items." });
     }
 
@@ -280,6 +327,12 @@ export async function GET(
         .limit(8);
 
       if (fuzzyJobsErr) {
+        console.error("[INTAKE_ITEM_DETAIL_JOB_SUGGEST_ERR]", {
+          itemId,
+          ownerId: ctx.ownerId,
+          term: rawTerm,
+          error: fuzzyJobsErr.message || "Failed to load job suggestions.",
+        });
         return json(500, {
           ok: false,
           error: fuzzyJobsErr.message || "Failed to load job suggestions.",
@@ -304,6 +357,11 @@ export async function GET(
         .limit(8);
 
       if (recentJobsErr) {
+        console.error("[INTAKE_ITEM_DETAIL_RECENT_JOBS_ERR]", {
+          itemId,
+          ownerId: ctx.ownerId,
+          error: recentJobsErr.message || "Failed to load recent jobs.",
+        });
         return json(500, {
           ok: false,
           error: recentJobsErr.message || "Failed to load recent jobs.",
@@ -322,6 +380,15 @@ export async function GET(
     const validationFlags = normalizeFlags(draft?.validation_flags);
     const fastConfirmReady = isFastConfirmReady({ item, draft });
     const bestText = buildBestText(item, draft);
+
+    console.info("[INTAKE_ITEM_DETAIL_OK]", {
+      itemId,
+      tenantId: ctx.tenantId,
+      batchId: item.batch_id || null,
+      hasDraft: !!draft,
+      reviewCount: Array.isArray(reviews) ? reviews.length : 0,
+      batchCount: rows.length,
+    });
 
     return json(200, {
       ok: true,
@@ -362,6 +429,9 @@ export async function GET(
       },
     });
   } catch (e: any) {
+    console.error("[INTAKE_ITEM_DETAIL_FATAL]", {
+      message: e?.message || "Item detail lookup failed.",
+    });
     return json(500, { ok: false, error: e?.message || "Item detail lookup failed." });
   }
 }

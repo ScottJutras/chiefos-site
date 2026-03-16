@@ -77,13 +77,28 @@ async function getPortalContext(req: Request) {
 
 export async function POST(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   try {
+    console.info("[INTAKE_ITEM_DELETE_ROUTE_HIT]", {
+      url: req.url,
+      itemIdFromParams: context?.params?.id || null,
+    });
+
     const ctx = await getPortalContext(req);
-    if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
+    if (!ctx.ok) {
+      console.warn("[INTAKE_ITEM_DELETE_UNAUTHORIZED]", {
+        url: req.url,
+        error: ctx.error,
+      });
+      return json(401, { ok: false, error: ctx.error });
+    }
 
     if (!(ctx.role === "owner" || ctx.role === "admin" || ctx.role === "board")) {
+      console.warn("[INTAKE_ITEM_DELETE_FORBIDDEN]", {
+        url: req.url,
+        role: ctx.role,
+      });
       return json(403, {
         ok: false,
         error: "Owner-only or approver-only action.",
@@ -91,8 +106,7 @@ export async function POST(
       });
     }
 
-    const params = await context.params;
-    const itemId = String(params.id || "").trim();
+    const itemId = String(context?.params?.id || "").trim();
     if (!itemId) return json(400, { ok: false, error: "Missing item id." });
 
     const body = await req.json().catch(() => ({}));
@@ -100,20 +114,54 @@ export async function POST(
       String(body?.comment || "").trim() ||
       "Upload removed from active queue by portal user.";
 
-    const { data: item, error: itemErr } = await ctx.admin
+    const { data: itemAnyTenant, error: itemAnyTenantErr } = await ctx.admin
       .from("intake_items")
       .select("id, tenant_id, owner_id, status, batch_id, storage_bucket, storage_path, source_filename")
-      .eq("tenant_id", ctx.tenantId)
       .eq("id", itemId)
       .maybeSingle();
 
-    if (itemErr) {
-      return json(500, { ok: false, error: itemErr.message || "Failed to load intake item." });
+    if (itemAnyTenantErr) {
+      console.error("[INTAKE_ITEM_DELETE_LOOKUP_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: itemAnyTenantErr.message || "Failed to load intake item.",
+      });
+      return json(500, {
+        ok: false,
+        error: itemAnyTenantErr.message || "Failed to load intake item.",
+      });
     }
 
-    if (!item) {
-      return json(404, { ok: false, error: "Intake item not found." });
+    if (!itemAnyTenant) {
+      console.warn("[INTAKE_ITEM_DELETE_NOT_FOUND]", {
+        itemId,
+        tenantId: ctx.tenantId,
+      });
+      return json(404, {
+        ok: false,
+        error: "Intake item not found.",
+        code: "ITEM_NOT_FOUND",
+        itemId,
+      });
     }
+
+    if (String(itemAnyTenant.tenant_id || "") !== ctx.tenantId) {
+      console.warn("[INTAKE_ITEM_DELETE_TENANT_MISMATCH]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        itemTenantId: String(itemAnyTenant.tenant_id || ""),
+      });
+      return json(403, {
+        ok: false,
+        error: "Item exists but does not belong to this tenant context.",
+        code: "TENANT_MISMATCH",
+        itemId,
+        tenantId: ctx.tenantId,
+        itemTenantId: String(itemAnyTenant.tenant_id || ""),
+      });
+    }
+
+    const item = itemAnyTenant;
 
     if (String(item.status || "") === "deleted") {
       return json(200, {
@@ -134,6 +182,11 @@ export async function POST(
       .eq("id", itemId);
 
     if (updateErr) {
+      console.error("[INTAKE_ITEM_DELETE_UPDATE_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: updateErr.message || "Failed to delete intake item.",
+      });
       return json(500, { ok: false, error: updateErr.message || "Failed to delete intake item." });
     }
 
@@ -158,8 +211,18 @@ export async function POST(
       });
 
     if (reviewErr) {
+      console.error("[INTAKE_ITEM_DELETE_AUDIT_ERR]", {
+        itemId,
+        tenantId: ctx.tenantId,
+        error: reviewErr.message || "Failed to write delete audit row.",
+      });
       return json(500, { ok: false, error: reviewErr.message || "Failed to write delete audit row." });
     }
+
+    console.info("[INTAKE_ITEM_DELETE_OK]", {
+      itemId,
+      tenantId: ctx.tenantId,
+    });
 
     return json(200, {
       ok: true,
@@ -167,6 +230,9 @@ export async function POST(
       message: "Upload removed from the active queue.",
     });
   } catch (e: any) {
+    console.error("[INTAKE_ITEM_DELETE_FATAL]", {
+      message: e?.message || "Delete failed.",
+    });
     return json(500, { ok: false, error: e?.message || "Delete failed." });
   }
 }
