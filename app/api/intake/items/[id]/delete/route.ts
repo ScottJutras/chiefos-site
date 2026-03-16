@@ -77,12 +77,14 @@ async function getPortalContext(req: Request) {
 
 export async function POST(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     console.info("[INTAKE_ITEM_DELETE_ROUTE_HIT]", {
       url: req.url,
-      itemIdFromParams: context?.params?.id || null,
+      itemIdFromParams: params?.id || null,
     });
 
     const ctx = await getPortalContext(req);
@@ -106,7 +108,7 @@ export async function POST(
       });
     }
 
-    const itemId = String(context?.params?.id || "").trim();
+    const itemId = String(params?.id || "").trim();
     if (!itemId) return json(400, { ok: false, error: "Missing item id." });
 
     const body = await req.json().catch(() => ({}));

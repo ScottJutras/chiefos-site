@@ -147,12 +147,14 @@ function buildBestText(item: any, draft: any) {
 
 export async function GET(
   req: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+
     console.info("[INTAKE_ITEM_DETAIL_ROUTE_HIT]", {
       url: req.url,
-      itemIdFromParams: context?.params?.id || null,
+      itemIdFromParams: params?.id || null,
     });
 
     const ctx = await getPortalContext(req);
@@ -165,7 +167,7 @@ export async function GET(
     }
 
     const admin = ctx.admin;
-    const itemId = String(context?.params?.id || "").trim();
+    const itemId = String(params?.id || "").trim();
 
     if (!itemId) {
       console.warn("[INTAKE_ITEM_DETAIL_BAD_REQUEST]", {
@@ -176,7 +178,6 @@ export async function GET(
       return json(400, { ok: false, error: "Missing item id." });
     }
 
-    // 1) Find by id first so we can distinguish “missing” from “wrong tenant”
     const { data: itemAnyTenant, error: itemAnyTenantErr } = await admin
       .from("intake_items")
       .select("*")
