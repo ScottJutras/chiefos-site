@@ -1,27 +1,20 @@
 import type { NextConfig } from "next";
 
-const BACKEND_ORIGIN =
-  process.env.NEXT_PUBLIC_BACKEND_ORIGIN || "https://chief-ai-refactored.vercel.app";
-
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
 
+  // IMPORTANT:
+  // Do NOT blanket-rewrite /api/* to the Express backend.
+  // This app owns real Next route handlers under app/api/*,
+  // including intake, whoami, link-phone proxy routes, etc.
+  //
+  // Any backend calls that still need to go to core should be done
+  // through explicit Next route handlers using proxyToCore(),
+  // not through a global rewrite that hijacks all /api paths.
   async rewrites() {
-    return [
-      // ✅ Proxy most API routes to Express backend
-      // (Keep receipts owned by Next if you truly have Next API route for it)
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_ORIGIN}/api/:path*`,
-      },
-
-      // If you want to exclude receipts specifically, you can do:
-      // { source: "/api/receipts/:path*", destination: "/api/receipts/:path*" }
-      // BUT: Next rewrites don’t support “destination to self” cleanly like that.
-      // The practical approach is: decide who owns /api/receipts.
-    ];
+    return [];
   },
 };
 
