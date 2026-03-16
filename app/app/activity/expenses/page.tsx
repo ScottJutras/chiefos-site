@@ -1,4 +1,4 @@
-// app/app/expenses/page.tsx
+// app/app/activity/expenses/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -21,8 +21,8 @@ type Expense = {
   job_name: string | null;
   deleted_at?: string | null;
 
-  // ✅ Receipt wiring (must come from chiefos_expenses view)
-  transaction_id?: number | null; // must equal public.transactions.id (int)
+  // Canonical receipt wiring
+  transaction_id?: number | null;
   media_asset_id?: string | null;
   content_type?: string | null;
 };
@@ -116,12 +116,26 @@ function isUnassignedJob(jobName: string | null | undefined) {
 }
 
 function startOfWeekMondayLocal(d: Date) {
-  const day = d.getDay(); // 0=Sun..6=Sat
+  const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   const out = new Date(d);
   out.setHours(0, 0, 0, 0);
   out.setDate(out.getDate() + diff);
   return out;
+}
+
+function resolveTransactionId(expense: Expense): number | null {
+  if (Number.isFinite(Number(expense.transaction_id))) {
+    return Number(expense.transaction_id);
+  }
+  if (Number.isFinite(Number(expense.id))) {
+    return Number(expense.id);
+  }
+  return null;
+}
+
+function hasReceipt(expense: Expense): boolean {
+  return !!String(expense.media_asset_id || "").trim();
 }
 
 export default function ExpensesPage() {
@@ -137,7 +151,6 @@ export default function ExpensesPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
   const [q, setQ] = useState("");
   const [job, setJob] = useState<string>("all");
   const [vendor, setVendor] = useState<string>("all");
@@ -147,29 +160,22 @@ export default function ExpensesPage() {
   const [maxAmt, setMaxAmt] = useState<string>("");
   const [onlyDupes, setOnlyDupes] = useState(false);
 
-  // View controls
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [sortBy, setSortBy] = useState<SortBy>("date_desc");
-
-  // Top totals range toggles
   const [totalsRange, setTotalsRange] = useState<TotalsRange>("all");
 
-  // Export menu
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
 
-  // Edit modal
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<EditDraft | null>(null);
 
-  // Bulk selection
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const selectedIds = useMemo(
     () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
     [selected]
   );
 
-  // Undo bar state
   const [undo, setUndo] = useState<{
     batchId: string;
     expiresAt: string;
@@ -177,11 +183,9 @@ export default function ExpensesPage() {
   } | null>(null);
   const undoTimerRef = useRef<any>(null);
 
-  // Saved views
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
 
-  // Group accordion state
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   function sortArrow(active: boolean, dir: "asc" | "desc") {
@@ -231,38 +235,43 @@ export default function ExpensesPage() {
   }, [exportOpen]);
 
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  // ✅ wait until tenant gate finishes
-  if (gateLoading) return;
+    if (gateLoading) return;
 
-  async function load() {
-    try {
-      const { data, error } = await supabase
-        .from("chiefos_portal_expenses")
-        .select("*")
-        .is("deleted_at", null)
-        .order("expense_date", { ascending: false });
+    async function load() {
+      try {
+        const { data, error } = await supabase
+          .from("chiefos_portal_expenses")
+          .select("*")
+          .is("deleted_at", null)
+          .order("expense_date", { ascending: false });
 
-      if (error) throw error;
-      if (!cancelled) setExpenses((data ?? []) as Expense[]);
+        if (error) throw error;
 
-      const { data: vData, error: vErr } = await supabase.rpc(
-        "chiefos_list_saved_views"
-      );
-      if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
-    } catch (e: any) {
-      if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
-    } finally {
-      if (!cancelled) setLoading(false);
+        const normalized = ((data ?? []) as Expense[]).map((row) => ({
+          ...row,
+          transaction_id: resolveTransactionId(row),
+        }));
+
+        if (!cancelled) setExpenses(normalized);
+
+        const { data: vData, error: vErr } = await supabase.rpc(
+          "chiefos_list_saved_views"
+        );
+        if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-  }
 
-  load();
-  return () => {
-    cancelled = true;
-  };
-}, [gateLoading]);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [gateLoading]);
 
   const jobs = useMemo(() => {
     const set = new Set<string>();
@@ -375,27 +384,22 @@ export default function ExpensesPage() {
           return cmpStr(aDate, bDate);
         case "date_desc":
           return cmpStr(bDate, aDate);
-
         case "amount_asc":
           return cmpNum(aAmt, bAmt);
         case "amount_desc":
           return cmpNum(bAmt, aAmt);
-
         case "vendor_asc":
           return cmpStr(aVend, bVend);
         case "vendor_desc":
           return cmpStr(bVend, aVend);
-
         case "job_asc":
           return cmpStr(aJob, bJob);
         case "job_desc":
           return cmpStr(bJob, aJob);
-
         case "desc_asc":
           return cmpStr(aDesc, bDesc);
         case "desc_desc":
           return cmpStr(bDesc, aDesc);
-
         default:
           return 0;
       }
@@ -481,7 +485,6 @@ export default function ExpensesPage() {
     });
   }, [sorted]);
 
-  // Keep group accordion state aligned with groups
   useEffect(() => {
     if (!grouped) {
       setOpenGroups({});
@@ -490,7 +493,6 @@ export default function ExpensesPage() {
     setOpenGroups((prev) => {
       const next: Record<string, boolean> = {};
       for (const g of grouped) {
-        // keep existing state if present; otherwise default OPEN for first few groups
         const existing = prev[g.key];
         next[g.key] = typeof existing === "boolean" ? existing : true;
       }
@@ -614,8 +616,7 @@ export default function ExpensesPage() {
     if (!draft) return;
 
     const amt = Number(String(draft.amount || "").replace(/[^0-9.\-]/g, ""));
-    if (!Number.isFinite(amt) || amt < 0)
-      return alert("Amount must be a valid number.");
+    if (!Number.isFinite(amt) || amt < 0) return alert("Amount must be a valid number.");
     if (!draft.expense_date) return alert("Expense date is required.");
 
     try {
@@ -632,7 +633,11 @@ export default function ExpensesPage() {
 
       if (error) throw error;
 
-      const updated = data as Expense;
+      const updated = {
+        ...(data as Expense),
+        transaction_id: resolveTransactionId(data as Expense),
+      };
+
       setExpenses((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       closeEdit();
     } catch (e: any) {
@@ -760,7 +765,13 @@ export default function ExpensesPage() {
         .is("deleted_at", null)
         .order("expense_date", { ascending: false });
 
-      if (!fErr) setExpenses((fresh ?? []) as Expense[]);
+      if (!fErr) {
+        const normalized = ((fresh ?? []) as Expense[]).map((row) => ({
+          ...row,
+          transaction_id: resolveTransactionId(row),
+        }));
+        setExpenses(normalized);
+      }
 
       setUndo(null);
       clearUndoTimer();
@@ -923,13 +934,11 @@ export default function ExpensesPage() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
-        {/* Title row */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className={chip("border-white/10 bg-white/5 text-white/70")}>Records</div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Expenses</h1>
 
-            {/* Feature chips */}
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               <TopChipButton onClick={() => router.push("/app/activity/expenses/audit")} title="Change log">
                 Audit
@@ -944,7 +953,6 @@ export default function ExpensesPage() {
                 Clean up vendors
               </TopChipButton>
 
-              {/* Export chip w/ menu */}
               <div className="relative" ref={exportRef}>
                 <TopChipButton
                   onClick={() => setExportOpen((v) => !v)}
@@ -991,20 +999,9 @@ export default function ExpensesPage() {
                   </div>
                 )}
               </div>
-
-              <TopChipButton
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.push("/login");
-                }}
-                title="Sign out"
-              >
-                Log out
-              </TopChipButton>
             </div>
           </div>
 
-          {/* Top totals strip */}
           <div className="w-full md:w-auto">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -1030,7 +1027,6 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Undo bar */}
         {undo && (
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm text-white/80">
@@ -1055,7 +1051,6 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* Saved views */}
         <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm font-semibold text-white/90">Saved views</div>
           <div className="mt-2 flex items-center gap-2 flex-wrap">
@@ -1114,7 +1109,6 @@ export default function ExpensesPage() {
           )}
         </div>
 
-        {/* Filters + bulk actions */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
@@ -1237,7 +1231,6 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {/* Bulk bar */}
           <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <button
@@ -1288,7 +1281,6 @@ export default function ExpensesPage() {
             </div>
           </div>
 
-          {/* Group controls (only when grouping enabled) */}
           {groupBy !== "none" && grouped && grouped.length > 0 && (
             <div className="mt-4 flex items-center gap-2 flex-wrap">
               <div className="text-xs text-white/50 mr-1">Grouped view</div>
@@ -1301,11 +1293,9 @@ export default function ExpensesPage() {
           )}
         </div>
 
-        {/* Ledger */}
         {sorted.length === 0 ? (
           <p className="mt-12 text-white/60">No expenses match your filters.</p>
         ) : groupBy !== "none" && grouped ? (
-          /* Grouped accordion */
           <div className="mt-8 space-y-3">
             {grouped.map((g) => {
               const open = !!openGroups[g.key];
@@ -1349,7 +1339,6 @@ export default function ExpensesPage() {
 
                       <GroupPill
                         onClick={() => {
-                          // Quick action: select group + scroll to bulk bar mentally; no scroll jump
                           toggleAllInGroup(g.items, true);
                         }}
                         title="Select all items in this group"
@@ -1384,6 +1373,8 @@ export default function ExpensesPage() {
                               .toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
                             const isDupe = (dupeKeyCounts.get(k) || 0) >= 2;
                             const unassigned = isUnassignedJob(e.job_name);
+                            const txId = resolveTransactionId(e);
+                            const receiptReady = !!txId && hasReceipt(e);
 
                             return (
                               <tr key={e.id} className="border-b border-white/5 text-sm">
@@ -1426,27 +1417,27 @@ export default function ExpensesPage() {
                                 </td>
                                 <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
 
-<td className="py-3 pr-4">
-  {e.transaction_id && e.media_asset_id ? (
-  <ReceiptActions
-    transactionId={e.transaction_id}
-    mediaAssetId={e.media_asset_id}
-    contentType={e.content_type ?? null}
-  />
-) : (
-  <span className="text-xs text-white/35">—</span>
-)}
-</td>
+                                <td className="py-3 pr-4">
+                                  {receiptReady ? (
+                                    <ReceiptActions
+                                      transactionId={txId}
+                                      mediaAssetId={e.media_asset_id ?? null}
+                                      contentType={e.content_type ?? null}
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-white/35">—</span>
+                                  )}
+                                </td>
 
-<td className="py-3 pr-4">
-  <button
-    onClick={() => openEdit(e)}
-    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
-    title={unassigned ? "Assign job" : "Edit"}
-  >
-    {unassigned ? "Assign job" : "Edit"}
-  </button>
-</td>
+                                <td className="py-3 pr-4">
+                                  <button
+                                    onClick={() => openEdit(e)}
+                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+                                    title={unassigned ? "Assign job" : "Edit"}
+                                  >
+                                    {unassigned ? "Assign job" : "Edit"}
+                                  </button>
+                                </td>
                               </tr>
                             );
                           })}
@@ -1469,7 +1460,6 @@ export default function ExpensesPage() {
             })}
           </div>
         ) : (
-          /* Flat table */
           <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
             <table className="min-w-full border-collapse">
               <thead>
@@ -1556,22 +1546,22 @@ export default function ExpensesPage() {
                   </th>
 
                   <th className="py-3 pr-4">
-  <button
-    type="button"
-    onClick={() => toggleSort("desc")}
-    className={[
-      "inline-flex items-center hover:text-white transition",
-      sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
-    ].join(" ")}
-    title="Sort by description"
-  >
-    Description
-    {sortArrow(sortBy.startsWith("desc_"), sortBy === "desc_asc" ? "asc" : "desc")}
-  </button>
-</th>
+                    <button
+                      type="button"
+                      onClick={() => toggleSort("desc")}
+                      className={[
+                        "inline-flex items-center hover:text-white transition",
+                        sortBy.startsWith("desc_") ? "text-white" : "text-white/60",
+                      ].join(" ")}
+                      title="Sort by description"
+                    >
+                      Description
+                      {sortArrow(sortBy.startsWith("desc_"), sortBy === "desc_asc" ? "asc" : "desc")}
+                    </button>
+                  </th>
 
-<th className="py-3 pr-4">Receipt</th>
-<th className="py-3 pr-4 w-28">Edit</th>
+                  <th className="py-3 pr-4">Receipt</th>
+                  <th className="py-3 pr-4 w-28">Edit</th>
                 </tr>
               </thead>
 
@@ -1583,6 +1573,8 @@ export default function ExpensesPage() {
                     .toLowerCase()}|${toMoney(e.amount).toFixed(2)}`;
                   const isDupe = (dupeKeyCounts.get(k) || 0) >= 2;
                   const unassigned = isUnassignedJob(e.job_name);
+                  const txId = resolveTransactionId(e);
+                  const receiptReady = !!txId && hasReceipt(e);
 
                   return (
                     <tr key={e.id} className="border-b border-white/5 text-sm">
@@ -1625,35 +1617,35 @@ export default function ExpensesPage() {
                       </td>
                       <td className="py-3 pr-4 text-white/75">{e.description ?? ""}</td>
 
-<td className="py-3 pr-4">
-  {e.transaction_id ? (
-    <ReceiptActions
-      transactionId={e.transaction_id}
-      mediaAssetId={e.media_asset_id ?? null}
-      contentType={e.content_type ?? null}
-    />
-  ) : (
-    <span className="text-xs text-white/35">—</span>
-  )}
-</td>
+                      <td className="py-3 pr-4">
+                        {receiptReady ? (
+                          <ReceiptActions
+                            transactionId={txId}
+                            mediaAssetId={e.media_asset_id ?? null}
+                            contentType={e.content_type ?? null}
+                          />
+                        ) : (
+                          <span className="text-xs text-white/35">—</span>
+                        )}
+                      </td>
 
-<td className="py-3 pr-4">
-  <button
-    onClick={() => openEdit(e)}
-    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
-    title={unassigned ? "Assign job" : "Edit"}
-  >
-    {unassigned ? "Assign job" : "Edit"}
-  </button>
-</td>
+                      <td className="py-3 pr-4">
+                        <button
+                          onClick={() => openEdit(e)}
+                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10 transition"
+                          title={unassigned ? "Assign job" : "Edit"}
+                        >
+                          {unassigned ? "Assign job" : "Edit"}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
 
                 <tr className="border-t border-white/10">
                   <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={4}>
-  Total (filtered)
-</td>
+                    Total (filtered)
+                  </td>
                   <td className="py-4 pr-4 text-lg font-semibold text-white">
                     ${moneyFmt(totals.sum)}
                   </td>
@@ -1664,7 +1656,6 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* Edit slideover */}
         <Slideover
           open={editOpen && !!draft}
           onClose={closeEdit}
