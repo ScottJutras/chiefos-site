@@ -8,6 +8,8 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import AskChiefMini from "@/app/app/components/AskChiefMini";
 import JobsDecisionCenterPanel from "@/app/app/components/JobsDecisionCenterPanel";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
+import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
+import ChiefDock from "@/app/app/components/ChiefDock";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "ytd" | "all";
@@ -28,34 +30,18 @@ type Summary = {
   openTasks: number;
   activeJobs: number;
   totalJobs: number;
-  revenueCents: number;
-  expenseCents: number;
-  profitCents: number;
 };
 
-type TransactionRow = {
-  id: string | number;
-  date?: string | null;
-  created_at?: string | null;
-  kind?: string | null;
-  amount_cents?: number | null;
+type TxRow = {
+  id: number;
+  tenant_id: string;
+  owner_id: string | null;
+  date: string | null;
+  amount_cents: number | null;
+  kind: "expense" | "revenue" | string;
+  job_name: string | null;
+  created_at: string | null;
 };
-
-type ChartPoint = {
-  label: string;
-  revenue: number;
-  expenses: number;
-  profit: number;
-};
-
-function centsToMoney(cents?: number | null) {
-  const value = Number(cents || 0) / 100;
-  return value.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
 
 function prettyFromEmail(email?: string | null) {
   if (!email) return "";
@@ -95,113 +81,6 @@ function normalizeStatus(raw?: string | null, active?: boolean | null) {
   return "Other";
 }
 
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function startOfWeek() {
-  const d = startOfToday();
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diff);
-  return d;
-}
-
-function startOfMonth() {
-  const d = startOfToday();
-  d.setDate(1);
-  return d;
-}
-
-function startOfYear() {
-  const d = startOfToday();
-  d.setMonth(0, 1);
-  return d;
-}
-
-function inSelectedRange(dateValue?: string | null, range: RangeKey = "mtd") {
-  if (!dateValue || range === "all") return true;
-
-  const dt = new Date(dateValue);
-  if (Number.isNaN(dt.getTime())) return false;
-
-  const compare = startOfToday();
-
-  if (range === "wtd") return dt >= startOfWeek() && dt <= compare;
-  if (range === "mtd") return dt >= startOfMonth() && dt <= compare;
-  if (range === "ytd") return dt >= startOfYear() && dt <= compare;
-
-  return true;
-}
-
-function bucketLabel(dateValue: string | null | undefined, range: RangeKey) {
-  const d = new Date(String(dateValue || ""));
-  if (Number.isNaN(d.getTime())) return "Unknown";
-
-  if (range === "wtd") {
-    return d.toLocaleDateString(undefined, { weekday: "short" });
-  }
-
-  if (range === "mtd") {
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
-
-  if (range === "ytd") {
-    return d.toLocaleDateString(undefined, { month: "short" });
-  }
-
-  return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
-}
-
-function buildChartPoints(rows: TransactionRow[], range: RangeKey): ChartPoint[] {
-  const filtered = rows.filter((r) => inSelectedRange(r.date || r.created_at || null, range));
-
-  const map = new Map<string, ChartPoint>();
-
-  for (const row of filtered) {
-    const label = bucketLabel(row.date || row.created_at || null, range);
-    const current = map.get(label) || { label, revenue: 0, expenses: 0, profit: 0 };
-    const cents = Number(row.amount_cents || 0);
-
-    if (String(row.kind || "").toLowerCase() === "revenue") {
-      current.revenue += cents;
-    } else {
-      current.expenses += cents;
-    }
-
-    current.profit = current.revenue - current.expenses;
-    map.set(label, current);
-  }
-
-  return Array.from(map.values());
-}
-
-function maxChartValue(points: ChartPoint[]) {
-  const vals = points.flatMap((p) => [p.revenue, p.expenses, Math.abs(p.profit)]);
-  const m = Math.max(0, ...vals);
-  return m || 1;
-}
-
-function SectionTitle({
-  eyebrow,
-  title,
-  body,
-}: {
-  eyebrow: string;
-  title: string;
-  body?: string;
-}) {
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">{eyebrow}</div>
-      <div className="mt-2 text-lg font-semibold text-white/90">{title}</div>
-      {body ? <div className="mt-2 text-sm text-white/60 leading-relaxed">{body}</div> : null}
-    </div>
-  );
-}
-
 function UtilityLink({
   href,
   label,
@@ -226,185 +105,104 @@ function UtilityLink({
   );
 }
 
-function MetricCard({
+function startOfWeek(d: Date) {
+  const x = new Date(d);
+  const day = x.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  x.setDate(x.getDate() - diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function startOfMonth(d: Date) {
+  const x = new Date(d);
+  x.setDate(1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function startOfYear(d: Date) {
+  const x = new Date(d);
+  x.setMonth(0, 1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function toDayKey(dateLike: string | null | undefined) {
+  const d = dateLike ? new Date(dateLike) : new Date();
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+function dayLabel(dayKey: string) {
+  const d = new Date(`${dayKey}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dayKey;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function buildPulsePoints(rows: TxRow[], range: RangeKey): PulsePoint[] {
+  const now = new Date();
+
+  const start =
+    range === "wtd"
+      ? startOfWeek(now)
+      : range === "mtd"
+      ? startOfMonth(now)
+      : range === "ytd"
+      ? startOfYear(now)
+      : null;
+
+  const filtered = rows.filter((row) => {
+    const raw = row.date || row.created_at;
+    if (!raw) return false;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return false;
+    if (!start) return true;
+    return d >= start;
+  });
+
+  const buckets = new Map<string, { revenue: number; expenses: number }>();
+
+  for (const row of filtered) {
+    const dayKey = toDayKey(row.date || row.created_at);
+    if (!dayKey) continue;
+
+    const existing = buckets.get(dayKey) || { revenue: 0, expenses: 0 };
+    const cents = Number(row.amount_cents || 0);
+
+    if (String(row.kind).toLowerCase() === "revenue") {
+      existing.revenue += cents;
+    } else if (String(row.kind).toLowerCase() === "expense") {
+      existing.expenses += cents;
+    }
+
+    buckets.set(dayKey, existing);
+  }
+
+  const sorted = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return sorted.map(([dayKey, v]) => ({
+    label: dayLabel(dayKey),
+    revenueCents: v.revenue,
+    expenseCents: v.expenses,
+    profitCents: v.revenue - v.expenses,
+  }));
+}
+
+function HeroStat({
   label,
   value,
-  hint,
+  sub,
 }: {
   label: string;
   value: string;
-  hint?: string;
+  sub?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-white/92">{value}</div>
-      {hint ? <div className="mt-1 text-xs text-white/50">{hint}</div> : null}
-    </div>
-  );
-}
-
-function DailyBriefing({
-  hasWhatsApp,
-  summary,
-  selectedJob,
-}: {
-  hasWhatsApp: boolean;
-  summary: Summary;
-  selectedJob: JobRow | null;
-}) {
-  const lines = useMemo(() => {
-    const out: string[] = [];
-
-    if (!hasWhatsApp) {
-      out.push("Connect WhatsApp so field capture starts flowing into the right jobs.");
-    }
-
-    if (selectedJob) {
-      out.push(
-        `${String(selectedJob.job_name || selectedJob.name || "This job")} is selected. Review the records tied to it below.`
-      );
-    } else if (summary.totalJobs === 0) {
-      out.push("Create your first job. Jobs are the spine of ChiefOS.");
-    } else {
-      out.push("Pick a job from the left rail to inspect job-level records and activity.");
-    }
-
-    if (summary.pendingReview > 0) {
-      out.push(
-        `${summary.pendingReview} item${summary.pendingReview === 1 ? " is" : "s are"} waiting in Pending Review.`
-      );
-    } else {
-      out.push("Nothing is waiting in Pending Review right now.");
-    }
-
-    if (summary.openTasks > 0) {
-      out.push(`${summary.openTasks} open task${summary.openTasks === 1 ? "" : "s"} still need attention.`);
-    }
-
-    return out;
-  }, [hasWhatsApp, summary, selectedJob]);
-
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-      <SectionTitle
-        eyebrow="Daily Briefing"
-        title="Run the business from one screen"
-        body="Business scope at the top. Job scope below. Review and capture close by."
-      />
-
-      <div className="mt-4 space-y-2">
-        {lines.map((line) => (
-          <div key={line} className="text-sm text-white/72 leading-relaxed">
-            {line}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RangeTabs({
-  value,
-  onChange,
-}: {
-  value: RangeKey;
-  onChange: (next: RangeKey) => void;
-}) {
-  const items: Array<{ key: RangeKey; label: string }> = [
-    { key: "wtd", label: "WTD" },
-    { key: "mtd", label: "MTD" },
-    { key: "ytd", label: "YTD" },
-    { key: "all", label: "Since start" },
-  ];
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={() => onChange(item.key)}
-          className={[
-            "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-            value === item.key
-              ? "border-white/20 bg-white text-black"
-              : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
-          ].join(" ")}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SimpleLineChart({
-  points,
-}: {
-  points: ChartPoint[];
-}) {
-  const width = 100;
-  const height = 36;
-  const max = maxChartValue(points);
-
-  function buildPath(selector: (p: ChartPoint) => number) {
-    if (!points.length) return "";
-    return points
-      .map((p, i) => {
-        const x = points.length === 1 ? 0 : (i / (points.length - 1)) * width;
-        const y = height - (selector(p) / max) * height;
-        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-      })
-      .join(" ");
-  }
-
-  const revenuePath = buildPath((p) => p.revenue);
-  const expensePath = buildPath((p) => p.expenses);
-  const profitPath = buildPath((p) => Math.max(0, p.profit));
-
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <SectionTitle
-          eyebrow="Performance"
-          title="Business trend"
-          body="Simple and trustworthy. Revenue, expenses, and profit only."
-        />
-      </div>
-
-      <div className="mt-5">
-        {points.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/15 bg-black/20 p-8 text-sm text-white/55">
-            Not enough data yet to draw the trend line.
-          </div>
-        ) : (
-          <>
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" preserveAspectRatio="none">
-                <path d={revenuePath} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth="1.8" />
-                <path d={expensePath} fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="1.4" />
-                <path d={profitPath} fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="1.2" strokeDasharray="3 2" />
-              </svg>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/60">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Revenue</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Expenses</span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Profit</span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-              {points.map((p) => (
-                <div key={p.label} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="text-[11px] text-white/45">{p.label}</div>
-                  <div className="mt-1 text-sm text-white/85">{centsToMoney(p.profit)}</div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-white/95">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-white/50">{sub}</div> : null}
     </div>
   );
 }
@@ -413,82 +211,149 @@ function CenterWorkspace({
   selectedJob,
   view,
   setView,
+  summary,
+  pulsePoints,
+  pulseRange,
+  setPulseRange,
+  onAskChief,
 }: {
   selectedJob: JobRow | null;
   view: ViewKey;
   setView: (v: ViewKey) => void;
+  summary: Summary;
+  pulsePoints: PulsePoint[];
+  pulseRange: RangeKey;
+  setPulseRange: (v: RangeKey) => void;
+  onAskChief: (q?: string) => void;
 }) {
   const title = selectedJob
     ? String(selectedJob.job_name || selectedJob.name || "Untitled job")
-    : "Select a job";
+    : "Business overview";
 
   const subtitle = selectedJob
     ? `${selectedJob.job_no ? `#${selectedJob.job_no} • ` : ""}${normalizeStatus(
         selectedJob.status,
         selectedJob.active
       )}`
-    : "Choose a job from the left rail to inspect its records.";
+    : "Run the business from one operating screen.";
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black">
+    <div className="flex h-full min-h-[84vh] flex-col bg-black">
       <div className="border-b border-white/10 px-5 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Job Scope</div>
-            <div className="mt-2 truncate text-2xl font-semibold text-white/92">{title}</div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">
+              {selectedJob ? "Job scope" : "Business scope"}
+            </div>
+            <div className="mt-2 truncate text-2xl font-semibold text-white/95">{title}</div>
             <div className="mt-2 text-sm text-white/55">{subtitle}</div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <UtilityLink href="/app/jobs/new" label="Create job" tone="primary" />
-            <UtilityLink href="/app/uploads" label="Upload files" />
-            <UtilityLink href="/app/pending-review" label="Pending Review" />
+            <UtilityLink href="/app/uploads" label="Upload" />
+            <button
+              type="button"
+              onClick={() => onAskChief(selectedJob ? `What should I know about ${title}?` : "")}
+              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+            >
+              Ask Chief
+            </button>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setView(k)}
-              className={[
-                "rounded-full px-3 py-1.5 text-xs font-medium transition border",
-                view === k
-                  ? "border-white/20 bg-white text-black"
-                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
-              ].join(" ")}
-            >
-              {k === "expenses"
-                ? "Expenses"
-                : k === "revenue"
-                ? "Revenue"
-                : k === "time"
-                ? "Time"
-                : "Tasks"}
-            </button>
-          ))}
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <HeroStat label="Active jobs" value={String(summary.activeJobs)} sub={`${summary.totalJobs} total`} />
+          <HeroStat label="Pending review" value={String(summary.pendingReview)} sub="Needs owner confirmation" />
+          <HeroStat label="Open tasks" value={String(summary.openTasks)} sub="Still needs action" />
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Chart range</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(["wtd", "mtd", "ytd", "all"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setPulseRange(k)}
+                  className={[
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                    pulseRange === k
+                      ? "border-white/20 bg-white text-black"
+                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  {k === "wtd"
+                    ? "WTD"
+                    : k === "mtd"
+                    ? "MTD"
+                    : k === "ytd"
+                    ? "YTD"
+                    : "Since inception"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="min-h-[420px] px-5 py-5">
-        {!selectedJob ? (
-          <div className="flex h-full min-h-[340px] items-center justify-center">
-            <div className="max-w-md text-center">
-              <div className="text-lg font-semibold text-white/90">Pick a job to begin</div>
-              <div className="mt-3 text-sm leading-relaxed text-white/60">
-                Home should show business performance. This section should show the selected job.
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        <div className="space-y-5">
+          <BusinessPulseChart
+            points={pulsePoints}
+            activeJobs={summary.activeJobs}
+            totalJobs={summary.totalJobs}
+            title={selectedJob ? `${title} performance pulse` : "Business performance pulse"}
+            subtitle={
+              selectedJob
+                ? "Keep job scope visible while asking Chief and reviewing records."
+                : "A simple line graph keeps performance visible without turning the screen into a spreadsheet."
+            }
+          />
+
+          <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Records</div>
+                <div className="mt-2 text-lg font-semibold text-white/92">
+                  {selectedJob ? `${title} records` : "Business records"}
+                </div>
+                <div className="mt-1 text-sm text-white/55">
+                  Keep the data visible while you reason.
+                </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                <UtilityLink href="/app/jobs/new" label="Create job" tone="primary" />
-                <UtilityLink href="/app/uploads" label="Upload receipts / files" />
+              <div className="flex flex-wrap gap-2">
+                {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setView(k)}
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition border",
+                      view === k
+                        ? "border-white/20 bg-white text-black"
+                        : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+                    ].join(" ")}
+                  >
+                    {k === "expenses"
+                      ? "Expenses"
+                      : k === "revenue"
+                      ? "Revenue"
+                      : k === "time"
+                      ? "Time"
+                      : "Tasks"}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-        ) : (
-          <DashboardDataPanel view={view} />
-        )}
+
+            <div className="mt-4">
+              <DashboardDataPanel
+  view={view}
+  selectedJobName={selectedJob ? String(selectedJob.job_name || selectedJob.name || "").trim() : null}
+/>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
@@ -498,46 +363,78 @@ function RightRail({
   hasWhatsApp,
   betaPlan,
   summary,
+  onAskChief,
 }: {
   hasWhatsApp: boolean;
   betaPlan?: string | null;
   summary: Summary;
+  onAskChief: (q?: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-        <SectionTitle
-          eyebrow="Ask Chief"
-          title="Ask while you work"
-          body="Chief should stay close to the data, not send you off into another workflow."
-        />
+    <div className="flex h-full min-h-[84vh] flex-col bg-black">
+      <div className="border-b border-white/10 px-5 py-5">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Chief</div>
+        <div className="mt-2 text-lg font-semibold text-white/92">Ask while you operate</div>
+        <div className="mt-2 text-sm text-white/60">
+          Chief should open without taking you away from the business.
+        </div>
+
         <div className="mt-4">
-          <AskChiefMini />
+          <AskChiefMini onAsk={(q) => onAskChief(q)} />
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-        <SectionTitle eyebrow="Key Signals" title="What needs attention" />
-        <div className="mt-4 space-y-3">
-          <MetricCard label="Pending Review" value={String(summary.pendingReview)} hint="Owner confirmation lane" />
-          <MetricCard label="Active Jobs" value={String(summary.activeJobs)} hint={`${summary.totalJobs} total jobs`} />
-          <MetricCard label="Open Tasks" value={String(summary.openTasks)} hint="Still needs action" />
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-        <SectionTitle eyebrow="Next Actions" title="Move the operation forward" />
+      <div className="border-b border-white/10 px-5 py-5">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Quick actions</div>
         <div className="mt-4 flex flex-col gap-2">
           {!hasWhatsApp ? (
             <UtilityLink href="/app/connect-whatsapp" label="Connect WhatsApp" tone="primary" />
           ) : null}
-          <UtilityLink href="/app/pending-review" label="Open Pending Review" />
-          <UtilityLink href="/app/uploads" label="Bulk upload receipts" />
+          <UtilityLink href="/app/pending-review" label={`Pending Review (${summary.pendingReview})`} />
+          <UtilityLink href="/app/uploads" label="Upload receipts / files" />
+          <UtilityLink href="/app/jobs/new" label="Start a new job" />
           {betaPlan === "pro" ? (
-            <UtilityLink href="/app/crew/inbox" label="Open Crew Inbox" />
+            <UtilityLink href="/app/crew/inbox" label="Crew Inbox" />
           ) : (
             <UtilityLink href="/app/settings/billing" label="See Pro governance" />
           )}
+        </div>
+      </div>
+
+      <div className="border-b border-white/10 px-5 py-5">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">What matters</div>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-xs text-white/45">Active jobs</div>
+            <div className="mt-1 text-xl font-semibold text-white/95">{summary.activeJobs}</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-xs text-white/45">Open tasks</div>
+            <div className="mt-1 text-xl font-semibold text-white/95">{summary.openTasks}</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="text-xs text-white/45">Pending review</div>
+            <div className="mt-1 text-xl font-semibold text-white/95">{summary.pendingReview}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 px-5 py-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Trust-first note</div>
+          <div className="mt-2 text-sm leading-relaxed text-white/60">
+            ChiefOS should keep the graph, jobs, records, and reasoning visible together.
+            Fewer page jumps. More operational clarity.
+          </div>
+          <button
+            type="button"
+            onClick={() => onAskChief("What needs my attention right now?")}
+            className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
+          >
+            Ask Chief what needs attention
+          </button>
         </div>
       </div>
     </div>
@@ -549,18 +446,17 @@ export default function DashboardPage() {
 
   const [workspaceName, setWorkspaceName] = useState<string>("Your system");
   const [view, setView] = useState<ViewKey>("expenses");
-  const [range, setRange] = useState<RangeKey>("mtd");
   const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
-  const [txRows, setTxRows] = useState<TransactionRow[]>([]);
+  const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
+  const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
+  const [chiefOpen, setChiefOpen] = useState(false);
+  const [chiefQuery, setChiefQuery] = useState("");
 
   const [summary, setSummary] = useState<Summary>({
     pendingReview: 0,
     openTasks: 0,
     activeJobs: 0,
     totalJobs: 0,
-    revenueCents: 0,
-    expenseCents: 0,
-    profitCents: 0,
   });
 
   useEffect(() => {
@@ -667,7 +563,6 @@ export default function DashboardPage() {
 
         try {
           const ownerId = String((tenant as any)?.owner_id || "").trim();
-
           if (ownerId) {
             const { data: tasksRows } = await supabase
               .from("tasks")
@@ -694,34 +589,15 @@ export default function DashboardPage() {
         }
 
         try {
-          const { data: tx } = await supabase
+          const { data: txRows } = await supabase
             .from("transactions")
-            .select("id, date, created_at, kind, amount_cents")
+            .select("id, tenant_id, owner_id, date, amount_cents, kind, job_name, created_at")
             .eq("tenant_id", tenantId)
-            .in("kind", ["expense", "revenue"])
-            .order("created_at", { ascending: true })
+            .order("date", { ascending: true })
             .limit(5000);
 
-          const rows = (tx as TransactionRow[]) || [];
-
           if (alive) {
-            setTxRows(rows);
-
-            const filtered = rows.filter((r) => inSelectedRange(r.date || r.created_at || null, range));
-            const revenueCents = filtered
-              .filter((r) => String(r.kind || "").toLowerCase() === "revenue")
-              .reduce((sum, r) => sum + Number(r.amount_cents || 0), 0);
-
-            const expenseCents = filtered
-              .filter((r) => String(r.kind || "").toLowerCase() === "expense")
-              .reduce((sum, r) => sum + Number(r.amount_cents || 0), 0);
-
-            setSummary((s) => ({
-              ...s,
-              revenueCents,
-              expenseCents,
-              profitCents: revenueCents - expenseCents,
-            }));
+            setPulseRows((txRows as TxRow[]) || []);
           }
         } catch {
           // fail-soft
@@ -734,74 +610,69 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [selectedJob, range]);
+  }, [selectedJob]);
 
-  const chartPoints = useMemo(() => buildChartPoints(txRows, range), [txRows, range]);
+  const pulsePoints = useMemo(() => {
+    const base = selectedJob
+      ? pulseRows.filter((r) => {
+          const a = String(r.job_name || "").trim().toLowerCase();
+          const b = String(selectedJob.job_name || selectedJob.name || "").trim().toLowerCase();
+          return !!b && a === b;
+        })
+      : pulseRows;
+
+    return buildPulsePoints(base, pulseRange);
+  }, [pulseRows, selectedJob, pulseRange]);
+
+  function openChief(query?: string) {
+    setChiefQuery(String(query || "").trim());
+    setChiefOpen(true);
+  }
 
   if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-[1700px] space-y-4 px-0 py-0">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Business Scope</div>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">{workspaceName}</h1>
-              <div className="mt-2 text-sm text-white/60">
-                One screen to see the business, review what needs attention, and drop into jobs.
-              </div>
+    <>
+      <main className="min-h-screen bg-black text-white">
+        <div className="mx-auto max-w-[1700px] px-0 py-0">
+          <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
+            <div className="border-r border-white/10">
+              <JobsDecisionCenterPanel
+                selectedJobId={selectedJob?.id ?? null}
+                onSelectJob={(job) => setSelectedJob(job)}
+              />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <UtilityLink href="/app/jobs/new" label="Start job" tone="primary" />
-              <UtilityLink href="/app/uploads" label="Capture" />
-              <UtilityLink href="/app/pending-review" label="Review" />
+            <div className="min-w-0">
+              <CenterWorkspace
+                selectedJob={selectedJob}
+                view={view}
+                setView={setView}
+                summary={summary}
+                pulsePoints={pulsePoints}
+                pulseRange={pulseRange}
+                setPulseRange={setPulseRange}
+                onAskChief={openChief}
+              />
+            </div>
+
+            <div className="border-l border-white/10">
+              <RightRail
+                hasWhatsApp={hasWhatsApp}
+                betaPlan={betaPlan}
+                summary={summary}
+                onAskChief={openChief}
+              />
             </div>
           </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <MetricCard label="Active Jobs" value={String(summary.activeJobs)} hint={`${summary.totalJobs} total`} />
-            <MetricCard label="Pending Review" value={String(summary.pendingReview)} hint="Needs owner review" />
-            <MetricCard label="Open Tasks" value={String(summary.openTasks)} hint="Still in motion" />
-            <MetricCard label="Revenue" value={centsToMoney(summary.revenueCents)} hint={range.toUpperCase()} />
-            <MetricCard label="Profit" value={centsToMoney(summary.profitCents)} hint={range.toUpperCase()} />
-          </div>
         </div>
+      </main>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <SectionTitle
-              eyebrow="Performance Range"
-              title="See the business at a glance"
-              body="Use simple toggles. No speculative numbers."
-            />
-            <RangeTabs value={range} onChange={setRange} />
-          </div>
-
-          <div className="mt-5">
-            <SimpleLineChart points={chartPoints} />
-          </div>
-        </div>
-
-        <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)_340px]">
-          <div className="min-w-0">
-            <JobsDecisionCenterPanel
-              selectedJobId={selectedJob?.id ?? null}
-              onSelectJob={(job) => setSelectedJob(job)}
-            />
-          </div>
-
-          <div className="min-w-0 space-y-4">
-            <DailyBriefing hasWhatsApp={hasWhatsApp} summary={summary} selectedJob={selectedJob} />
-            <CenterWorkspace selectedJob={selectedJob} view={view} setView={setView} />
-          </div>
-
-          <div className="min-w-0">
-            <RightRail hasWhatsApp={hasWhatsApp} betaPlan={betaPlan} summary={summary} />
-          </div>
-        </div>
-      </div>
-    </main>
+      <ChiefDock
+        open={chiefOpen}
+        onClose={() => setChiefOpen(false)}
+        initialQuery={chiefQuery}
+      />
+    </>
   );
 }

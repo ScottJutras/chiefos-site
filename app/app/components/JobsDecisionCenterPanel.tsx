@@ -52,6 +52,13 @@ function statusLabel(status: StatusKey) {
   }
 }
 
+function formatDate(ts?: string | null) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString();
+}
+
 export default function JobsDecisionCenterPanel(props: {
   selectedJobId?: number | null;
   onSelectJob?: (job: JobRow) => void;
@@ -73,7 +80,7 @@ export default function JobsDecisionCenterPanel(props: {
         const { data, error } = await supabase
           .from("jobs")
           .select("id, job_no, job_name, name, status, active, created_at, updated_at")
-          .order("created_at", { ascending: false })
+          .order("updated_at", { ascending: false })
           .limit(1000);
 
         if (!alive) return;
@@ -99,18 +106,35 @@ export default function JobsDecisionCenterPanel(props: {
     };
   }, []);
 
+  const counts = useMemo(() => {
+    const out = {
+      all: jobs.length,
+      active: 0,
+      paused: 0,
+      closed: 0,
+      other: 0,
+    };
+
+    for (const job of jobs) {
+      const key = normalizeStatus(job.status, job.active);
+      out[key] += 1;
+    }
+
+    return out;
+  }, [jobs]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
 
     let rows = jobs.filter((job) => {
-      const name = String(job.job_name || job.name || "").toLowerCase();
+      const title = String(job.job_name || job.name || "").toLowerCase();
       const no = String(job.job_no || "").toLowerCase();
       const st = String(job.status || "").toLowerCase();
+      const normalized = normalizeStatus(job.status, job.active);
 
       const matchesText =
-        !needle || name.includes(needle) || no.includes(needle) || st.includes(needle);
+        !needle || title.includes(needle) || no.includes(needle) || st.includes(needle);
 
-      const normalized = normalizeStatus(job.status, job.active);
       const matchesStatus = statusFilter === "all" || normalized === statusFilter;
 
       return matchesText && matchesStatus;
@@ -140,13 +164,14 @@ export default function JobsDecisionCenterPanel(props: {
   }, [jobs, q, statusFilter]);
 
   return (
-    <div className="flex h-full min-h-[72vh] flex-col bg-black">
+    <div className="flex h-full min-h-[84vh] flex-col bg-black">
       <div className="border-b border-white/10 px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Jobs</div>
-            <div className="mt-1 text-base font-semibold text-white/90">
-              Find the job first
+            <div className="mt-1 text-lg font-semibold text-white/92">Operating center</div>
+            <div className="mt-1 text-sm text-white/55">
+              Start with the job. Then inspect what belongs to it.
             </div>
           </div>
 
@@ -156,6 +181,20 @@ export default function JobsDecisionCenterPanel(props: {
           >
             Create job
           </Link>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">Active</div>
+              <div className="mt-1 text-lg font-semibold text-white/95">{counts.active}</div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-white/40">Total</div>
+              <div className="mt-1 text-lg font-semibold text-white/95">{counts.all}</div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -180,7 +219,15 @@ export default function JobsDecisionCenterPanel(props: {
                   : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
               ].join(" ")}
             >
-              {key === "all" ? "All" : statusLabel(key)}
+              {key === "all"
+                ? `All (${counts.all})`
+                : key === "active"
+                ? `Active (${counts.active})`
+                : key === "paused"
+                ? `Paused (${counts.paused})`
+                : key === "closed"
+                ? `Closed (${counts.closed})`
+                : `Other (${counts.other})`}
             </button>
           ))}
         </div>
@@ -192,9 +239,7 @@ export default function JobsDecisionCenterPanel(props: {
         ) : err ? (
           <div className="px-4 py-4 text-sm text-red-200">{err}</div>
         ) : filtered.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-white/55">
-            No jobs found.
-          </div>
+          <div className="px-4 py-6 text-sm text-white/55">No jobs found.</div>
         ) : (
           <div>
             {filtered.map((job) => {
@@ -202,6 +247,7 @@ export default function JobsDecisionCenterPanel(props: {
               const selected =
                 props.selectedJobId != null && Number(props.selectedJobId) === Number(job.id);
               const title = String(job.job_name || job.name || "Untitled job");
+              const updated = formatDate(job.updated_at || job.created_at || null);
 
               return (
                 <button
@@ -210,26 +256,32 @@ export default function JobsDecisionCenterPanel(props: {
                   onClick={() => props.onSelectJob?.(job)}
                   className={[
                     "flex w-full items-start justify-between gap-3 border-b border-white/6 px-4 py-3 text-left transition",
-                    selected ? "bg-white/10" : "hover:bg-white/[0.04]",
+                    selected
+                      ? "bg-white/10 ring-1 ring-inset ring-white/10"
+                      : "hover:bg-white/[0.04]",
                   ].join(" ")}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={["h-2 w-2 rounded-full", statusTone(normalized)].join(" ")} />
-                      <div className="truncate text-sm font-semibold text-white/90">
-                        {title}
-                      </div>
+                      <div className="truncate text-sm font-semibold text-white/92">{title}</div>
                     </div>
 
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/45">
                       <span>{job.job_no ? `#${job.job_no}` : "No number"}</span>
                       <span>•</span>
                       <span>{statusLabel(normalized)}</span>
+                      {updated ? (
+                        <>
+                          <span>•</span>
+                          <span>{updated}</span>
+                        </>
+                      ) : null}
                     </div>
                   </div>
 
                   <div className="shrink-0 text-[11px] text-white/35">
-                    Open
+                    {selected ? "Selected" : "Open"}
                   </div>
                 </button>
               );

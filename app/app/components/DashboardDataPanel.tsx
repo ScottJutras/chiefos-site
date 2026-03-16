@@ -5,7 +5,11 @@ import { supabase } from "@/lib/supabase";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 
-// ✅ “effectively all” for beta (avoid accidental infinite payloads)
+type Props = {
+  view: ViewKey;
+  selectedJobName?: string | null;
+};
+
 const MAX_ROWS = 5000;
 
 function money(cents?: number | null) {
@@ -20,25 +24,28 @@ function fmtDate(s?: string | null) {
   return isNaN(d.getTime()) ? String(s) : d.toLocaleDateString();
 }
 
-export default function DashboardDataPanel({ view }: { view: ViewKey }) {
+function titleForView(view: ViewKey) {
+  switch (view) {
+    case "expenses":
+      return "Expenses";
+    case "revenue":
+      return "Revenue";
+    case "time":
+      return "Time";
+    case "tasks":
+      return "Tasks";
+    default:
+      return "Data";
+  }
+}
+
+export default function DashboardDataPanel({ view, selectedJobName }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rows, setRows] = useState<any[]>([]);
 
-  const title = useMemo(() => {
-    switch (view) {
-      case "expenses":
-        return "Expenses";
-      case "revenue":
-        return "Revenue";
-      case "time":
-        return "Time";
-      case "tasks":
-        return "Tasks";
-      default:
-        return "Data";
-    }
-  }, [view]);
+  const title = useMemo(() => titleForView(view), [view]);
+  const jobScope = String(selectedJobName || "").trim();
 
   useEffect(() => {
     let alive = true;
@@ -49,13 +56,18 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
         setErr(null);
         setRows([]);
 
-        // Expenses (portal view)
         if (view === "expenses") {
-          const { data, error } = await supabase
+          let query = supabase
             .from("chiefos_portal_expenses")
             .select("id, expense_date, vendor, description, amount_cents, job_name, job_no, created_at")
             .order("created_at", { ascending: false })
             .limit(MAX_ROWS);
+
+          if (jobScope) {
+            query = query.eq("job_name", jobScope);
+          }
+
+          const { data, error } = await query;
 
           if (!alive) return;
           if (error) throw error;
@@ -63,26 +75,37 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
           return;
         }
 
-        // Revenue (try portal view first, fall back to transactions)
         if (view === "revenue") {
           try {
-            const { data, error } = await supabase
+            let query = supabase
               .from("chiefos_portal_revenue")
               .select("id, revenue_date, customer, description, amount_cents, job_name, created_at")
               .order("created_at", { ascending: false })
               .limit(MAX_ROWS);
+
+            if (jobScope) {
+              query = query.eq("job_name", jobScope);
+            }
+
+            const { data, error } = await query;
 
             if (!alive) return;
             if (error) throw error;
             setRows(data || []);
             return;
           } catch {
-            const { data, error } = await supabase
+            let query = supabase
               .from("transactions")
               .select("id, date, source, description, amount_cents, job_name, created_at, kind")
               .ilike("kind", "revenue")
               .order("created_at", { ascending: false })
               .limit(MAX_ROWS);
+
+            if (jobScope) {
+              query = query.eq("job_name", jobScope);
+            }
+
+            const { data, error } = await query;
 
             if (!alive) return;
             if (error) throw error;
@@ -91,13 +114,18 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
           }
         }
 
-        // Time (fail-soft)
         if (view === "time") {
-          const { data, error } = await supabase
+          let query = supabase
             .from("time_entries")
             .select("id, job_name, user_name, start_time, end_time, minutes, created_at, status")
             .order("created_at", { ascending: false })
             .limit(MAX_ROWS);
+
+          if (jobScope) {
+            query = query.eq("job_name", jobScope);
+          }
+
+          const { data, error } = await query;
 
           if (!alive) return;
           if (error) throw error;
@@ -105,13 +133,18 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
           return;
         }
 
-        // Tasks (fail-soft)
         if (view === "tasks") {
-          const { data, error } = await supabase
+          let query = supabase
             .from("tasks")
             .select("id, title, status, job_name, assigned_to, created_at")
             .order("created_at", { ascending: false })
             .limit(MAX_ROWS);
+
+          if (jobScope) {
+            query = query.eq("job_name", jobScope);
+          }
+
+          const { data, error } = await query;
 
           if (!alive) return;
           if (error) throw error;
@@ -130,7 +163,15 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
     return () => {
       alive = false;
     };
-  }, [view]);
+  }, [view, jobScope]);
+
+  const summaryText = useMemo(() => {
+    if (loading) return "Loading…";
+    if (jobScope) {
+      return `${rows.length} shown${rows.length >= MAX_ROWS ? " (capped)" : ""} • scoped to ${jobScope}`;
+    }
+    return `${rows.length} shown${rows.length >= MAX_ROWS ? " (capped)" : ""}`;
+  }, [loading, rows.length, jobScope]);
 
   return (
     <section className="rounded-2xl border border-white/10 bg-black/30">
@@ -139,11 +180,14 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
           <div className="text-xs text-white/55">Data</div>
           <div className="mt-1 text-sm font-semibold text-white/90">{title}</div>
           <div className="mt-1 text-xs text-white/55">
-            Browse while you ask. This panel never leaves the dashboard.
+            {jobScope
+              ? "This panel is scoped to the selected job."
+              : "Browse while you ask. This panel never leaves the dashboard."}
           </div>
         </div>
-        <div className="text-xs text-white/55">
-          {loading ? "Loading…" : `${rows.length} shown${rows.length >= MAX_ROWS ? " (capped)" : ""}`}
+
+        <div className="text-right text-xs text-white/55">
+          {summaryText}
         </div>
       </div>
 
@@ -152,7 +196,7 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
           <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
             {err}
             <div className="mt-1 text-[11px] text-red-200/80">
-              This panel is fail-soft. If a table/view doesn’t exist yet, we’ll wire it once the canonical surface is confirmed.
+              This panel is fail-soft. If a table or view does not exist yet, wire the canonical tenant-safe surface next.
             </div>
           </div>
         </div>
@@ -160,53 +204,56 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
 
       <div className="max-h-[55vh] overflow-auto p-4">
         {loading ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">Loading…</div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+            Loading…
+          </div>
         ) : rows.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/15 bg-black/20 p-6 text-sm text-white/60">
-            Nothing to show yet.
+            {jobScope ? `No ${title.toLowerCase()} found for ${jobScope}.` : "Nothing to show yet."}
           </div>
         ) : (
           <div className="space-y-2">
             {rows.map((r: any) => (
               <div key={String(r.id)} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                {/* Expenses */}
                 {view === "expenses" ? (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white/85 truncate">
+                      <div className="truncate text-sm font-semibold text-white/85">
                         {(r.vendor || "Unknown") + (r.job_name ? ` • ${r.job_name}` : "")}
                       </div>
-                      <div className="mt-1 text-xs text-white/55 truncate">
+                      <div className="mt-1 truncate text-xs text-white/55">
                         {fmtDate(r.expense_date || r.created_at)} • {r.description || "—"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-sm font-semibold text-white/85">{money(r.amount_cents)}</div>
+                    <div className="shrink-0 text-sm font-semibold text-white/85">
+                      {money(r.amount_cents)}
+                    </div>
                   </div>
                 ) : null}
 
-                {/* Revenue */}
                 {view === "revenue" ? (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white/85 truncate">
+                      <div className="truncate text-sm font-semibold text-white/85">
                         {(r.customer || "Customer") + (r.job_name ? ` • ${r.job_name}` : "")}
                       </div>
-                      <div className="mt-1 text-xs text-white/55 truncate">
+                      <div className="mt-1 truncate text-xs text-white/55">
                         {fmtDate(r.revenue_date || r.created_at)} • {r.description || "—"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-sm font-semibold text-white/85">{money(r.amount_cents)}</div>
+                    <div className="shrink-0 text-sm font-semibold text-white/85">
+                      {money(r.amount_cents)}
+                    </div>
                   </div>
                 ) : null}
 
-                {/* Time */}
                 {view === "time" ? (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white/85 truncate">
+                      <div className="truncate text-sm font-semibold text-white/85">
                         {(r.user_name || "Crew") + (r.job_name ? ` • ${r.job_name}` : "")}
                       </div>
-                      <div className="mt-1 text-xs text-white/55 truncate">
+                      <div className="mt-1 truncate text-xs text-white/55">
                         {fmtDate(r.start_time || r.created_at)} • {r.status || "logged"}
                       </div>
                     </div>
@@ -216,19 +263,20 @@ export default function DashboardDataPanel({ view }: { view: ViewKey }) {
                   </div>
                 ) : null}
 
-                {/* Tasks */}
                 {view === "tasks" ? (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white/85 truncate">
+                      <div className="truncate text-sm font-semibold text-white/85">
                         {r.title || "Task"}
                         {r.job_name ? ` • ${r.job_name}` : ""}
                       </div>
-                      <div className="mt-1 text-xs text-white/55 truncate">
+                      <div className="mt-1 truncate text-xs text-white/55">
                         {r.status || "open"} • {fmtDate(r.created_at)}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-white/55">{r.assigned_to ? `@${r.assigned_to}` : ""}</div>
+                    <div className="shrink-0 text-xs text-white/55">
+                      {r.assigned_to ? `@${r.assigned_to}` : ""}
+                    </div>
                   </div>
                 ) : null}
               </div>
