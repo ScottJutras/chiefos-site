@@ -4,6 +4,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { fetchWhoami } from "@/lib/whoami";
 
 type LinkCodeRow = {
   id: string;
@@ -87,19 +88,10 @@ export default function ConnectWhatsAppPage() {
     return (data as LinkCodeRow | null) ?? null;
   }
 
-    async function isLinkedNow() {
-    if (!tenantId || !userId) return false;
-
-    const { data, error } = await supabase
-      .from("chiefos_user_identities")
-      .select("tenant_id, user_id, kind, identifier")
-      .eq("tenant_id", tenantId)
-      .eq("user_id", userId)
-      .eq("kind", "whatsapp")
-      .limit(1);
-
-    if (error) throw error;
-    return Array.isArray(data) && data.length > 0;
+     async function isLinkedNow() {
+    const w: any = await fetchWhoami();
+    if (!w?.ok) return false;
+    return !!w.hasWhatsApp;
   }
 
   async function createNewCode() {
