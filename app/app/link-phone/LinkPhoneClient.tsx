@@ -89,7 +89,7 @@ export default function LinkPhoneClient() {
     })();
   }, []);
 
-  async function startOtp() {
+   async function startOtp() {
     setErr(null);
     setMsg(null);
 
@@ -110,17 +110,21 @@ export default function LinkPhoneClient() {
       return;
     }
 
-    // ✅ Explicit Step 2 message (right before API call)
     setMsg('Step 2 — Sending OTP. If you didn’t send "LINK" in WhatsApp first, delivery will fail.');
 
-    await apiFetchJSON<{ ok: true }>("/api/link-phone/start", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ ownerPhone: phoneDigits }),
-    });
+    try {
+      await apiFetchJSON<{ ok: true }>("/api/link-phone/start", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ ownerPhone: phoneDigits }),
+      });
 
-    setStage("enter_otp");
-    setMsg("OTP sent. Check your WhatsApp messages.");
+      setStage("enter_otp");
+      setMsg("OTP sent. Check your WhatsApp messages.");
+    } catch (e: any) {
+      setErr(e?.message || "Unable to send OTP right now.");
+      setMsg(null);
+    }
   }
 
   async function verifyOtp() {

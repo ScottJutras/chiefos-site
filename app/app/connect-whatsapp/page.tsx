@@ -87,13 +87,14 @@ export default function ConnectWhatsAppPage() {
     return (data as LinkCodeRow | null) ?? null;
   }
 
-  async function isLinkedNow() {
-    if (!tenantId) return false;
+    async function isLinkedNow() {
+    if (!tenantId || !userId) return false;
 
     const { data, error } = await supabase
-      .from("chiefos_identity_map")
-      .select("id")
+      .from("chiefos_user_identities")
+      .select("tenant_id, user_id, kind, identifier")
       .eq("tenant_id", tenantId)
+      .eq("user_id", userId)
       .eq("kind", "whatsapp")
       .limit(1);
 
