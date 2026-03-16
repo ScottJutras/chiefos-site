@@ -7,6 +7,9 @@ const items = [
   { href: "/app/dashboard", label: "Home" },
   { href: "/app/pending-review", label: "Review" },
   { href: "/app/uploads", label: "Capture" },
+  { href: "/app/activity/expenses", label: "Activity" },
+  { href: "/app/settings", label: "Settings" },
+  { href: "/app/settings/billing", label: "Billing" },
   { href: "/app/chief", label: "Chief" },
 ];
 

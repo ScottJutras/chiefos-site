@@ -390,14 +390,18 @@ function RightRail({
           {!hasWhatsApp ? (
             <UtilityLink href="/app/connect-whatsapp" label="Connect WhatsApp" tone="primary" />
           ) : null}
+
           <UtilityLink href="/app/pending-review" label={`Pending Review (${summary.pendingReview})`} />
           <UtilityLink href="/app/uploads" label="Upload receipts / files" />
+          <UtilityLink href="/app/activity/expenses" label="Open expense ledger" />
+          <UtilityLink href="/app/activity/revenue" label="Open revenue ledger" />
           <UtilityLink href="/app/jobs/new" label="Start a new job" />
+          <UtilityLink href="/app/settings" label="Settings" />
+          <UtilityLink href="/app/settings/billing" label="Billing" />
+
           {betaPlan === "pro" ? (
             <UtilityLink href="/app/crew/inbox" label="Crew Inbox" />
-          ) : (
-            <UtilityLink href="/app/settings/billing" label="See Pro governance" />
-          )}
+          ) : null}
         </div>
       </div>
 
