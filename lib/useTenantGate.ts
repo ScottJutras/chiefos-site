@@ -64,9 +64,9 @@ export function useTenantGate(opts?: { requireWhatsApp?: boolean }) {
     }
 
     function withReturnTo(basePath: string) {
-      const rt = encodeURIComponent(pathname || "/app/expenses");
-      return `${basePath}?returnTo=${rt}`;
-    }
+  const rt = encodeURIComponent(pathname || "/app/dashboard");
+  return `${basePath}?returnTo=${rt}`;
+}
 
     async function run() {
       try {

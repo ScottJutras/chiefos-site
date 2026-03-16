@@ -29,10 +29,10 @@ function digitsOnly(code: string | null | undefined) {
 function safeReturnTo(input: string | null | undefined) {
   const s = String(input || "").trim();
   // Allow only internal paths (no protocol / host)
-  if (!s) return "/app/expenses";
-  if (!s.startsWith("/")) return "/app/expenses";
-  if (s.startsWith("//")) return "/app/expenses";
-  if (s.toLowerCase().startsWith("/api")) return "/app/expenses";
+  if (!s) return "/app/dashboard";
+  if (!s.startsWith("/")) return "/app/dashboard";
+  if (s.startsWith("//")) return "/app/dashboard";
+  if (s.toLowerCase().startsWith("/api")) return "/app/dashboard";
   return s;
 }
 
@@ -43,7 +43,7 @@ export default function ConnectWhatsAppPage() {
   const { loading: gateLoading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
 
   // returnTo (read client-side to avoid Next Suspense requirement)
-  const [returnTo, setReturnTo] = useState<string>("/app/expenses");
+  const [returnTo, setReturnTo] = useState<string>("/app/dashboard");
 
   // Page state
   const [pageLoading, setPageLoading] = useState(true);
@@ -63,8 +63,8 @@ export default function ConnectWhatsAppPage() {
     try {
       const sp = new URLSearchParams(window.location.search);
       setReturnTo(safeReturnTo(sp.get("returnTo")));
-    } catch {
-      setReturnTo("/app/expenses");
+        } catch {
+      setReturnTo("/app/dashboard");
     }
   }, []);
 
