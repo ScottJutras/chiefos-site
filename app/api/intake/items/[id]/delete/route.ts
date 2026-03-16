@@ -165,7 +165,11 @@ export async function POST(
 
     const item = itemAnyTenant;
 
-    if (String(item.status || "") === "deleted") {
+    // Use a schema-safe terminal status that already exists in intake_items_status_check.
+    // This removes the item from the active queue without requiring a DB constraint change.
+    const REMOVED_STATUS = "skipped";
+
+    if (String(item.status || "") === REMOVED_STATUS) {
       return json(200, {
         ok: true,
         alreadyDeleted: true,
@@ -177,7 +181,7 @@ export async function POST(
     const { error: updateErr } = await ctx.admin
       .from("intake_items")
       .update({
-        status: "deleted",
+        status: REMOVED_STATUS,
         updated_at: new Date().toISOString(),
       } as any)
       .eq("tenant_id", ctx.tenantId)
@@ -207,7 +211,7 @@ export async function POST(
           source_filename: item.source_filename || null,
         },
         after_payload: {
-          status: "deleted",
+          status: REMOVED_STATUS,
         },
         comment,
       });
@@ -224,6 +228,7 @@ export async function POST(
     console.info("[INTAKE_ITEM_DELETE_OK]", {
       itemId,
       tenantId: ctx.tenantId,
+      status: REMOVED_STATUS,
     });
 
     return json(200, {
