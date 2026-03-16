@@ -4,24 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  // Jobs-first operating center (currently dashboard route)
-  { href: "/app/dashboard", label: "Jobs" },
-
-  // Owner reasoning seat
+  { href: "/app/dashboard", label: "Home" },
+  { href: "/app/pending-review", label: "Review" },
+  { href: "/app/uploads", label: "Capture" },
   { href: "/app/chief", label: "Chief" },
-
-  // Owner review lane
-  { href: "/app/pending-review", label: "Pending Review" },
-
-  // Existing surfaces
-  { href: "/app/activity", label: "Activity" },
-  { href: "/app/crew", label: "Crew" },
-  { href: "/app/crew/inbox", label: "Crew Inbox" },
-
-  // System
-  { href: "/app/uploads", label: "Uploads" },
-  { href: "/app/settings/billing", label: "Billing" },
-  { href: "/app/settings", label: "Settings" },
 ];
 
 export function AppNav() {
