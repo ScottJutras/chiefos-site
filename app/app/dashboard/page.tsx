@@ -610,7 +610,7 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [selectedJob]);
+  }, []);
 
   const pulsePoints = useMemo(() => {
     const base = selectedJob

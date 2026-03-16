@@ -14,7 +14,7 @@ export function AppNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-2 flex-wrap">
+    <nav className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
       {items.map((it) => {
         const active = pathname === it.href || pathname.startsWith(it.href + "/");
 
