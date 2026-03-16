@@ -203,7 +203,7 @@ export async function POST(
         tenant_id: ctx.tenantId,
         owner_id: ctx.ownerId,
         reviewed_by_auth_user_id: ctx.authUserId,
-        action: "delete",
+        action: "skip",
         before_payload: {
           prior_status: item.status || null,
           storage_bucket: item.storage_bucket || null,
