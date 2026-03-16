@@ -1,341 +1,224 @@
-"use client";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-import { useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { useTenantGate } from "@/lib/useTenantGate";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type UploadPhase = "idle" | "uploading" | "processing" | "done" | "error";
-
-type UploadErrorDetail = {
-  message: string;
-  code?: string | null;
-  hint?: string | null;
-  bucket?: string | null;
-};
-
-type UploadState = {
-  phase: UploadPhase;
-  error: UploadErrorDetail | null;
-  batchId: string | null;
-  uploadedCount: number;
-  processedCount: number;
-  pendingCount: number;
-  duplicateCount: number;
-  skippedCount: number;
-  confirmedCount: number;
-};
-
-function detectSummary(files: File[]) {
-  let images = 0;
-  let audio = 0;
-  let pdfs = 0;
-  let other = 0;
-
-  for (const f of files) {
-    const type = String(f.type || "").toLowerCase();
-    const name = String(f.name || "").toLowerCase();
-
-    if (type.startsWith("image/")) images++;
-    else if (type.startsWith("audio/") || /\.(mp3|m4a|wav|aac|ogg|webm)$/i.test(name)) audio++;
-    else if (type === "application/pdf" || name.endsWith(".pdf")) pdfs++;
-    else other++;
-  }
-
-  return { images, audio, pdfs, other };
+function json(status: number, body: any) {
+  return NextResponse.json(body, { status });
 }
 
-function phaseLabel(phase: UploadPhase) {
-  switch (phase) {
-    case "uploading":
-      return "Uploading files…";
-    case "processing":
-      return "Building review drafts…";
-    case "done":
-      return "Upload complete";
-    case "error":
-      return "Something went wrong";
-    default:
-      return "Ready";
-  }
+function mustEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing ${name}`);
+  return v;
 }
 
-export default function UploadsPage() {
-  const gate = useTenantGate({ requireWhatsApp: false });
-  const [files, setFiles] = useState<File[]>([]);
-  const [state, setState] = useState<UploadState>({
-    phase: "idle",
-    error: null,
-    batchId: null,
-    uploadedCount: 0,
-    processedCount: 0,
-    pendingCount: 0,
-    duplicateCount: 0,
-    skippedCount: 0,
-    confirmedCount: 0,
-  });
+function bearerFromReq(req: Request) {
+  const raw = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+  return raw.toLowerCase().startsWith("bearer ") ? raw.slice(7).trim() : "";
+}
 
-  const summary = useMemo(() => detectSummary(files), [files]);
-  const busy = state.phase === "uploading" || state.phase === "processing";
-
-  async function getToken() {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token || "";
-  }
-
-  async function onUpload() {
-    try {
-      setState({
-        phase: "uploading",
-        error: null,
-        batchId: null,
-        uploadedCount: 0,
-        processedCount: 0,
-        pendingCount: 0,
-        duplicateCount: 0,
-        skippedCount: 0,
-        confirmedCount: 0,
-      });
-
-      const token = await getToken();
-      if (!token) {
-        throw {
-          message: "Missing session.",
-          code: "AUTH_REQUIRED",
-        };
-      }
-
-      if (!files.length) {
-        throw {
-          message: "Choose at least one file.",
-          code: "NO_FILES",
-        };
-      }
-
-      const form = new FormData();
-      for (const file of files) form.append("files", file);
-
-      const uploadRes = await fetch("/api/intake/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-
-      const uploadJson = await uploadRes.json().catch(() => ({}));
-
-      if (!uploadRes.ok || !uploadJson?.ok) {
-        throw {
-          message: uploadJson?.error || "Upload failed.",
-          code: uploadJson?.code || `HTTP_${uploadRes.status}`,
-          hint: uploadJson?.hint || null,
-          bucket: uploadJson?.bucket || null,
-        };
-      }
-
-      const batchId = String(uploadJson.batchId || "").trim();
-      if (!batchId) {
-        throw {
-          message: "Upload succeeded but no batchId was returned.",
-          code: "BATCH_ID_MISSING",
-        };
-      }
-
-      setState((prev) => ({
-        ...prev,
-        phase: "processing",
-        batchId,
-        uploadedCount: Number(uploadJson.uploadedCount || 0),
-      }));
-
-      const processRes = await fetch("/api/intake/process", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ batchId }),
-      });
-
-      const processJson = await processRes.json().catch(() => ({}));
-
-      if (!processRes.ok || !processJson?.ok) {
-        throw {
-          message: processJson?.error || "Upload succeeded but processing failed.",
-          code: processJson?.code || `HTTP_${processRes.status}`,
-          hint: processJson?.hint || null,
-        };
-      }
-
-      setState({
-        phase: "done",
-        error: null,
-        batchId,
-        uploadedCount: Number(uploadJson.uploadedCount || 0),
-        processedCount: Number(processJson.processedCount || 0),
-        pendingCount: Number(processJson.pendingCount || 0),
-        duplicateCount: Number(processJson.duplicateCount || 0),
-        skippedCount: Number(processJson.skippedCount || 0),
-        confirmedCount: Number(processJson.confirmedCount || 0),
-      });
-
-      setFiles([]);
-    } catch (e: any) {
-      setState((prev) => ({
-        ...prev,
-        phase: "error",
-        error: {
-          message: e?.message || "Upload failed.",
-          code: e?.code || null,
-          hint: e?.hint || null,
-          bucket: e?.bucket || null,
-        },
-      }));
-    }
-  }
-
-  if (gate.loading) {
-    return <div className="p-8 text-white/70">Loading uploads…</div>;
-  }
-
-  return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-5xl px-4 py-5">
-        <div>
-          <div className="text-xs uppercase tracking-[0.16em] text-white/45">Bulk Intake</div>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Upload receipts, voice, and PDFs
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
-            Files upload into a draft review lane first. Nothing becomes truth until it is confirmed in Pending Review.
-          </p>
-        </div>
-
-        <div className="mt-6 rounded-[28px] border border-white/10 bg-black/40 p-5">
-          <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-6">
-            <input
-              type="file"
-              multiple
-              accept="image/*,audio/*,.pdf,application/pdf"
-              onChange={(e) => setFiles(Array.from(e.target.files || []))}
-              disabled={busy}
-              className="block w-full text-sm text-white/80 file:mr-4 file:rounded-xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:bg-white/90 disabled:opacity-50"
-            />
-
-            <div className="mt-4 text-sm text-white/60">
-              Supported in Phase 1: images, audio, PDFs.
-            </div>
-          </div>
-
-          {files.length > 0 && (
-            <div className="mt-5 grid gap-3 md:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/45">Files</div>
-                <div className="mt-2 text-2xl font-semibold">{files.length}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/45">Images</div>
-                <div className="mt-2 text-2xl font-semibold">{summary.images}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/45">Voice</div>
-                <div className="mt-2 text-2xl font-semibold">{summary.audio}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-xs text-white/45">PDFs</div>
-                <div className="mt-2 text-2xl font-semibold">{summary.pdfs}</div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
-            <div className="font-medium text-white/90">{phaseLabel(state.phase)}</div>
-            {state.phase === "processing" ? (
-              <div className="mt-1 text-white/60">
-                Extracting evidence and building review drafts now.
-              </div>
-            ) : null}
-          </div>
-
-          {state.error && (
-            <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              <div className="font-semibold">Upload failed</div>
-              <div className="mt-1">{state.error.message}</div>
-
-              {state.error.code ? (
-                <div className="mt-2 text-xs text-red-100/75">Code: {state.error.code}</div>
-              ) : null}
-
-              {state.error.bucket ? (
-                <div className="mt-1 text-xs text-red-100/75">Bucket: {state.error.bucket}</div>
-              ) : null}
-
-              {state.error.hint ? (
-                <div className="mt-2 text-xs text-red-100/85">{state.error.hint}</div>
-              ) : null}
-            </div>
-          )}
-
-          {state.batchId && state.phase === "done" && (
-            <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-100">
-              Uploaded {state.uploadedCount} file(s). Processed {state.processedCount} item(s).
-              <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-emerald-400/15 bg-black/20 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-emerald-200/70">Pending Review</div>
-                  <div className="mt-1 text-xl font-semibold">{state.pendingCount}</div>
-                </div>
-                <div className="rounded-xl border border-emerald-400/15 bg-black/20 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-emerald-200/70">Duplicates</div>
-                  <div className="mt-1 text-xl font-semibold">{state.duplicateCount}</div>
-                </div>
-                <div className="rounded-xl border border-emerald-400/15 bg-black/20 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-emerald-200/70">Skipped</div>
-                  <div className="mt-1 text-xl font-semibold">{state.skippedCount}</div>
-                </div>
-                <div className="rounded-xl border border-emerald-400/15 bg-black/20 p-3">
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-emerald-200/70">Confirmed</div>
-                  <div className="mt-1 text-xl font-semibold">{state.confirmedCount}</div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <a
-                  href="/app/pending-review"
-                  className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-                >
-                  Open Pending Review
-                </a>
-                <a
-                  href="/app/pending-review"
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/90 hover:bg-white/10 transition"
-                >
-                  Review later
-                </a>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void onUpload()}
-              disabled={busy || !files.length}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
-            >
-              {state.phase === "uploading"
-                ? "Uploading…"
-                : state.phase === "processing"
-                ? "Processing…"
-                : "Upload to Pending Review"}
-            </button>
-
-            <a
-              href="/app/pending-review"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 hover:bg-white/10 transition"
-            >
-              Go to Pending Review
-            </a>
-          </div>
-        </div>
-      </div>
-    </main>
+function adminClient() {
+  return createClient(
+    mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, ""),
+    mustEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
+}
+
+async function getTenantContext(req: Request) {
+  const token = bearerFromReq(req);
+  if (!token) return { ok: false as const, error: "Missing bearer token." };
+
+  const admin = adminClient();
+  const { data: authData, error: authErr } = await admin.auth.getUser(token);
+  if (authErr || !authData?.user?.id) {
+    return { ok: false as const, error: "Invalid session." };
+  }
+
+  const authUserId = String(authData.user.id);
+
+  const { data: pu, error: puErr } = await admin
+    .from("chiefos_portal_users")
+    .select("tenant_id, role, created_at")
+    .eq("user_id", authUserId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (puErr) return { ok: false as const, error: puErr.message || "Failed to resolve membership." };
+  if (!pu?.tenant_id) return { ok: false as const, error: "Missing tenant context." };
+
+  return {
+    ok: true as const,
+    admin,
+    tenantId: String(pu.tenant_id),
+    role: String(pu.role || ""),
+  };
+}
+
+function normalizeFlags(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value.map((x) => String(x || "").trim()).filter(Boolean);
+  }
+  return [];
+}
+
+function hasBlockingFlags(flags: string[]) {
+  const blocking = new Set([
+    "missing_amount",
+    "missing_vendor",
+    "missing_date",
+    "job_unresolved",
+    "job_ambiguous",
+    "possible_duplicate_attachment",
+    "possible_duplicate_content",
+    "unsupported_file_type",
+  ]);
+
+  return flags.some((flag) => blocking.has(String(flag || "")));
+}
+
+function isReadyForFastConfirm(row: any) {
+  const status = String(row?.status || "").trim();
+  const confidence = Number(row?.confidence_score || 0);
+  const jobName = String(row?.job_name || row?.draft_job_name || "").trim();
+  const amount = Number(row?.draft_amount_cents || 0);
+  const vendor = String(row?.draft_vendor || "").trim();
+  const eventDate = String(row?.draft_event_date || "").trim();
+  const flags = normalizeFlags(row?.draft_validation_flags);
+
+  if (status !== "pending_review") return false;
+  if (confidence < 0.85) return false;
+  if (!jobName) return false;
+  if (!amount || amount <= 0) return false;
+  if (!vendor) return false;
+  if (!eventDate) return false;
+  if (hasBlockingFlags(flags)) return false;
+
+  return true;
+}
+
+function compareRowsForReview(a: any, b: any) {
+  const aReady = isReadyForFastConfirm(a) ? 1 : 0;
+  const bReady = isReadyForFastConfirm(b) ? 1 : 0;
+
+  if (aReady !== bReady) return bReady - aReady;
+
+  const aConfidence = Number(a?.confidence_score || 0);
+  const bConfidence = Number(b?.confidence_score || 0);
+  if (aConfidence !== bConfidence) return bConfidence - aConfidence;
+
+  const aCreated = String(a?.created_at || "");
+  const bCreated = String(b?.created_at || "");
+  return aCreated.localeCompare(bCreated);
+}
+
+function escapeLikeQuery(value: string) {
+  return value.replace(/[%_]/g, "\\$&");
+}
+
+export async function GET(req: Request) {
+  try {
+    const ctx = await getTenantContext(req);
+    if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
+
+    const admin = ctx.admin;
+    const url = new URL(req.url);
+
+    const status = String(url.searchParams.get("status") || "").trim();
+    const kind = String(url.searchParams.get("kind") || "").trim();
+    const batchId = String(url.searchParams.get("batchId") || "").trim();
+    const q = String(url.searchParams.get("q") || "").trim();
+    const limit = Math.max(1, Math.min(200, Number(url.searchParams.get("limit") || 50)));
+    const onlyFastConfirm = String(url.searchParams.get("fastConfirm") || "").trim() === "1";
+
+    let itemQuery = admin
+      .from("intake_items")
+      .select("*")
+      .eq("tenant_id", ctx.tenantId)
+      .limit(limit);
+
+    if (status) itemQuery = itemQuery.eq("status", status);
+    if (kind) itemQuery = itemQuery.eq("kind", kind);
+    if (batchId) itemQuery = itemQuery.eq("batch_id", batchId);
+
+    if (q) {
+      const escaped = escapeLikeQuery(q);
+      const token = `%${escaped}%`;
+      itemQuery = itemQuery.or(
+        `source_filename.ilike.${token},job_name.ilike.${token},ocr_text.ilike.${token},transcript_text.ilike.${token}`
+      );
+    }
+
+    const { data: items, error: itemsErr } = await itemQuery;
+
+    if (itemsErr) {
+      return json(500, { ok: false, error: itemsErr.message || "Failed to load intake items." });
+    }
+
+    const rows = Array.isArray(items) ? items : [];
+    const itemIds = rows.map((row) => String(row.id)).filter(Boolean);
+
+    let draftMap = new Map<string, any>();
+
+    if (itemIds.length > 0) {
+      const { data: drafts, error: draftsErr } = await admin
+        .from("intake_item_drafts")
+        .select("*")
+        .eq("tenant_id", ctx.tenantId)
+        .in("intake_item_id", itemIds);
+
+      if (draftsErr) {
+        return json(500, { ok: false, error: draftsErr.message || "Failed to load intake drafts." });
+      }
+
+      draftMap = new Map(
+        (drafts || []).map((draft: any) => [String(draft.intake_item_id), draft])
+      );
+    }
+
+    const enrichedRows = rows.map((row: any) => {
+      const draft = draftMap.get(String(row.id)) || null;
+      const draftFlags = normalizeFlags(draft?.validation_flags);
+
+      return {
+        ...row,
+        draft_amount_cents: draft?.amount_cents ?? null,
+        draft_currency: draft?.currency ?? null,
+        draft_vendor: draft?.vendor ?? null,
+        draft_description: draft?.description ?? null,
+        draft_event_date: draft?.event_date ?? null,
+        draft_job_name: draft?.job_name ?? null,
+        draft_validation_flags: draftFlags,
+        fast_confirm_ready: isReadyForFastConfirm({
+          ...row,
+          draft_amount_cents: draft?.amount_cents ?? null,
+          draft_vendor: draft?.vendor ?? null,
+          draft_event_date: draft?.event_date ?? null,
+          draft_job_name: draft?.job_name ?? null,
+          draft_validation_flags: draftFlags,
+        }),
+      };
+    });
+
+    const filteredRows = onlyFastConfirm
+      ? enrichedRows.filter((row) => row.fast_confirm_ready)
+      : enrichedRows;
+
+    const sortedRows = [...filteredRows].sort(compareRowsForReview);
+
+    return json(200, {
+      ok: true,
+      rows: sortedRows,
+      meta: {
+        total: sortedRows.length,
+        fastConfirmReady: sortedRows.filter((row) => row.fast_confirm_ready).length,
+      },
+    });
+  } catch (e: any) {
+    return json(500, { ok: false, error: e?.message || "Items lookup failed." });
+  }
 }

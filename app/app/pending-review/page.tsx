@@ -78,7 +78,7 @@ function compareItemsForReview(a: IntakeItem, b: IntakeItem) {
   const bScore = Number(b.confidence_score || 0);
   if (aScore !== bScore) return bScore - aScore;
 
-  return String(a.created_at).localeCompare(String(b.created_at));
+  return new Date(String(b.created_at || 0)).getTime() - new Date(String(a.created_at || 0)).getTime();
 }
 
 function pickBestBatchItem(items: IntakeItem[]) {
@@ -104,6 +104,7 @@ export default function PendingReviewPage() {
   const gate = useTenantGate({ requireWhatsApp: false });
   const [loading, setLoading] = useState(true);
   const [busyBatchId, setBusyBatchId] = useState<string | null>(null);
+  const [busyDeleteItemId, setBusyDeleteItemId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<IntakeItem[]>([]);
   const [meta, setMeta] = useState<IntakeListResponse["meta"] | null>(null);
@@ -172,6 +173,32 @@ export default function PendingReviewPage() {
       setErr(e?.message || "Failed to process batch.");
     } finally {
       setBusyBatchId(null);
+    }
+  }
+
+  async function deleteItem(itemId: string) {
+    setBusyDeleteItemId(itemId);
+    setErr(null);
+    try {
+      const headers = {
+        ...(await authHeader()),
+        "Content-Type": "application/json",
+      };
+
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/delete`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ comment: "Deleted from Pending Review queue." }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Delete failed.");
+
+      await load();
+    } catch (e: any) {
+      setErr(e?.message || "Delete failed.");
+    } finally {
+      setBusyDeleteItemId(null);
     }
   }
 
@@ -323,12 +350,14 @@ export default function PendingReviewPage() {
                       const displayJob = String(item.draft_job_name || item.job_name || "").trim();
 
                       return (
-                        <a
+                        <div
                           key={item.id}
-                          href={`/app/pending-review/${item.id}`}
                           className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-white/[0.03] transition"
                         >
-                          <div className="min-w-0">
+                          <a
+                            href={`/app/pending-review/${item.id}`}
+                            className="min-w-0 flex-1"
+                          >
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70">
                                 {kindLabel(item.kind)}
@@ -384,15 +413,28 @@ export default function PendingReviewPage() {
                                 ) : null}
                               </div>
                             ) : null}
-                          </div>
+                          </a>
 
-                          <div className="text-right text-xs text-white/55">
+                          <div className="flex shrink-0 flex-col items-end gap-2 text-right text-xs text-white/55">
                             <div>Confidence: {confidencePct(item.confidence_score)}</div>
-                            <div className="mt-1 text-white/40">
+                            <div className="text-white/40">
                               {ready ? "Fast confirm path" : "Needs review"}
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const ok = window.confirm("Delete this upload from the active queue?");
+                                if (!ok) return;
+                                void deleteItem(item.id);
+                              }}
+                              disabled={busyDeleteItemId === item.id}
+                              className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200 hover:bg-red-500/15 transition disabled:opacity-50"
+                            >
+                              {busyDeleteItemId === item.id ? "Deleting…" : "Delete"}
+                            </button>
                           </div>
-                        </a>
+                        </div>
                       );
                     })}
                   </div>

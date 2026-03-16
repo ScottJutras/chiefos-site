@@ -582,6 +582,13 @@ async function hydrateEvidenceText(
       const text = normalizeWhitespace(out?.text || "");
       const fields = out?.fields || null;
 
+      console.info("[INTAKE_RECEIPT_OCR_OK]", {
+        itemId: String(item?.id || ""),
+        hasText: Boolean(text),
+        textLen: String(text || "").length,
+        fields,
+      });
+
       return {
         bestText: text,
         ocr_text: text || null,
@@ -593,6 +600,14 @@ async function hydrateEvidenceText(
         documentAiFields: fields,
       };
     } catch (e: any) {
+      console.error("[INTAKE_RECEIPT_OCR_FAIL]", {
+        itemId: String(item?.id || ""),
+        bucket: String(item?.storage_bucket || ""),
+        path: String(item?.storage_path || ""),
+        ownerId: String(ownerId || ""),
+        message: e?.message || "Receipt image OCR failed.",
+      });
+
       return {
         bestText: "",
         ocr_text: item?.ocr_text || null,
@@ -656,7 +671,6 @@ async function hydrateEvidenceText(
     documentAiFields: null,
   };
 }
-
 export async function POST(req: Request) {
   try {
     const ctx = await getPortalContext(req);

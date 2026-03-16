@@ -111,9 +111,9 @@ function compareRowsForReview(a: any, b: any) {
   const bConfidence = Number(b?.confidence_score || 0);
   if (aConfidence !== bConfidence) return bConfidence - aConfidence;
 
-  const aCreated = String(a?.created_at || "");
-  const bCreated = String(b?.created_at || "");
-  return aCreated.localeCompare(bCreated);
+  const aCreated = new Date(String(a?.created_at || 0)).getTime();
+  const bCreated = new Date(String(b?.created_at || 0)).getTime();
+  return bCreated - aCreated;
 }
 
 function escapeLikeQuery(value: string) {
@@ -128,22 +128,38 @@ export async function GET(req: Request) {
     const admin = ctx.admin;
     const url = new URL(req.url);
 
-    const status = String(url.searchParams.get("status") || "").trim();
+    const status = String(url.searchParams.get("status") || "").trim().toLowerCase();
     const kind = String(url.searchParams.get("kind") || "").trim();
     const batchId = String(url.searchParams.get("batchId") || "").trim();
     const q = String(url.searchParams.get("q") || "").trim();
-    const limit = Math.max(1, Math.min(200, Number(url.searchParams.get("limit") || 50)));
+
+    // Pull a slightly larger server-side slice first, then rank in memory.
+    const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 200)));
     const onlyFastConfirm = String(url.searchParams.get("fastConfirm") || "").trim() === "1";
+    const includeDeleted = String(url.searchParams.get("includeDeleted") || "").trim() === "1";
 
     let itemQuery = admin
       .from("intake_items")
       .select("*")
       .eq("tenant_id", ctx.tenantId)
+      .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (status) itemQuery = itemQuery.eq("status", status);
-    if (kind) itemQuery = itemQuery.eq("kind", kind);
-    if (batchId) itemQuery = itemQuery.eq("batch_id", batchId);
+    if (!includeDeleted) {
+      itemQuery = itemQuery.neq("status", "deleted");
+    }
+
+    if (status && status !== "all") {
+      itemQuery = itemQuery.eq("status", status);
+    }
+
+    if (kind) {
+      itemQuery = itemQuery.eq("kind", kind);
+    }
+
+    if (batchId) {
+      itemQuery = itemQuery.eq("batch_id", batchId);
+    }
 
     if (q) {
       const escaped = escapeLikeQuery(q);
@@ -184,7 +200,7 @@ export async function GET(req: Request) {
       const draft = draftMap.get(String(row.id)) || null;
       const draftFlags = normalizeFlags(draft?.validation_flags);
 
-      return {
+      const merged = {
         ...row,
         draft_amount_cents: draft?.amount_cents ?? null,
         draft_currency: draft?.currency ?? null,
@@ -193,14 +209,11 @@ export async function GET(req: Request) {
         draft_event_date: draft?.event_date ?? null,
         draft_job_name: draft?.job_name ?? null,
         draft_validation_flags: draftFlags,
-        fast_confirm_ready: isReadyForFastConfirm({
-          ...row,
-          draft_amount_cents: draft?.amount_cents ?? null,
-          draft_vendor: draft?.vendor ?? null,
-          draft_event_date: draft?.event_date ?? null,
-          draft_job_name: draft?.job_name ?? null,
-          draft_validation_flags: draftFlags,
-        }),
+      };
+
+      return {
+        ...merged,
+        fast_confirm_ready: isReadyForFastConfirm(merged),
       };
     });
 

@@ -296,6 +296,34 @@ export default function PendingReviewItemPage() {
     }
   }
 
+  async function doDelete(payload?: { comment?: string }) {
+  try {
+    setMutating(true);
+    setErr(null);
+
+    const token = await authToken();
+    if (!token) throw new Error("Missing session.");
+
+    const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/delete`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload || {}),
+    });
+
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j?.ok) throw new Error(j?.error || "Delete failed.");
+
+    router.replace("/app/pending-review");
+  } catch (e: any) {
+    setErr(e?.message || "Delete failed.");
+  } finally {
+    setMutating(false);
+  }
+}
+
   async function doDuplicate(payload?: { duplicateOfItemId?: string; comment?: string }) {
     try {
       setMutating(true);
@@ -460,7 +488,19 @@ export default function PendingReviewItemPage() {
               >
                 Next pending
               </button>
+              
             ) : null}
+            <button
+  type="button"
+  onClick={() => {
+    const ok = window.confirm("Delete this upload from the active queue?");
+    if (!ok) return;
+    void doDelete({ comment: "Deleted from intake item detail page." });
+  }}
+  className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-200 hover:bg-red-500/15 transition"
+>
+  Delete
+</button>
           </div>
         </div>
 
