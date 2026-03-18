@@ -117,7 +117,8 @@ function compareRowsForReview(a: any, b: any) {
 }
 
 function escapeLikeQuery(value: string) {
-  return value.replace(/[%_]/g, "\\$&");
+  // Escape LIKE special chars, then strip PostgREST filter-syntax chars (comma splits conditions)
+  return value.replace(/[%_]/g, "\\$&").replace(/[,()]/g, "");
 }
 
 export async function GET(req: Request) {

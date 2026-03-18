@@ -1,14 +1,27 @@
-// chiefos-site/app/api/billing/checkout/route.ts
+// chiefos-site/app/app/settings/billing/checkout/route.ts
 import { NextResponse } from "next/server";
 
 function backendBase() {
-  const v = String(process.env.CHIEF_API_BASE_URL || "").trim().replace(/\/+$/, "");
-  if (!v) throw new Error("Missing CHIEF_API_BASE_URL");
+  const v = String(process.env.CHIEF_CORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (!v) throw new Error("Missing CHIEF_CORE_API_BASE_URL");
   return v;
+}
+
+function bearerFromReq(req: Request) {
+  const auth = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+  return auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 }
 
 export async function POST(req: Request) {
   try {
+    const token = bearerFromReq(req);
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, error: "Missing session. Please log in again." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.text(); // forward raw JSON
 
     const upstream = await fetch(`${backendBase()}/api/billing/checkout`, {
@@ -16,7 +29,7 @@ export async function POST(req: Request) {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        cookie: req.headers.get("cookie") || "",
+        Authorization: `Bearer ${token}`,
       },
       body,
       cache: "no-store",
