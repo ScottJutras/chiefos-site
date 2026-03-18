@@ -44,20 +44,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
             <div className="flex items-center gap-2">
               <Link
-                href="/app/uploads"
-                className="hidden sm:inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 transition"
-              >
-                Upload
-              </Link>
-
-              <Link
-                href="/app/activity/expenses"
-                className="hidden sm:inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-white/85 hover:bg-white/10 transition"
-              >
-                Activity
-              </Link>
-
-              <Link
                 href="/app/chief"
                 className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
               >
@@ -82,9 +68,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
           <MobileTabLink href="/app/dashboard" label="Home" />
+          <MobileTabLink href="/app/pending-review" label="Review" />
           <MobileTabLink href="/app/uploads" label="Capture" />
           <MobileTabLink href="/app/activity/expenses" label="Activity" />
-          <MobileTabLink href="/app/activity/time" label="Time" />
           <MobileTabLink href="/app/chief" label="Chief" />
         </div>
       </nav>

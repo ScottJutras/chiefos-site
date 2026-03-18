@@ -1,4 +1,3 @@
-// app/app/activity/expenses/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +24,12 @@ type Expense = {
   transaction_id?: number | null;
   media_asset_id?: string | null;
   content_type?: string | null;
+
+  // Optional tax-aware fields (fail-soft if portal view does not expose yet)
+  subtotal_amount?: number | null;
+  tax_amount?: number | null;
+  tax_label?: string | null;
+  currency?: string | null;
 };
 
 type EditDraft = {
@@ -136,6 +141,41 @@ function resolveTransactionId(expense: Expense): number | null {
 
 function hasReceipt(expense: Expense): boolean {
   return !!String(expense.media_asset_id || "").trim();
+}
+
+function formatCurrencyCode(code?: string | null) {
+  const c = String(code || "").trim().toUpperCase();
+  return c || null;
+}
+
+function hasTaxDetails(expense: Expense) {
+  return (
+    Number.isFinite(Number(expense.subtotal_amount)) ||
+    Number.isFinite(Number(expense.tax_amount))
+  );
+}
+
+function TaxMeta({ expense }: { expense: Expense }) {
+  const subtotal = Number(expense.subtotal_amount);
+  const tax = Number(expense.tax_amount);
+  const taxLabel = String(expense.tax_label || "").trim() || "Tax";
+  const currency = formatCurrencyCode(expense.currency);
+
+  if (!Number.isFinite(subtotal) && !Number.isFinite(tax)) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+      {Number.isFinite(subtotal) ? (
+        <span>Pre-tax ${moneyFmt(subtotal)}</span>
+      ) : null}
+      {Number.isFinite(tax) ? (
+        <span>
+          {taxLabel} ${moneyFmt(tax)}
+        </span>
+      ) : null}
+      {currency ? <span>{currency}</span> : null}
+    </div>
+  );
 }
 
 export default function ExpensesPage() {
@@ -338,6 +378,9 @@ export default function ExpensesPage() {
           e.job_name ?? "",
           isoDay(e.expense_date),
           String(e.amount ?? ""),
+          String(e.tax_label ?? ""),
+          String(e.tax_amount ?? ""),
+          String(e.subtotal_amount ?? ""),
         ]
           .join(" ")
           .toLowerCase();
@@ -438,7 +481,8 @@ export default function ExpensesPage() {
   const totals = useMemo(() => {
     const count = totalsList.length;
     const sum = totalsList.reduce((acc, e) => acc + toMoney(e.amount), 0);
-    return { count, sum };
+    const tax = totalsList.reduce((acc, e) => acc + toMoney(e.tax_amount), 0);
+    return { count, sum, tax };
   }, [totalsList]);
 
   const grouped = useMemo(() => {
@@ -934,96 +978,104 @@ export default function ExpensesPage() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
+        {/* Minimal header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Records</div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight">Expenses</h1>
+          <div className="min-w-0">
+            <div className={chip("border-white/10 bg-white/5 text-white/60")}>
+              Activity
+            </div>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight">Expense ledger</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/55">
+              Review recorded expenses, inspect receipts, clean vendor names, and make quick corrections without leaving the ledger.
+            </p>
+          </div>
 
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <TopChipButton onClick={() => router.push("/app/activity/expenses/audit")} title="Change log">
-                Audit
-              </TopChipButton>
-              <TopChipButton onClick={() => router.push("/app/activity/expenses/trash")} title="Deleted items">
-                Trash
-              </TopChipButton>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 min-w-[280px]">
+            <div className="text-xs text-white/50">Filtered total</div>
+            <div className="mt-1 text-2xl font-semibold text-white">
+              ${moneyFmt(totals.sum)}
+            </div>
+            <div className="mt-1 text-xs text-white/50">
+              {totals.count} items
+              {totals.tax > 0 ? ` • tax visible: $${moneyFmt(totals.tax)}` : ""}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <RangePill id="all" label="All" />
+              <RangePill id="ytd" label="YTD" />
+              <RangePill id="mtd" label="MTD" />
+              <RangePill id="wtd" label="WTD" />
+              <RangePill id="today" label="Today" />
+            </div>
+          </div>
+        </div>
+
+        {/* Utility strip */}
+        <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <TopChipButton onClick={() => router.push("/app/activity/expenses/audit")} title="Change log">
+              Audit
+            </TopChipButton>
+            <TopChipButton onClick={() => router.push("/app/activity/expenses/trash")} title="Deleted items">
+              Trash
+            </TopChipButton>
+            <TopChipButton
+              onClick={() => router.push("/app/activity/expenses/vendors")}
+              title="Merge messy vendor spellings into one official name"
+            >
+              Clean up vendors
+            </TopChipButton>
+
+            <div className="relative" ref={exportRef}>
               <TopChipButton
-                onClick={() => router.push("/app/activity/expenses/vendors")}
-                title="Merge messy vendor spellings into one official name"
+                onClick={() => setExportOpen((v) => !v)}
+                disabled={!sorted.length || downloading !== null}
+                title="Download"
               >
-                Clean up vendors
+                Export ▾
               </TopChipButton>
 
-              <div className="relative" ref={exportRef}>
-                <TopChipButton
-                  onClick={() => setExportOpen((v) => !v)}
-                  disabled={!sorted.length || downloading !== null}
-                  title="Download"
-                >
-                  Export ▾
-                </TopChipButton>
+              {exportOpen && (
+                <div className="absolute left-0 mt-2 w-56 rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] overflow-hidden z-20">
+                  <button
+                    onClick={() => {
+                      setExportOpen(false);
+                      runDownload("csv");
+                    }}
+                    disabled={!sorted.length || downloading !== null}
+                    className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                  >
+                    {downloading === "csv" ? "Preparing…" : "Download CSV"}
+                  </button>
 
-                {exportOpen && (
-                  <div className="absolute left-0 mt-2 w-56 rounded-2xl border border-white/10 bg-black/90 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] overflow-hidden z-20">
-                    <button
-                      onClick={() => {
-                        setExportOpen(false);
-                        runDownload("csv");
-                      }}
-                      disabled={!sorted.length || downloading !== null}
-                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                    >
-                      {downloading === "csv" ? "Preparing…" : "Download CSV"}
-                    </button>
+                  <button
+                    onClick={() => {
+                      setExportOpen(false);
+                      runDownload("xlsx");
+                    }}
+                    disabled={!sorted.length || downloading !== null}
+                    className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                  >
+                    {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
+                  </button>
 
-                    <button
-                      onClick={() => {
-                        setExportOpen(false);
-                        runDownload("xlsx");
-                      }}
-                      disabled={!sorted.length || downloading !== null}
-                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                    >
-                      {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setExportOpen(false);
-                        runDownload("pdf");
-                      }}
-                      disabled={!sorted.length || downloading !== null}
-                      className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
-                    >
-                      {downloading === "pdf" ? "Preparing…" : "Download PDF"}
-                    </button>
-                  </div>
-                )}
-              </div>
+                  <button
+                    onClick={() => {
+                      setExportOpen(false);
+                      runDownload("pdf");
+                    }}
+                    disabled={!sorted.length || downloading !== null}
+                    className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition disabled:opacity-50"
+                  >
+                    {downloading === "pdf" ? "Preparing…" : "Download PDF"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="w-full md:w-auto">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="text-xs text-white/55">Total (filtered)</div>
-                  <div className="mt-1 text-2xl font-semibold text-white">
-                    ${moneyFmt(totals.sum)}
-                  </div>
-                  <div className="mt-1 text-xs text-white/55">
-                    {totals.count} items • Total includes everything matching your filters.
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <RangePill id="all" label="All" />
-                  <RangePill id="ytd" label="YTD" />
-                  <RangePill id="mtd" label="MTD" />
-                  <RangePill id="wtd" label="WTD" />
-                  <RangePill id="today" label="Today" />
-                </div>
-              </div>
-            </div>
+          <div className="text-xs text-white/45">
+            Total includes everything currently matching your filters.
           </div>
         </div>
 
@@ -1051,35 +1103,38 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm font-semibold text-white/90">Saved views</div>
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <div className="text-xs text-white/55">Save this filter setup as</div>
+        {/* Saved views */}
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-sm font-semibold text-white/90">Saved views</div>
+              <div className="mt-1 text-xs text-white/50">
+                Save filter + sort combinations you use repeatedly.
+              </div>
+            </div>
 
-            <input
-              value={viewName}
-              onChange={(e) => setViewName(e.target.value)}
-              placeholder="e.g., Home Depot • 2026 YTD • Under $200"
-              className="flex-1 min-w-[240px] rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
-            />
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                value={viewName}
+                onChange={(e) => setViewName(e.target.value)}
+                placeholder="e.g., Fuel • YTD • Brock job"
+                className="min-w-[240px] rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
+              />
 
-            <button
-              onClick={saveView}
-              className="rounded-xl border border-white/10 bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-            >
-              Save view
-            </button>
+              <button
+                onClick={saveView}
+                className="rounded-xl border border-white/10 bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+              >
+                Save
+              </button>
 
-            <button
-              onClick={resetAll}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="mt-2 text-xs text-white/45">
-            Saves filters + sorting so you can reopen this view later.
+              <button
+                onClick={resetAll}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 transition"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
           {views.length > 0 && (
@@ -1109,6 +1164,7 @@ export default function ExpensesPage() {
           )}
         </div>
 
+        {/* Filters */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
@@ -1395,13 +1451,14 @@ export default function ExpensesPage() {
                                   {isoDay(e.expense_date)}
                                 </td>
                                 <td className="py-3 pr-4 text-white/85">
-                                  {e.vendor ?? "—"}{" "}
-                                  {isDupe && (
-                                    <span className="ml-2 text-xs text-orange-300">(dupe?)</span>
-                                  )}
+                                  <div>{e.vendor ?? "—"}</div>
+                                  {isDupe ? (
+                                    <div className="mt-1 text-xs text-orange-300">(dupe?)</div>
+                                  ) : null}
                                 </td>
                                 <td className="py-3 pr-4 whitespace-nowrap text-white">
-                                  ${moneyFmt(toMoney(e.amount))}
+                                  <div>${moneyFmt(toMoney(e.amount))}</div>
+                                  <TaxMeta expense={e} />
                                 </td>
                                 <td className="py-3 pr-4 text-white/85">
                                   {unassigned ? (
@@ -1595,13 +1652,14 @@ export default function ExpensesPage() {
                         {isoDay(e.expense_date)}
                       </td>
                       <td className="py-3 pr-4 text-white/85">
-                        {e.vendor ?? "—"}{" "}
-                        {isDupe && (
-                          <span className="ml-2 text-xs text-orange-300">(dupe?)</span>
-                        )}
+                        <div>{e.vendor ?? "—"}</div>
+                        {isDupe ? (
+                          <div className="mt-1 text-xs text-orange-300">(dupe?)</div>
+                        ) : null}
                       </td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white">
-                        ${moneyFmt(toMoney(e.amount))}
+                        <div>${moneyFmt(toMoney(e.amount))}</div>
+                        <TaxMeta expense={e} />
                       </td>
                       <td className="py-3 pr-4 text-white/85">
                         {unassigned ? (

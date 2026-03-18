@@ -321,29 +321,31 @@ function CenterWorkspace({
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setView(k)}
-                    className={[
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition border",
-                      view === k
-                        ? "border-white/20 bg-white text-black"
-                        : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
-                    ].join(" ")}
-                  >
-                    {k === "expenses"
-                      ? "Expenses"
-                      : k === "revenue"
-                      ? "Revenue"
-                      : k === "time"
-                      ? "Time"
-                      : "Tasks"}
-                  </button>
-                ))}
-              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/30 p-1">
+  <div className="flex flex-wrap gap-1">
+    {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
+      <button
+        key={k}
+        type="button"
+        onClick={() => setView(k)}
+        className={[
+          "rounded-xl px-3 py-1.5 text-xs font-medium transition",
+          view === k
+            ? "bg-white text-black"
+            : "text-white/60 hover:bg-white/5 hover:text-white/85",
+        ].join(" ")}
+      >
+        {k === "expenses"
+          ? "Expenses"
+          : k === "revenue"
+          ? "Revenue"
+          : k === "time"
+          ? "Time"
+          : "Tasks"}
+      </button>
+    ))}
+  </div>
+</div>
             </div>
 
             <div className="mt-4">
