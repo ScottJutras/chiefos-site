@@ -536,15 +536,29 @@ export default function ExpensesPage() {
   }, [grouped]);
 
   function buildRows(list: Expense[]) {
-    const headers = ["#", "Date", "Vendor", "Amount", "Job", "Description"];
-    const rows = list.map((e, ix) => [
-      ix + 1,
-      isoDay(e.expense_date),
-      e.vendor ?? "",
-      Number(toMoney(e.amount)),
-      e.job_name ?? "",
-      e.description ?? "",
-    ]);
+    const headers = [
+      "#", "Date", "Vendor", "Description", "Job",
+      "Subtotal", "Tax Type", "Tax", "Total",
+    ];
+    const rows = list.map((e, ix) => {
+      const total = Number(toMoney(e.amount));
+      const subtotal = Number(e.subtotal_amount) > 0 ? Number(e.subtotal_amount) : "";
+      const tax = Number(e.tax_amount) > 0 ? Number(e.tax_amount) : "";
+      const taxLabel = Number(e.tax_amount) > 0
+        ? (String(e.tax_label || "").trim() || "Tax")
+        : "";
+      return [
+        ix + 1,
+        isoDay(e.expense_date),
+        e.vendor ?? "",
+        e.description ?? "",
+        e.job_name ?? "",
+        subtotal,
+        taxLabel,
+        tax,
+        total,
+      ];
+    });
     return { headers, rows };
   }
 
@@ -574,12 +588,15 @@ export default function ExpensesPage() {
 
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws["!cols"] = [
-      { wch: 4 },
-      { wch: 14 },
-      { wch: 24 },
-      { wch: 12 },
-      { wch: 22 },
-      { wch: 40 },
+      { wch: 4 },   // #
+      { wch: 12 },  // Date
+      { wch: 22 },  // Vendor
+      { wch: 36 },  // Description
+      { wch: 26 },  // Job
+      { wch: 12 },  // Subtotal
+      { wch: 12 },  // Tax Type
+      { wch: 10 },  // Tax
+      { wch: 12 },  // Total
     ];
 
     const wb = XLSX.utils.book_new();
@@ -591,7 +608,7 @@ export default function ExpensesPage() {
     if (!list.length) return;
 
     const { headers, rows } = buildRows(list);
-    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
     doc.setFontSize(14);
     doc.text("Expenses", 40, 40);
 
@@ -600,17 +617,25 @@ export default function ExpensesPage() {
       head: [headers],
       body: rows.map((r) => {
         const rr = [...r];
-        const amt = Number(rr[3] || 0);
-        rr[3] = `$${amt.toFixed(2)}`;
+        // Subtotal (5), Tax (7), Total (8) — format as $0.00 if numeric
+        for (const i of [5, 7, 8]) {
+          const v = Number(rr[i] || 0);
+          rr[i] = rr[i] !== "" ? `$${v.toFixed(2)}` : "";
+        }
         return rr;
       }),
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fontSize: 8 },
       columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: 70 },
-        2: { cellWidth: 120 },
-        3: { halign: "right", cellWidth: 70 },
+        0: { cellWidth: 20 },   // #
+        1: { cellWidth: 62 },   // Date
+        2: { cellWidth: 90 },   // Vendor
+        3: { cellWidth: 160 },  // Description
+        4: { cellWidth: 110 },  // Job
+        5: { halign: "right", cellWidth: 56 },  // Subtotal
+        6: { cellWidth: 52 },   // Tax Type
+        7: { halign: "right", cellWidth: 48 },  // Tax
+        8: { halign: "right", cellWidth: 56 },  // Total
       },
     });
 
