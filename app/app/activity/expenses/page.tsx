@@ -149,10 +149,7 @@ function formatCurrencyCode(code?: string | null) {
 }
 
 function hasTaxDetails(expense: Expense) {
-  return (
-    Number.isFinite(Number(expense.subtotal_amount)) ||
-    Number.isFinite(Number(expense.tax_amount))
-  );
+  return Number(expense.subtotal_amount) > 0 || Number(expense.tax_amount) > 0;
 }
 
 function TaxMeta({ expense }: { expense: Expense }) {
@@ -161,18 +158,12 @@ function TaxMeta({ expense }: { expense: Expense }) {
   const taxLabel = String(expense.tax_label || "").trim() || "Tax";
   const currency = formatCurrencyCode(expense.currency);
 
-  if (!Number.isFinite(subtotal) && !Number.isFinite(tax)) return null;
+  if (!(subtotal > 0) && !(tax > 0)) return null;
 
   return (
     <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
-      {Number.isFinite(subtotal) ? (
-        <span>Pre-tax ${moneyFmt(subtotal)}</span>
-      ) : null}
-      {Number.isFinite(tax) ? (
-        <span>
-          {taxLabel} ${moneyFmt(tax)}
-        </span>
-      ) : null}
+      {subtotal > 0 ? <span>Pre-tax ${moneyFmt(subtotal)}</span> : null}
+      {tax > 0 ? <span>{taxLabel} ${moneyFmt(tax)}</span> : null}
       {currency ? <span>{currency}</span> : null}
     </div>
   );
