@@ -783,8 +783,9 @@ export default function ExpensesPage() {
 
     try {
       setBulkBusy(true);
+      const numericIds = ids.map(Number);
       const { data, error } = await supabase.rpc("chiefos_delete_expenses", {
-        p_expense_ids: ids,
+        p_expense_ids: numericIds,
         p_undo_minutes: 10,
       });
       if (error) throw error;
@@ -794,7 +795,8 @@ export default function ExpensesPage() {
       const deletedCount = Number(row?.deleted_count ?? 0);
       const expiresAt = row?.expires_at as string;
 
-      setExpenses((prev) => prev.filter((e) => !ids.includes(e.id)));
+      const deletedSet = new Set(numericIds);
+      setExpenses((prev) => prev.filter((e) => !deletedSet.has(Number(e.id))));
       setSelected({});
 
       if (batchId && expiresAt) {
