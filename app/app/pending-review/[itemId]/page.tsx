@@ -8,6 +8,7 @@ import ReviewConveyor from "@/app/app/components/intake/ReviewConveyor";
 import ExplainExpensePanel from "@/app/app/components/intake/ExplainExpensePanel";
 import BatchProgressBar from "@/app/app/components/intake/BatchProgressBar";
 import JobSuggestionPicker from "@/app/app/components/intake/JobSuggestionPicker";
+import { classifyExpense } from "@/lib/expense/classify";
 
 type IntakeItem = {
   id: string;
@@ -36,6 +37,8 @@ type IntakeDraft = {
   description: string | null;
   event_date: string | null;
   job_name: string | null;
+  expense_category: string | null;
+  is_personal: boolean | null;
   validation_flags: string[];
   raw_model_output?: Record<string, any>;
 };
@@ -236,6 +239,8 @@ export default function PendingReviewItemPage() {
     eventDate: string | null;
     jobName: string | null;
     currency: string;
+    expenseCategory: string | null;
+    isPersonal: boolean;
     edited: boolean;
   }) {
     try {
@@ -637,6 +642,12 @@ export default function PendingReviewItemPage() {
                 eventDate: draft?.event_date || "",
                 jobName: jobNameOverride || draft?.job_name || item.job_name || "",
                 currency: draft?.currency || "USD",
+                // Use stored category if available; otherwise run rule-based classifier
+                expenseCategory:
+                  draft?.expense_category ||
+                  classifyExpense(draft?.vendor, draft?.description).category ||
+                  "",
+                isPersonal: draft?.is_personal ?? false,
               }}
               onConfirm={doConfirm}
               onSkip={doSkip}

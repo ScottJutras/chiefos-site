@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EXPENSE_CATEGORIES } from "@/lib/expense/categories";
 
 type ReviewDraft = {
   amountCents: string;
@@ -9,6 +10,8 @@ type ReviewDraft = {
   eventDate: string;
   jobName: string;
   currency: string;
+  expenseCategory: string;
+  isPersonal: boolean;
 };
 
 type Props = {
@@ -24,6 +27,8 @@ type Props = {
     eventDate: string | null;
     jobName: string | null;
     currency: string;
+    expenseCategory: string | null;
+    isPersonal: boolean;
     edited: boolean;
   }) => Promise<void>;
   onSkip: (payload?: { comment?: string }) => Promise<void>;
@@ -75,6 +80,8 @@ export default function ReviewConveyor({
   const [eventDate, setEventDate] = useState(String(initialDraft?.eventDate || ""));
   const [jobName, setJobName] = useState(String(initialDraft?.jobName || ""));
   const [currency, setCurrency] = useState(String(initialDraft?.currency || "USD"));
+  const [expenseCategory, setExpenseCategory] = useState(String(initialDraft?.expenseCategory || ""));
+  const [isPersonal, setIsPersonal] = useState(initialDraft?.isPersonal ?? false);
   const [duplicateOfItemId, setDuplicateOfItemId] = useState("");
   const [comment, setComment] = useState("");
 
@@ -85,9 +92,11 @@ export default function ReviewConveyor({
       String(initialDraft?.description || "") !== description ||
       String(initialDraft?.eventDate || "") !== eventDate ||
       String(initialDraft?.jobName || "") !== jobName ||
-      String(initialDraft?.currency || "USD") !== currency
+      String(initialDraft?.currency || "USD") !== currency ||
+      String(initialDraft?.expenseCategory || "") !== expenseCategory ||
+      (initialDraft?.isPersonal ?? false) !== isPersonal
     );
-  }, [amountCents, vendor, description, eventDate, jobName, currency, initialDraft]);
+  }, [amountCents, vendor, description, eventDate, jobName, currency, expenseCategory, isPersonal, initialDraft]);
 
   const hardFlags = useMemo(
     () => validationFlags.filter((flag) => flagSeverity(flag) === "hard"),
@@ -128,6 +137,20 @@ export default function ReviewConveyor({
     : hardFlags.length > 0
     ? "This item still has blocking review flags."
     : "Review this draft before confirming.";
+
+  function buildConfirmPayload() {
+    return {
+      amountCents: Number(amountCents || 0),
+      vendor: vendor.trim() || null,
+      description: description.trim() || null,
+      eventDate: eventDate || null,
+      jobName: jobName.trim() || null,
+      currency: currency.trim() || "USD",
+      expenseCategory: expenseCategory.trim() || null,
+      isPersonal,
+      edited,
+    };
+  }
 
   return (
     <section className="rounded-2xl border border-white/10 bg-black/40 p-5">
@@ -186,17 +209,7 @@ export default function ReviewConveyor({
           <button
             type="button"
             disabled={busy || !readyForFastConfirm}
-            onClick={() =>
-              onConfirm({
-                amountCents: Number(amountCents || 0),
-                vendor: vendor.trim() || null,
-                description: description.trim() || null,
-                eventDate: eventDate || null,
-                jobName: jobName.trim() || null,
-                currency: currency.trim() || "USD",
-                edited,
-              })
-            }
+            onClick={() => onConfirm(buildConfirmPayload())}
             className={`inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition disabled:opacity-50 ${
               readyForFastConfirm
                 ? "bg-white text-black hover:bg-white/90"
@@ -313,6 +326,65 @@ export default function ReviewConveyor({
             </div>
           ) : null}
         </div>
+
+        {/* Category + Business/Personal side by side */}
+        <div>
+          <label className="block text-xs text-white/50">
+            Category
+            {expenseCategory ? null : (
+              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-white/40">
+                auto-suggested
+              </span>
+            )}
+          </label>
+          <select
+            value={expenseCategory}
+            onChange={(e) => setExpenseCategory(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+          >
+            <option value="">— Select category —</option>
+            {EXPENSE_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-white/50">Type</label>
+          <div className="mt-1 flex rounded-xl border border-white/10 bg-black/40 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsPersonal(false)}
+              className={[
+                "flex-1 px-3 py-2 text-sm font-medium transition",
+                !isPersonal
+                  ? "bg-white text-black"
+                  : "text-white/60 hover:bg-white/5",
+              ].join(" ")}
+            >
+              Business
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPersonal(true)}
+              className={[
+                "flex-1 px-3 py-2 text-sm font-medium transition",
+                isPersonal
+                  ? "bg-amber-400 text-black"
+                  : "text-white/60 hover:bg-white/5",
+              ].join(" ")}
+            >
+              Personal
+            </button>
+          </div>
+          {isPersonal ? (
+            <div className="mt-2 text-xs text-amber-200">
+              Personal expenses are excluded from your accountant export.
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -345,17 +417,7 @@ export default function ReviewConveyor({
         <button
           type="button"
           disabled={busy}
-          onClick={() =>
-            onConfirm({
-              amountCents: Number(amountCents || 0),
-              vendor: vendor.trim() || null,
-              description: description.trim() || null,
-              eventDate: eventDate || null,
-              jobName: jobName.trim() || null,
-              currency: currency.trim() || "USD",
-              edited,
-            })
-          }
+          onClick={() => onConfirm(buildConfirmPayload())}
           className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50"
         >
           {busy ? "Working…" : confirmLabel}

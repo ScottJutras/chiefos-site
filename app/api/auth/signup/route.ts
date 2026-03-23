@@ -93,6 +93,8 @@ export async function POST(req: Request) {
     const turnstileToken = cleanText(body?.turnstileToken);
 
     const companyName = cleanText(body?.companyName);
+    const rawCountry = cleanText(body?.country).toUpperCase();
+    const country = rawCountry === "CA" || rawCountry === "US" ? rawCountry : null;
     const signupMode = cleanText(body?.signupMode).toLowerCase() === "tester" ? "tester" : "standard";
     const requestedPlanKey = cleanText(body?.requestedPlanKey) || null;
 
@@ -178,6 +180,7 @@ export async function POST(req: Request) {
         {
           email,
           company_name: companyName || null,
+          country: country || null,
           signup_mode: signupMode,
           requested_plan_key: requestedPlanKey,
 

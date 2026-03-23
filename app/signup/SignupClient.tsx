@@ -79,6 +79,7 @@ export default function SignupClient() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [country, setCountry] = useState<"CA" | "US" | "">("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -160,6 +161,7 @@ export default function SignupClient() {
           turnstileToken,
 
           companyName: companyName.trim(),
+          country: country || null,
           signupMode: signupMode || "standard",
           requestedPlanKey,
 
@@ -255,6 +257,36 @@ export default function SignupClient() {
                   placeholder="Mission Exteriors (or your company)"
                   autoComplete="organization"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Where are you based?</label>
+                <div className="mt-1 flex gap-2">
+                  {([
+                    { code: "CA", flag: "🇨🇦", label: "Canada" },
+                    { code: "US", flag: "🇺🇸", label: "United States" },
+                  ] as const).map(({ code, flag, label }) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setCountry(code)}
+                      className={[
+                        "flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
+                        country === code
+                          ? "border-black bg-black text-white"
+                          : "border-black/10 bg-white text-gray-700 hover:bg-black/[0.03]",
+                      ].join(" ")}
+                    >
+                      <span>{flag}</span>
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+                {!country ? (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    This determines tax labels, mileage rates, and export formats for your accountant.
+                  </p>
+                ) : null}
               </div>
 
               <div>

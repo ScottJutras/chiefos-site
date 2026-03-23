@@ -107,6 +107,7 @@ export type IntakeCandidateFields = {
   tax_cents?: number | null;
   total_cents?: number | null;
   job_name?: string | null;
+  expense_category?: string | null;
 };
 
 export type IntakePipelineNormalize = {
@@ -160,6 +161,8 @@ export type IntakeItemDraftRow = {
   event_date: string | null;
   job_int_id: number | null;
   job_name: string | null;
+  expense_category: string | null;
+  is_personal: boolean;
   raw_model_output: IntakePipelineOutput | Record<string, unknown>;
   validation_flags: IntakeValidationFlag[];
   created_at: string;
