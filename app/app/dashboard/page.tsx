@@ -40,6 +40,7 @@ type TxRow = {
   amount_cents: number | null;
   kind: "expense" | "revenue" | string;
   job_name: string | null;
+  job_id: number | null;
   created_at: string | null;
 };
 
@@ -215,6 +216,7 @@ function CenterWorkspace({
   pulsePoints,
   pulseRange,
   setPulseRange,
+  pulseLoading,
   onAskChief,
 }: {
   selectedJob: JobRow | null;
@@ -224,6 +226,7 @@ function CenterWorkspace({
   pulsePoints: PulsePoint[];
   pulseRange: RangeKey;
   setPulseRange: (v: RangeKey) => void;
+  pulseLoading: boolean;
   onAskChief: (q?: string) => void;
 }) {
   const title = selectedJob
@@ -262,36 +265,10 @@ function CenterWorkspace({
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
           <HeroStat label="Active jobs" value={String(summary.activeJobs)} sub={`${summary.totalJobs} total`} />
           <HeroStat label="Pending review" value={String(summary.pendingReview)} sub="Needs owner confirmation" />
           <HeroStat label="Open tasks" value={String(summary.openTasks)} sub="Still needs action" />
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Chart range</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(["wtd", "mtd", "ytd", "all"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setPulseRange(k)}
-                  className={[
-                    "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                    pulseRange === k
-                      ? "border-white/20 bg-white text-black"
-                      : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
-                  ].join(" ")}
-                >
-                  {k === "wtd"
-                    ? "WTD"
-                    : k === "mtd"
-                    ? "MTD"
-                    : k === "ytd"
-                    ? "YTD"
-                    : "Since inception"}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -307,6 +284,9 @@ function CenterWorkspace({
                 ? "Keep job scope visible while asking Chief and reviewing records."
                 : "A simple line graph keeps performance visible without turning the screen into a spreadsheet."
             }
+            loading={pulseLoading}
+            range={pulseRange}
+            onRangeChange={setPulseRange}
           />
 
           <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
@@ -455,6 +435,7 @@ export default function DashboardPage() {
   const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
+  const [pulseLoading, setPulseLoading] = useState(true);
   const [chiefOpen, setChiefOpen] = useState(false);
   const [chiefQuery, setChiefQuery] = useState("");
 
@@ -597,16 +578,17 @@ export default function DashboardPage() {
         try {
           const { data: txRows } = await supabase
             .from("transactions")
-            .select("id, tenant_id, owner_id, date, amount_cents, kind, job_name, created_at")
+            .select("id, tenant_id, owner_id, date, amount_cents, kind, job_name, job_id, created_at")
             .eq("tenant_id", tenantId)
             .order("date", { ascending: true })
             .limit(5000);
 
           if (alive) {
             setPulseRows((txRows as TxRow[]) || []);
+            setPulseLoading(false);
           }
         } catch {
-          // fail-soft
+          if (alive) setPulseLoading(false);
         }
       } catch {
         // fail-soft
@@ -621,6 +603,8 @@ export default function DashboardPage() {
   const pulsePoints = useMemo(() => {
     const base = selectedJob
       ? pulseRows.filter((r) => {
+          // Prefer job_id match (exact); fall back to normalised name comparison
+          if (selectedJob.id != null && r.job_id != null) return r.job_id === selectedJob.id;
           const a = String(r.job_name || "").trim().toLowerCase();
           const b = String(selectedJob.job_name || selectedJob.name || "").trim().toLowerCase();
           return !!b && a === b;
@@ -658,6 +642,7 @@ export default function DashboardPage() {
                 pulsePoints={pulsePoints}
                 pulseRange={pulseRange}
                 setPulseRange={setPulseRange}
+                pulseLoading={pulseLoading}
                 onAskChief={openChief}
               />
             </div>
