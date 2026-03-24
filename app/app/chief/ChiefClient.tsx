@@ -154,10 +154,10 @@ function ChiefClientInner() {
 
   const suggestedPrompts = useMemo(() => {
     return [
-      "What did I spend this week (WTD)?",
-      "Show unassigned expenses I should tag to a job.",
-      "Which job has the most labor hours today?",
-      "How much did I make last month?",
+      "How can you help me?",
+      "Are we making money this month?",
+      "Which jobs are profitable right now?",
+      "What should I be paying attention to?",
     ];
   }, []);
 
@@ -419,7 +419,7 @@ return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief
         body={
           resp.message && resp.message !== "Ask Chief failed."
             ? resp.message
-            : "Try narrowing the question — specify a date range (MTD, WTD), a job name, or ask about a specific category."
+            : "Something went wrong on my end — not yours. Try asking again, or rephrase the question slightly."
         }
         actions={[
           ...(retryPrompt
