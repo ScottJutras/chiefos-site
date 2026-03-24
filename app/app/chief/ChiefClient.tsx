@@ -188,13 +188,64 @@ function ChiefClientInner() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs.length]);
 
+  function getInstantAnswer(prompt: string): string | null {
+    const lc = prompt.trim().toLowerCase().replace(/[.!?]+$/, "");
+    const isIntro =
+      /\b(how can you help|what can you do|what do you do|who are you|what are you|how does this work|help me understand|what can i ask|tell me what you can do)\b/i.test(lc) ||
+      lc === "help" || lc === "?" || lc === "menu" || lc === "how can you help me";
+    if (!isIntro) return null;
+    return [
+      "I'm Chief — think of me as your on-call CFO. I read your transaction ledger in real time and give you straight answers about where the money is going, which jobs are profitable, and what needs your attention.",
+      "",
+      "Here's what you can ask me:",
+      "",
+      "Financial position",
+      '  "What did we spend this month?"',
+      '  "How much revenue came in this week (WTD)?"',
+      '  "Are we up or down vs. last month?"',
+      "",
+      "Job profitability",
+      '  "Is [job name] making money?"',
+      '  "Which jobs are losing money right now?"',
+      '  "What expenses are not assigned to a job yet?"',
+      "",
+      "Crew and operations",
+      '  "How many hours did the team log this week?"',
+      '  "What is still in Pending Review?"',
+      '  "Which tasks are overdue?"',
+      "",
+      "The more you log through WhatsApp — expenses, revenue, time — the more precise my answers get. What would you like to know first?",
+    ].join("\n");
+  }
+
   async function callAskChief(prompt: string) {
     const trimmed = String(prompt || "").trim();
     if (!trimmed || busy) return;
 
+    const userMsg: Msg = { id: safeId(), role: "user", createdAt: Date.now(), prompt: trimmed };
+
+    // Instant client-side answers for conversational/intro questions — never hits the backend
+    const instant = getInstantAnswer(trimmed);
+    if (instant) {
+      const chiefMsg: Msg = {
+        id: safeId(),
+        role: "chief",
+        createdAt: Date.now(),
+        resp: {
+          ok: true,
+          answer: instant,
+          evidence_meta: { range: normalizeRange(range), job: null, tables: {}, totals: {} },
+          warnings: [],
+          actions: [],
+        },
+      };
+      setMsgs((prev) => [...prev, userMsg, chiefMsg]);
+      setQ("");
+      return;
+    }
+
     setBusy(true);
 
-    const userMsg: Msg = { id: safeId(), role: "user", createdAt: Date.now(), prompt: trimmed };
     const pendingChief: Msg = { id: safeId(), role: "chief", createdAt: Date.now(), pending: true };
     setMsgs((prev) => [...prev, userMsg, pendingChief]);
 
