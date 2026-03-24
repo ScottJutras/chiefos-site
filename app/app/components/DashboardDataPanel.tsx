@@ -135,17 +135,11 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
         }
 
         if (view === "tasks") {
-          let query = supabase
+          const { data, error } = await supabase
             .from("tasks")
-            .select("id, title, status, job_name, assigned_to, created_at")
+            .select("id, task_no, title, status, job_no, assigned_to, created_at")
             .order("created_at", { ascending: false })
             .limit(MAX_ROWS);
-
-          if (jobScope) {
-            query = query.eq("job_name", jobScope);
-          }
-
-          const { data, error } = await query;
 
           if (!alive) return;
           if (error) throw error;
@@ -268,8 +262,8 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-white/85">
-                        {r.title || "Task"}
-                        {r.job_name ? ` • ${r.job_name}` : ""}
+                        {r.task_no ? `#${r.task_no} ` : ""}{r.title || "Task"}
+                        {r.job_no ? ` • Job #${r.job_no}` : ""}
                       </div>
                       <div className="mt-1 truncate text-xs text-white/55">
                         {r.status || "open"} • {fmtDate(r.created_at)}
