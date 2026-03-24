@@ -383,10 +383,10 @@ return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief
     if (resp.code === "NOT_LINKED") {
       return (
         <StateCard
-          title="Connect WhatsApp to this business"
-          body="Your portal account isn’t linked to a WhatsApp identity for this tenant yet."
+          title="WhatsApp required to use Ask Chief"
+          body={resp.message || "Ask Chief reads your transaction ledger, which is built by logging through WhatsApp. Link your phone to start."}
           actions={[
-            { label: "Connect WhatsApp", href: "/app/connect-whatsapp", kind: "primary" },
+            { label: "Link WhatsApp", href: "/app/link-phone", kind: "primary" },
             { label: "Back to app", href: "/app/expenses", kind: "secondary" },
           ]}
         />

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const DEFAULT_UPSTREAM_TIMEOUT_MS = 10000;
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
 
 function mustEnv(name: string) {
   const v = process.env[name];
