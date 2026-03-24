@@ -359,11 +359,11 @@ return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief
       );
     }
 
-    if (resp.code === "UPSTREAM_TIMEOUT") {
+    if (resp.code === "UPSTREAM_TIMEOUT" || resp.code === "UPSTREAM_ERROR") {
       return (
         <StateCard
-          title="Chief is taking too long"
-          body={resp.message || "I’m having trouble reasoning right now. Your data is safe. Try again."}
+          title="Chief is taking longer than expected"
+          body="Your data is safe. This usually resolves on the next try — Chief may have been reasoning across a large dataset."
           actions={[
             ...(retryPrompt
               ? [
@@ -416,7 +416,11 @@ return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief
     return (
       <StateCard
         title="Chief couldn’t answer that"
-        body={resp.message || "Try again, or narrow the question (e.g., WTD, by job, or by vendor)."}
+        body={
+          resp.message && resp.message !== "Ask Chief failed."
+            ? resp.message
+            : "Try narrowing the question — specify a date range (MTD, WTD), a job name, or ask about a specific category."
+        }
         actions={[
           ...(retryPrompt
             ? [

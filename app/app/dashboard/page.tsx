@@ -257,7 +257,7 @@ function CenterWorkspace({
             <UtilityLink href="/app/uploads" label="Upload" />
             <button
               type="button"
-              onClick={() => onAskChief(selectedJob ? `What should I know about ${title}?` : "")}
+              onClick={() => onAskChief()}
               className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
             >
               Ask Chief
@@ -416,10 +416,10 @@ function RightRail({
           </div>
           <button
             type="button"
-            onClick={() => onAskChief("What needs my attention right now?")}
+            onClick={() => onAskChief()}
             className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
           >
-            Ask Chief what needs attention
+            Open Chief
           </button>
         </div>
       </div>
