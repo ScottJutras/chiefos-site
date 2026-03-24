@@ -117,7 +117,8 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
         if (view === "time") {
           let query = supabase
             .from("time_entries")
-            .select("id, job_name, user_name, start_time, end_time, minutes, created_at, status")
+            .select("id, employee_name, type, job_name, timestamp, local_time, created_at")
+            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(MAX_ROWS);
 
@@ -251,14 +252,14 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold text-white/85">
-                        {(r.user_name || "Crew") + (r.job_name ? ` • ${r.job_name}` : "")}
+                        {(r.employee_name || "Crew") + (r.job_name ? ` • ${r.job_name}` : "")}
                       </div>
                       <div className="mt-1 truncate text-xs text-white/55">
-                        {fmtDate(r.start_time || r.created_at)} • {r.status || "logged"}
+                        {fmtDate(r.local_time || r.timestamp || r.created_at)} • {r.type || "event"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-sm font-semibold text-white/85">
-                      {r.minutes != null ? `${Math.round(Number(r.minutes))}m` : "—"}
+                    <div className="shrink-0 text-xs text-white/55">
+                      {r.type || "—"}
                     </div>
                   </div>
                 ) : null}
