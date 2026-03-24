@@ -64,6 +64,8 @@ export async function GET(req: Request) {
         id,
         email,
         company_name,
+        country,
+        province,
         signup_mode,
         requested_plan_key,
         terms_accepted_at,
@@ -103,12 +105,51 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const action = clean(body?.action);
 
-    if (action !== "consume") {
+    if (action !== "consume" && action !== "set-tenant-meta") {
       return json(400, { ok: false, error: "Unsupported action." });
     }
 
     const admin = adminClient();
     const email = clean(auth.user.email).toLowerCase();
+
+    if (action === "set-tenant-meta") {
+      // Push country + province from pending signup → chiefos_tenants
+      const { data: pending } = await admin
+        .from("chiefos_pending_signups")
+        .select("country, province")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (!pending?.country && !pending?.province) {
+        return json(200, { ok: true, skipped: true });
+      }
+
+      const { data: pu } = await admin
+        .from("chiefos_portal_users")
+        .select("tenant_id")
+        .eq("user_id", auth.user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!pu?.tenant_id) {
+        return json(404, { ok: false, error: "Tenant not found." });
+      }
+
+      const update: Record<string, any> = {};
+      if (pending.country) update.country = pending.country;
+      if (pending.province) update.province = pending.province;
+
+      const { error: updErr } = await admin
+        .from("chiefos_tenants")
+        .update(update)
+        .eq("id", pu.tenant_id);
+
+      if (updErr) {
+        return json(500, { ok: false, error: updErr.message || "Failed to update tenant meta." });
+      }
+
+      return json(200, { ok: true });
+    }
 
     const { data, error } = await admin
       .from("chiefos_pending_signups")

@@ -241,6 +241,7 @@ export default function PendingReviewItemPage() {
     currency: string;
     expenseCategory: string | null;
     isPersonal: boolean;
+    payeeName: string | null;
     edited: boolean;
   }) {
     try {

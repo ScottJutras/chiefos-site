@@ -10,6 +10,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Slideover from "@/app/app/components/Slideover";
 import ReceiptActions from "@/app/app/components/ReceiptActions";
+import { categoryLabel, categoryTaxRef, getCategoryMeta } from "@/lib/expense/categories";
 
 type Expense = {
   id: string;
@@ -30,6 +31,10 @@ type Expense = {
   tax_amount?: number | null;
   tax_label?: string | null;
   currency?: string | null;
+
+  // Category + B/P flag
+  expense_category?: string | null;
+  is_personal?: boolean;
 };
 
 type EditDraft = {
@@ -216,6 +221,9 @@ export default function ExpensesPage() {
 
   const [views, setViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
+  const [excludePersonal, setExcludePersonal] = useState(true);
+  const [tenantCountry, setTenantCountry] = useState<string | null>(null);
+  const [tenantProvince, setTenantProvince] = useState<string | null>(null);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -291,6 +299,14 @@ export default function ExpensesPage() {
           "chiefos_list_saved_views"
         );
         if (!vErr && !cancelled) setViews((vData ?? []) as SavedView[]);
+
+        const { data: td } = await supabase
+          .from("chiefos_tenants")
+          .select("country, province")
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && td?.country) setTenantCountry(String(td.country).toUpperCase());
+        if (!cancelled && td?.province) setTenantProvince(String(td.province).toUpperCase());
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? "Failed to load expenses.");
       } finally {
@@ -340,6 +356,8 @@ export default function ExpensesPage() {
 
     return expenses
       .filter((e) => {
+        if (excludePersonal && e.is_personal === true) return false;
+
         const day = isoDay(e.expense_date);
         if (fromDate && day && day < fromDate) return false;
         if (toDate && day && day > toDate) return false;
@@ -390,6 +408,7 @@ export default function ExpensesPage() {
     maxAmt,
     onlyDupes,
     dupeKeyCounts,
+    excludePersonal,
   ]);
 
   const sorted = useMemo(() => {
@@ -536,9 +555,12 @@ export default function ExpensesPage() {
   }, [grouped]);
 
   function buildRows(list: Expense[]) {
+    const isCA = tenantCountry === "CA";
     const headers = [
       "#", "Date", "Vendor", "Description", "Job",
+      "Category", "Tax Ref", "B/P",
       "Subtotal", "Tax Type", "Tax", "Total",
+      ...(isCA ? ["ITC Eligible"] : []),
     ];
     const rows = list.map((e, ix) => {
       const total = Number(toMoney(e.amount));
@@ -547,17 +569,37 @@ export default function ExpensesPage() {
       const taxLabel = Number(e.tax_amount) > 0
         ? (String(e.tax_label || "").trim() || "Tax")
         : "";
-      return [
+      const cat = String(e.expense_category || "").trim();
+      const catLabel = cat ? (categoryLabel(cat) || cat) : "";
+      const taxRef = cat ? (categoryTaxRef(cat, (tenantCountry === "CA" ? "CA" : "US")) || "") : "";
+      const bp = e.is_personal ? "Personal" : "Business";
+      const row: any[] = [
         ix + 1,
         isoDay(e.expense_date),
         e.vendor ?? "",
         e.description ?? "",
         e.job_name ?? "",
+        catLabel,
+        taxRef,
+        bp,
         subtotal,
         taxLabel,
         tax,
         total,
       ];
+      if (isCA) {
+        // ITC eligibility note
+        const meta = cat ? getCategoryMeta(cat) : null;
+        const itcNote = e.is_personal
+          ? "No (Personal)"
+          : meta?.halfItcCA
+          ? "50% (Meals/Ent)"
+          : cat
+          ? "Yes"
+          : "—";
+        row.push(itcNote);
+      }
+      return row;
     });
     return { headers, rows };
   }
@@ -593,10 +635,14 @@ export default function ExpensesPage() {
       { wch: 22 },  // Vendor
       { wch: 36 },  // Description
       { wch: 26 },  // Job
+      { wch: 22 },  // Category
+      { wch: 14 },  // Tax Ref
+      { wch: 10 },  // B/P
       { wch: 12 },  // Subtotal
       { wch: 12 },  // Tax Type
       { wch: 10 },  // Tax
       { wch: 12 },  // Total
+      { wch: 16 },  // ITC Eligible (CA only, ignored if not present)
     ];
 
     const wb = XLSX.utils.book_new();
@@ -617,25 +663,28 @@ export default function ExpensesPage() {
       head: [headers],
       body: rows.map((r) => {
         const rr = [...r];
-        // Subtotal (5), Tax (7), Total (8) — format as $0.00 if numeric
-        for (const i of [5, 7, 8]) {
+        // Subtotal (8), Tax (10), Total (11) — format as $0.00 if numeric
+        for (const i of [8, 10, 11]) {
           const v = Number(rr[i] || 0);
           rr[i] = rr[i] !== "" ? `$${v.toFixed(2)}` : "";
         }
         return rr;
       }),
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 20 },   // #
-        1: { cellWidth: 62 },   // Date
-        2: { cellWidth: 90 },   // Vendor
-        3: { cellWidth: 160 },  // Description
-        4: { cellWidth: 110 },  // Job
-        5: { halign: "right", cellWidth: 56 },  // Subtotal
-        6: { cellWidth: 52 },   // Tax Type
-        7: { halign: "right", cellWidth: 48 },  // Tax
-        8: { halign: "right", cellWidth: 56 },  // Total
+        0: { cellWidth: 16 },   // #
+        1: { cellWidth: 52 },   // Date
+        2: { cellWidth: 70 },   // Vendor
+        3: { cellWidth: 110 },  // Description
+        4: { cellWidth: 80 },   // Job
+        5: { cellWidth: 70 },   // Category
+        6: { cellWidth: 44 },   // Tax Ref
+        7: { cellWidth: 38 },   // B/P
+        8: { halign: "right", cellWidth: 44 },  // Subtotal
+        9: { cellWidth: 38 },   // Tax Type
+        10: { halign: "right", cellWidth: 36 }, // Tax
+        11: { halign: "right", cellWidth: 44 }, // Total
       },
     });
 
@@ -1296,6 +1345,15 @@ export default function ExpensesPage() {
                 Show duplicates
               </label>
 
+              <label className="flex items-center gap-2 text-sm text-white/75">
+                <input
+                  type="checkbox"
+                  checked={excludePersonal}
+                  onChange={(e) => setExcludePersonal(e.target.checked)}
+                />
+                Exclude personal
+              </label>
+
               <div className="ml-auto text-sm text-white/70">
                 {sorted.length} rows •{" "}
                 <b className="text-white">
@@ -1731,6 +1789,100 @@ export default function ExpensesPage() {
             </table>
           </div>
         )}
+
+        {/* ITC / GST Summary — Canada only */}
+        {tenantCountry === "CA" && sorted.length > 0 && (() => {
+          // Province-aware tax rate lookup
+          const prov = tenantProvince || "";
+          const HST_RATES: Record<string, number> = { ON: 13, NS: 15, NB: 15, NL: 15, PE: 15 };
+          const isHST = prov in HST_RATES;
+          const hstRate = isHST ? HST_RATES[prov] : 0;
+          // ITC-eligible rate: HST provinces → full rate; QC → 14.975%; BC/MB/SK → GST 5% only; rest → 5%
+          const itcRate = isHST ? hstRate : prov === "QC" ? 14.975 : 5;
+          const taxLabel = isHST ? `HST ${hstRate}%` : prov === "QC" ? "GST+QST 14.975%" : prov === "BC" ? "GST+PST 12%" : prov === "MB" ? "GST+PST 12%" : prov === "SK" ? "GST+PST 11%" : "GST 5%";
+          const splitTax = ["BC", "MB", "SK"].includes(prov); // PST portion not ITC-eligible
+
+          function calcGstPortion(total: number, capturedTax: number): number {
+            if (capturedTax > 0) {
+              // Extract ITC-eligible portion from captured tax
+              const totalRate = isHST ? hstRate : prov === "QC" ? 14.975 : splitTax ? 12 : 5;
+              return capturedTax * (itcRate / totalRate);
+            }
+            return total * (itcRate / (100 + itcRate));
+          }
+
+          const businessExpenses = sorted.filter((e) => !e.is_personal);
+          const byCategory = new Map<string, { label: string; total: number; tax: number; halfItc: boolean }>();
+
+          for (const e of businessExpenses) {
+            const cat = String(e.expense_category || "").trim() || "_uncategorized";
+            const meta = getCategoryMeta(cat);
+            const label = meta?.label ?? (cat === "_uncategorized" ? "Uncategorized" : cat);
+            const existing = byCategory.get(cat) ?? { label, total: 0, tax: 0, halfItc: meta?.halfItcCA ?? false };
+            existing.total += toMoney(e.amount);
+            existing.tax += toMoney(e.tax_amount);
+            byCategory.set(cat, existing);
+          }
+
+          const rows = Array.from(byCategory.entries()).map(([, v]) => v)
+            .sort((a, b) => b.total - a.total);
+
+          const totalItc = rows.reduce((acc, r) => {
+            const gst = calcGstPortion(r.total, r.tax);
+            return acc + (r.halfItc ? gst * 0.5 : gst);
+          }, 0);
+
+          return (
+            <div className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.1em] text-blue-300/70">ITC Summary — Canada{prov ? ` (${prov})` : ""}</div>
+                  <div className="mt-1 text-sm text-white/70">
+                    Estimated input tax credits · {taxLabel}{splitTax ? " · GST portion only eligible" : ""}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-blue-300/70">Est. Total ITC</div>
+                  <div className="text-xl font-semibold text-blue-100">${moneyFmt(totalItc)}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-left text-xs text-white/50">
+                      <th className="pb-2 pr-4">Category</th>
+                      <th className="pb-2 pr-4 text-right">Total Spent</th>
+                      <th className="pb-2 pr-4 text-right">Est. {isHST ? `HST ${hstRate}%` : "GST"}</th>
+                      <th className="pb-2 pr-4 text-right">ITC Claimable</th>
+                      <th className="pb-2">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => {
+                      const gst = calcGstPortion(r.total, r.tax);
+                      const itc = r.halfItc ? gst * 0.5 : gst;
+                      return (
+                        <tr key={i} className="border-b border-white/5">
+                          <td className="py-2 pr-4 text-white/85">{r.label}</td>
+                          <td className="py-2 pr-4 text-right text-white/85">${moneyFmt(r.total)}</td>
+                          <td className="py-2 pr-4 text-right text-white/70">${moneyFmt(gst)}</td>
+                          <td className="py-2 pr-4 text-right font-medium text-blue-100">${moneyFmt(itc)}</td>
+                          <td className="py-2 text-xs text-white/45">{r.halfItc ? "50% rule applies" : ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 text-xs text-white/35">
+                {prov
+                  ? `${taxLabel} estimate based on ${prov} rates. Actual ITC depends on invoice type — consult your accountant.`
+                  : "Set your province in account settings for accurate HST/GST rates. Consult your accountant for exact ITC."}
+              </div>
+            </div>
+          );
+        })()}
 
         <Slideover
           open={editOpen && !!draft}

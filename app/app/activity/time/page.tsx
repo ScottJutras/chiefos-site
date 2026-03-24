@@ -170,6 +170,8 @@ export default function TimePage() {
   const [rows, setRows] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // employee_name -> hourly_rate_cents
+  const [crewRates, setCrewRates] = useState<Record<string, number>>({});
 
   // Filters
   const [q, setQ] = useState("");
@@ -314,14 +316,29 @@ useEffect(() => {
       const { data: sess } = await supabase.auth.getSession();
       if (!sess?.session) throw new Error("Missing session. Please log in again.");
 
-      const { data, error } = await supabase
-        .from("time_entries")
-        .select("*")
-        .is("deleted_at", null)
-        .order("timestamp", { ascending: false });
+      const [{ data, error }, { data: rateRows }] = await Promise.all([
+        supabase
+          .from("time_entries")
+          .select("*")
+          .is("deleted_at", null)
+          .order("timestamp", { ascending: false }),
+        supabase
+          .from("chiefos_crew_rates")
+          .select("employee_name, hourly_rate_cents")
+          .order("effective_from", { ascending: false }),
+      ]);
 
       if (error) throw error;
       if (!cancelled) setRows((data ?? []) as TimeEntry[]);
+
+      if (!cancelled) {
+        const rateMap: Record<string, number> = {};
+        for (const r of (rateRows ?? [])) {
+          const name = String(r.employee_name || "").trim().toLowerCase();
+          if (name && !(name in rateMap)) rateMap[name] = Number(r.hourly_rate_cents || 0);
+        }
+        setCrewRates(rateMap);
+      }
     } catch (e: any) {
       if (!cancelled) setError(e?.message ?? "Failed to load time entries.");
     } finally {
@@ -437,11 +454,49 @@ useEffect(() => {
     });
   }, [sorted, totalsRange]);
 
+  // Per-employee hours: Map<employeeName, hours>
+  function estimateHoursPerEmployee(entries: TimeEntry[]) {
+    const byEmp = new Map<string, TimeEntry[]>();
+    for (const r of entries) {
+      const emp = String(r.employee_name || r.employee_user_id || r.user_id || r.owner_id || "—").trim();
+      if (!byEmp.has(emp)) byEmp.set(emp, []);
+      byEmp.get(emp)!.push(r);
+    }
+    const result = new Map<string, number>();
+    for (const [emp, list] of byEmp) {
+      const ordered = list.slice().sort((a, b) => (parseMs(baseTime(a)) || 0) - (parseMs(baseTime(b)) || 0));
+      let totalMs = 0;
+      let openIn: number | null = null;
+      for (const r of ordered) {
+        const t = parseMs(baseTime(r));
+        if (!Number.isFinite(t)) continue;
+        const ty = String(r.type || "").trim();
+        if (ty === "clock_in") { openIn = t; }
+        else if (ty === "clock_out") {
+          if (openIn != null && t >= openIn) totalMs += t - openIn;
+          openIn = null;
+        }
+      }
+      result.set(emp, totalMs / (1000 * 60 * 60));
+    }
+    return result;
+  }
+
   const totals = useMemo(() => {
     const count = totalsList.length;
     const hours = estimateHours(totalsList);
-    return { count, hours };
-  }, [totalsList]);
+
+    // Labour cost: sum over per-employee hours × rate
+    const perEmp = estimateHoursPerEmployee(totalsList);
+    let labourCost = 0;
+    for (const [emp, h] of perEmp) {
+      const rateKey = emp.toLowerCase();
+      const rateCents = crewRates[rateKey] ?? 0;
+      labourCost += h * (rateCents / 100);
+    }
+
+    return { count, hours, labourCost };
+  }, [totalsList, crewRates]);
 
   function openEdit(r: TimeEntry) {
     const base = baseTime(r);
@@ -701,6 +756,11 @@ useEffect(() => {
                   <div className="mt-1 text-xs text-white/55">
                     Est. hours: <b className="text-white">{hoursFmt(totals.hours)}</b> (clock_in → clock_out)
                   </div>
+                  {totals.labourCost > 0 && (
+                    <div className="mt-1 text-xs text-white/55">
+                      Est. labour cost: <b className="text-white">${totals.labourCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">

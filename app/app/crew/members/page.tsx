@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/apiFetch";
+import { supabase } from "@/lib/supabase";
 
 type Member = {
   actor_id: string;
@@ -20,6 +21,8 @@ type AssignmentRow = {
 };
 
 type Assignment = Record<string, string>; // employee_actor_id -> board_actor_id
+
+type RateMap = Record<string, number>; // employee display_name -> hourly_rate_cents
 
 function fmtDate(s: string) {
   try {
@@ -66,6 +69,11 @@ export default function CrewMembersPage() {
 
   // Reviewer routing map (NOW hydrated from DB)
   const [assign, setAssign] = useState<Assignment>({});
+  // Hourly rates keyed by display_name
+  const [rates, setRates] = useState<RateMap>({});
+  const [rateEdits, setRateEdits] = useState<Record<string, string>>({}); // in-progress edits
+  const [rateBusy, setRateBusy] = useState<string | null>(null);
+  const [tenantCountry, setTenantCountry] = useState<string>("CA");
 
   const employees = useMemo(() => items.filter((m) => m.role === "employee"), [items]);
   const board = useMemo(
@@ -103,6 +111,36 @@ export default function CrewMembersPage() {
         }
       }
       setAssign(nextMap);
+
+      // Load tenant country + hourly rates in parallel
+      const { data: puRow } = await supabase
+        .from("chiefos_portal_users")
+        .select("tenant_id")
+        .limit(1)
+        .maybeSingle();
+
+      if (puRow?.tenant_id) {
+        const { data: tenantRow } = await supabase
+          .from("chiefos_tenants")
+          .select("country")
+          .eq("id", puRow.tenant_id)
+          .maybeSingle();
+        if (tenantRow?.country) setTenantCountry(String(tenantRow.country).toUpperCase());
+      }
+
+      const { data: rateRows } = await supabase
+        .from("chiefos_crew_rates")
+        .select("employee_name, hourly_rate_cents")
+        .order("effective_from", { ascending: false });
+
+      const rateMap: RateMap = {};
+      for (const r of (rateRows ?? [])) {
+        const name = String(r.employee_name || "").trim();
+        if (name && !(name in rateMap)) {
+          rateMap[name] = Number(r.hourly_rate_cents || 0);
+        }
+      }
+      setRates(rateMap);
     } catch (e: any) {
       const msg = String(e?.message || "Unable to load members");
       if (e?.status === 402 || msg.includes("NOT_INCLUDED")) {
@@ -226,6 +264,46 @@ export default function CrewMembersPage() {
       setErr(String(e?.message || "Unable to assign reviewer"));
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function saveRate(displayName: string) {
+    const raw = String(rateEdits[displayName] ?? "").trim();
+    if (!raw) return;
+    const dollars = Number(raw.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(dollars) || dollars < 0) return setErr("Invalid rate.");
+    const cents = Math.round(dollars * 100);
+
+    setRateBusy(displayName);
+    try {
+      // Resolve tenant_id for the current user
+      const { data: pu } = await supabase
+        .from("chiefos_portal_users")
+        .select("tenant_id")
+        .limit(1)
+        .maybeSingle();
+      const tenantId = pu?.tenant_id;
+      if (!tenantId) throw new Error("Could not resolve tenant.");
+
+      const { error } = await supabase
+        .from("chiefos_crew_rates")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            employee_name: displayName,
+            hourly_rate_cents: cents,
+            currency: tenantCountry === "US" ? "USD" : "CAD",
+            effective_from: new Date().toISOString().slice(0, 10),
+          },
+          { onConflict: "tenant_id,employee_name,effective_from" }
+        );
+      if (error) throw error;
+      setRates((prev) => ({ ...prev, [displayName]: cents }));
+      setRateEdits((prev) => { const next = { ...prev }; delete next[displayName]; return next; });
+    } catch (e: any) {
+      setErr(String(e?.message || "Failed to save rate."));
+    } finally {
+      setRateBusy(null);
     }
   }
 
@@ -465,6 +543,31 @@ export default function CrewMembersPage() {
                       <div className="text-xs text-white/50">
                         This controls where this employee’s WhatsApp logs route for approval.
                       </div>
+                    </div>
+                  )}
+
+                  {/* Hourly rate row (all non-owner roles) */}
+                  {m.role !== "owner" && m.display_name && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <div className="text-xs text-white/60">Hourly rate:</div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-white/60">$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.25"
+                          placeholder={rates[m.display_name!] != null ? String((rates[m.display_name!] / 100).toFixed(2)) : "0.00"}
+                          value={rateEdits[m.display_name!] ?? (rates[m.display_name!] != null ? String((rates[m.display_name!] / 100).toFixed(2)) : "")}
+                          onChange={(e) => setRateEdits((prev) => ({ ...prev, [m.display_name!]: e.target.value }))}
+                          onBlur={() => { if (rateEdits[m.display_name!] !== undefined) saveRate(m.display_name!); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveRate(m.display_name!); }}
+                          disabled={rateBusy === m.display_name}
+                          className="w-24 rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-sm text-white outline-none focus:border-white/20"
+                        />
+                        <span className="text-xs text-white/50">/hr</span>
+                        {rateBusy === m.display_name && <span className="text-xs text-white/50">Saving…</span>}
+                      </div>
+                      <div className="text-xs text-white/40">Used to calculate labour cost on time entries.</div>
                     </div>
                   )}
                 </div>

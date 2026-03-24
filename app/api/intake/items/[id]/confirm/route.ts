@@ -218,6 +218,7 @@ export async function POST(
     const eventDate = toNullableDate(body?.eventDate ?? existingDraft?.event_date);
     const expenseCategory = toNullableText(body?.expenseCategory ?? existingDraft?.expense_category);
     const isPersonal = body?.isPersonal === true || body?.isPersonal === "true" || false;
+    const payeeName = toNullableText(body?.payeeName ?? existingDraft?.payee_name);
 
     if (!eventDate) {
       return json(400, { ok: false, error: "A valid date is required." });
@@ -317,6 +318,7 @@ export async function POST(
       job_name: resolvedJobName,
       expense_category: expenseCategory || null,
       is_personal: isPersonal,
+      payee_name: payeeName || null,
     };
 
     // Keep the current schema assumption used in your project.
@@ -346,6 +348,7 @@ export async function POST(
       job_int_id: resolvedJobId,
       expense_category: expenseCategory || null,
       is_personal: isPersonal,
+      payee_name: payeeName || null,
       raw_model_output: existingDraft?.raw_model_output || {},
       validation_flags: [],
       updated_at: new Date().toISOString(),

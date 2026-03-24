@@ -8,6 +8,7 @@ const tabs = [
   { href: "/app/activity/expenses", label: "Expenses" },
   { href: "/app/activity/revenue", label: "Revenue" },
   { href: "/app/activity/time", label: "Time" },
+  { href: "/app/activity/mileage", label: "Mileage" },
   { href: "/app/activity/tasks", label: "Tasks" },
 ];
 

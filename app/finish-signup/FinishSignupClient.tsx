@@ -22,6 +22,8 @@ type PendingSignup = {
   id: string;
   email: string;
   company_name: string | null;
+  country: string | null;
+  province: string | null;
   signup_mode: string | null;
   requested_plan_key: string | null;
 
@@ -138,6 +140,22 @@ export default function FinishSignupClient() {
       }
     }
 
+    async function setTenantMeta() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
+      if (!accessToken) return;
+
+      await fetch("/api/auth/pending-signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ action: "set-tenant-meta" }),
+      });
+      // Non-fatal: if this fails we continue anyway
+    }
+
     async function maybeActivateTester(pending: PendingSignup | null) {
       if (!pending || pending.signup_mode !== "tester") return;
 
@@ -210,6 +228,9 @@ export default function FinishSignupClient() {
           });
 
           if (rpcErr) throw rpcErr;
+
+          // Push country + province to the newly created tenant (non-fatal)
+          await setTenantMeta();
         }
 
         setActiveStep("record-agreement");

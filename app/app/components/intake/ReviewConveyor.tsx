@@ -12,6 +12,7 @@ type ReviewDraft = {
   currency: string;
   expenseCategory: string;
   isPersonal: boolean;
+  payeeName: string;
 };
 
 type Props = {
@@ -29,6 +30,7 @@ type Props = {
     currency: string;
     expenseCategory: string | null;
     isPersonal: boolean;
+    payeeName: string | null;
     edited: boolean;
   }) => Promise<void>;
   onSkip: (payload?: { comment?: string }) => Promise<void>;
@@ -82,6 +84,7 @@ export default function ReviewConveyor({
   const [currency, setCurrency] = useState(String(initialDraft?.currency || "USD"));
   const [expenseCategory, setExpenseCategory] = useState(String(initialDraft?.expenseCategory || ""));
   const [isPersonal, setIsPersonal] = useState(initialDraft?.isPersonal ?? false);
+  const [payeeName, setPayeeName] = useState(String(initialDraft?.payeeName || ""));
   const [duplicateOfItemId, setDuplicateOfItemId] = useState("");
   const [comment, setComment] = useState("");
 
@@ -94,7 +97,8 @@ export default function ReviewConveyor({
       String(initialDraft?.jobName || "") !== jobName ||
       String(initialDraft?.currency || "USD") !== currency ||
       String(initialDraft?.expenseCategory || "") !== expenseCategory ||
-      (initialDraft?.isPersonal ?? false) !== isPersonal
+      (initialDraft?.isPersonal ?? false) !== isPersonal ||
+      String(initialDraft?.payeeName || "") !== payeeName
     );
   }, [amountCents, vendor, description, eventDate, jobName, currency, expenseCategory, isPersonal, initialDraft]);
 
@@ -148,6 +152,7 @@ export default function ReviewConveyor({
       currency: currency.trim() || "USD",
       expenseCategory: expenseCategory.trim() || null,
       isPersonal,
+      payeeName: expenseCategory === "subcontractors" ? payeeName.trim() || null : null,
       edited,
     };
   }
@@ -350,6 +355,23 @@ export default function ReviewConveyor({
             ))}
           </select>
         </div>
+
+        {expenseCategory === "subcontractors" && (
+          <div className="md:col-span-2">
+            <label className="block text-xs text-white/50">
+              Payee name
+              <span className="ml-1.5 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-200">
+                T4A / 1099 required
+              </span>
+            </label>
+            <input
+              value={payeeName}
+              onChange={(e) => setPayeeName(e.target.value)}
+              placeholder="Jane Smith or ABC Subcontracting Ltd."
+              className="mt-1 w-full rounded-xl border border-amber-400/20 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+            />
+          </div>
+        )}
 
         <div>
           <label className="block text-xs text-white/50">Type</label>
