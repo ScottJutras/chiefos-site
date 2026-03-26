@@ -222,6 +222,8 @@ function ChiefClientInner() {
     const trimmed = String(prompt || "").trim();
     if (!trimmed || busy) return;
 
+    setQ("");
+
     const userMsg: Msg = { id: safeId(), role: "user", createdAt: Date.now(), prompt: trimmed };
 
     // Instant client-side answers for conversational/intro questions — never hits the backend
