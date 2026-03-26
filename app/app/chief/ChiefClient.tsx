@@ -543,7 +543,7 @@ return (
           </div>
           <div>
             <div className=”text-sm font-semibold text-white/80”>Ask Chief anything</div>
-            <div className=”mt-1 text-xs text-white/45”>Try: “Which job is losing money?” or “What did we spend this month?”</div>
+            <div className=”mt-1 text-xs text-white/45”>Try: Which job is losing money? or What did we spend this month?</div>
           </div>
         </div>
       ) : (
