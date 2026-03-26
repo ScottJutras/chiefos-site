@@ -286,16 +286,14 @@ export default function Home() {
         Stop guessing if your jobs are making money.
       </h1>
 
-      <p className="mx-auto mt-5 max-w-3xl text-lg md:text-xl text-white/75 leading-relaxed">
+      <p className="mx-auto mt-5 max-w-2xl text-xl md:text-2xl font-medium text-white/90 leading-snug">
+        Text a receipt. Ask if the job's making money. Get an answer.
+      </p>
+
+      <p className="mx-auto mt-3 max-w-3xl text-base md:text-lg text-white/60 leading-relaxed">
         ChiefOS captures receipts, time, tasks, and job activity as you work —
         then turns it into answers about your business.
       </p>
-
-      <div className="mt-5 text-sm md:text-base text-white/70 leading-relaxed">
-        <span className="text-white/85 font-semibold">
-          Text it. Say it. Snap it. Confirm it. Done.
-        </span>
-      </div>
 
       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
         <TooltipChip tip="Fastest path: start logging immediately in WhatsApp.">
@@ -318,8 +316,9 @@ export default function Home() {
         </a>
       </div>
 
-      <div className="mt-4 text-xs text-white/45">
-        No app stack. No spreadsheet rebuild. No nightly cleanup loop.
+      <div className="mt-4 space-y-1 text-xs text-white/45">
+        <div>No app stack. No spreadsheet rebuild. No nightly cleanup loop.</div>
+        <div className="text-white/55">Your crew texts WhatsApp like they already do — no app to download, no onboarding.</div>
       </div>
     </div>
 
@@ -459,6 +458,64 @@ export default function Home() {
 
           <div className="md:col-span-5">
             <WhyDifferentTable />
+          </div>
+        </div>
+      </Section>
+
+      {/* HOW IT WORKS — 3 STEPS */}
+      <Section id="how-it-works" className="py-14 md:py-20 border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">How it works</div>
+            <h2 className="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">Three steps. That&apos;s the whole loop.</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-8 w-8 rounded-full border border-white/15 bg-white/[0.08] flex items-center justify-center text-sm font-bold text-white/80">1</div>
+                <div className="text-lg font-semibold text-white/90">Capture</div>
+              </div>
+              <p className="text-sm text-white/65 leading-relaxed mb-4">Text, voice, or photo in WhatsApp. Under 30 seconds. No app switching.</p>
+              <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+                <div className="text-[11px] text-white/40 uppercase tracking-[0.14em] mb-1">WhatsApp message</div>
+                <div className="text-sm text-white/80">&ldquo;Spent $85 at Home Depot &bull; Job 14&rdquo;</div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-8 w-8 rounded-full border border-white/15 bg-white/[0.08] flex items-center justify-center text-sm font-bold text-white/80">2</div>
+                <div className="text-lg font-semibold text-white/90">Confirm</div>
+              </div>
+              <p className="text-sm text-white/65 leading-relaxed mb-4">Quick review card. One tap saves a clean, structured record attached to the job.</p>
+              <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white/55">Home Depot &bull; $85.00</span>
+                  <span className="rounded-full border border-white/10 bg-black/40 px-2.5 py-0.5 text-white/60">Job 14</span>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 rounded-lg border border-white/10 bg-black/40 py-1.5 text-center text-[11px] text-white/50">Edit</div>
+                  <div className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-1.5 text-center text-[11px] text-emerald-400 font-semibold">Confirm ✓</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-8 w-8 rounded-full border border-white/15 bg-white/[0.08] flex items-center justify-center text-sm font-bold text-white/80">3</div>
+                <div className="text-lg font-semibold text-white/90">Ask Chief</div>
+              </div>
+              <p className="text-sm text-white/65 leading-relaxed mb-4">Type a question. Get a grounded answer instantly — from your logged records.</p>
+              <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 space-y-2">
+                <div className="text-xs text-white/50">&ldquo;Did Job 14 make money?&rdquo;</div>
+                <div className="text-sm text-white/80 leading-snug">Job 14: <span className="text-white/90 font-semibold">$3,200 revenue</span> &middot; <span className="text-white/90 font-semibold">$2,180 costs</span> &rarr; <span className="text-emerald-400 font-semibold">$1,020 profit</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center text-sm text-white/45">
+            That&apos;s the whole loop. No apps. No cleanup. No guessing.
           </div>
         </div>
       </Section>
@@ -629,6 +686,137 @@ export default function Home() {
               icon={<MobileAppIcon className="h-6 w-6 text-white/80" />}
               blurb="Optional mobile capture for teams that want it. Not required to use ChiefOS — just another way to send time, receipts, and job updates into the same system."
             />
+          </div>
+        </div>
+      </Section>
+
+      {/* TESTIMONIALS */}
+      <Section id="testimonials" className="py-14 md:py-20 border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-10">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Early testers</div>
+            <h2 className="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">What contractors say</h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 flex flex-col gap-4">
+              <p className="text-sm text-white/75 leading-relaxed flex-1">
+                &ldquo;I used to spend Sunday nights reconciling receipts. Now I just check the dashboard. First time I actually knew if we made money before the invoice went out.&rdquo;
+              </p>
+              <div>
+                <div className="text-sm font-semibold text-white/85">Mike T.</div>
+                <div className="text-xs text-white/50 mt-0.5">Roofing &middot; 7-person crew</div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 flex flex-col gap-4">
+              <p className="text-sm text-white/75 leading-relaxed flex-1">
+                &ldquo;My guys are already on WhatsApp. Adding ChiefOS was nothing. They send the same texts &mdash; it just goes somewhere now.&rdquo;
+              </p>
+              <div>
+                <div className="text-sm font-semibold text-white/85">Dana R.</div>
+                <div className="text-xs text-white/50 mt-0.5">General Contractor &middot; 4-person crew</div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 flex flex-col gap-4">
+              <p className="text-sm text-white/75 leading-relaxed flex-1">
+                &ldquo;The &lsquo;did this job make money&rsquo; question used to take me 30 minutes. Now Chief just tells me.&rdquo;
+              </p>
+              <div>
+                <div className="text-sm font-semibold text-white/85">Jake S.</div>
+                <div className="text-xs text-white/50 mt-0.5">Siding &amp; Exterior &middot; Solo + 2 subs</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 text-xs text-white/35">Beta testers. Quotes represent real usage patterns from early access users.</div>
+        </div>
+      </Section>
+
+      {/* SEE IT IN ACTION */}
+      <Section id="demo" className="py-14 md:py-20 border-t border-white/[0.06]">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-12 gap-10 items-start">
+            <div className="md:col-span-4">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">See it in action</div>
+              <h2 className="mt-3 text-3xl md:text-4xl font-semibold tracking-tight leading-tight">
+                From message to business answer.
+              </h2>
+              <p className="mt-4 text-white/65 text-lg leading-relaxed">
+                A WhatsApp text becomes a confirmed record. A question becomes a profit answer. Under 60 seconds.
+              </p>
+              <div className="mt-8 space-y-4">
+                {[
+                  { stat: "~30 sec", label: "to log an expense" },
+                  { stat: "1 tap", label: "to confirm a record" },
+                  { stat: "Instant", label: "answers from Chief" },
+                ].map((x) => (
+                  <div key={x.stat} className="flex items-baseline gap-3">
+                    <div className="text-xl font-semibold text-white/90 w-20 shrink-0">{x.stat}</div>
+                    <div className="text-sm text-white/55">{x.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="md:col-span-8">
+              <MediaFrame
+                label="Demo"
+                title="From WhatsApp message to business answer in under 60 seconds."
+                subtitle="Full workflow — capture, confirm, ask"
+              >
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 space-y-5">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/40 mb-2">Step 1 &mdash; Capture in WhatsApp</div>
+                    <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-white/45">You &rarr; ChiefOS</div>
+                        <div className="text-sm text-white/80 mt-0.5">&ldquo;Spent $85 at Home Depot &bull; Job 14&rdquo;</div>
+                      </div>
+                      <div className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/55">Sent</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/40 mb-2">Step 2 &mdash; Confirm the record</div>
+                    <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="text-sm font-semibold text-white/85">Home Depot &middot; Materials</div>
+                          <div className="text-xs text-white/50">$85.00 &middot; Job 14</div>
+                        </div>
+                        <div className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/60">Pending</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1 rounded-lg border border-white/10 bg-black/40 py-2 text-center text-xs text-white/50">Edit</div>
+                        <div className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 py-2 text-center text-xs text-emerald-400 font-semibold">Confirm ✓</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/40 mb-2">Step 3 &mdash; Ask Chief</div>
+                    <div className="space-y-2">
+                      <div className="flex justify-end">
+                        <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-2.5 max-w-[85%]">
+                          <div className="text-xs text-white/45">You</div>
+                          <div className="text-sm text-white/80 mt-0.5">Did Job 14 make money?</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-start">
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 max-w-[85%]">
+                          <div className="text-xs text-white/45">Chief</div>
+                          <div className="text-sm text-white/80 mt-0.5 leading-relaxed">
+                            Job 14: <span className="font-semibold text-white/90">$3,200 revenue</span> &middot; <span className="font-semibold text-white/90">$2,180 costs</span> &rarr; <span className="font-semibold text-emerald-400">$1,020 profit (+31.9%)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </MediaFrame>
+            </div>
           </div>
         </div>
       </Section>
