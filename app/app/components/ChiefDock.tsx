@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -16,6 +16,18 @@ const QUICK_PROMPTS = [
 ];
 
 export default function ChiefDock({ open, onClose, initialQuery }: Props) {
+  const [iframeSrc, setIframeSrc] = useState("/app/chief?embed=1");
+  const hasInitializedRef = useRef(false);
+
+  // Set iframe src once on first open — never change it so the conversation persists
+  useEffect(() => {
+    if (open && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      const q = String(initialQuery || "").trim();
+      setIframeSrc(q ? `/app/chief?embed=1&q=${encodeURIComponent(q)}` : "/app/chief?embed=1");
+    }
+  }, [open, initialQuery]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -33,23 +45,25 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
     };
   }, [open, onClose]);
 
-  const src = useMemo(() => {
-    const q = String(initialQuery || "").trim();
-    return q ? `/app/chief?q=${encodeURIComponent(q)}` : "/app/chief";
-  }, [initialQuery]);
-
-  if (!open) return null;
-
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close Chief"
-        onClick={onClose}
-        className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[2px]"
-      />
+      {/* Backdrop — only shown when open */}
+      {open && (
+        <button
+          type="button"
+          aria-label="Minimize Chief"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[2px]"
+        />
+      )}
 
-      <div className="fixed inset-0 z-50 flex items-end justify-end md:items-stretch">
+      {/* Panel — always mounted so the iframe (and conversation) is never destroyed */}
+      <div
+        className={[
+          "fixed inset-0 z-50 flex items-end justify-end md:items-stretch",
+          open ? "" : "hidden",
+        ].join(" ")}
+      >
         <aside
           className="
             flex h-[88vh] w-full flex-col overflow-hidden
@@ -80,7 +94,7 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
                 onClick={onClose}
                 className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
               >
-                Close
+                Minimize
               </button>
             </div>
 
@@ -100,7 +114,7 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
           <div className="min-h-0 flex-1 bg-black">
             <iframe
               title="Chief"
-              src={src}
+              src={iframeSrc}
               className="h-full w-full bg-black"
             />
           </div>

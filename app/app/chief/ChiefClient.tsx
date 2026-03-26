@@ -586,9 +586,6 @@ return (
             </button>
           </div>
 
-          <div className="mt-2 text-[11px] text-white/45">
-            Chief answers from your logged ledger and always shows the scope used.
-          </div>
         </div>
       </form>
     </div>
