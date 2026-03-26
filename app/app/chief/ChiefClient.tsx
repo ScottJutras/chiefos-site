@@ -305,7 +305,7 @@ if (j?.code === "UPSTREAM_TIMEOUT") {
   return {
     ok: false,
     code: "UPSTREAM_TIMEOUT",
-    message: j?.message || "I’m having trouble reasoning right now. Your data is safe. Try again.",
+    message: j?.message || "I'm having trouble reasoning right now. Your data is safe. Try again.",
   };
 }
 
@@ -415,7 +415,7 @@ return { ok: false, code: "ERROR", message: j?.error || j?.message || "Ask Chief
         body = resp.message || "Ask Chief reads your transaction ledger, which is built by logging through WhatsApp. Link your phone to start.";
         actions = [{ label: "Link WhatsApp", href: "/app/link-phone", kind: "primary" }];
       } else if (resp.code === "PERMISSION_DENIED") {
-        body = "You don’t have access to Ask Chief. Ask the owner or a board member.";
+        body = "You don't have access to Ask Chief. Ask the owner or a board member.";
       } else if (resp.code === "AUTH_REQUIRED") {
         body = "Session expired — please log in again.";
         actions = [{ label: "Log in", href: "/login", kind: "primary" }];
@@ -519,7 +519,7 @@ return (
 
           {pageState !== "unknown" && pageState !== "enabled" ? (
             <div className="mt-3 text-xs text-white/45">
-              Access is enforced server-side. If something’s blocked, you’ll see a clear gate card after a request.
+              Access is enforced server-side. If something's blocked, you'll see a clear gate card after a request.
             </div>
           ) : null}
         </div>
@@ -537,19 +537,19 @@ return (
       </div>
 
       {msgs.length === 0 ? (
-        <div className=”mt-12 flex flex-col items-center gap-4 text-center”>
-          <div className=”w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-lg font-bold text-white/70”>
+        <div className="mt-12 flex flex-col items-center gap-4 text-center">
+          <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-lg font-bold text-white/70">
             C
           </div>
           <div>
-            <div className=”text-sm font-semibold text-white/80”>Ask Chief anything</div>
-            <div className=”mt-1 text-xs text-white/45”>Try: Which job is losing money? or What did we spend this month?</div>
+            <div className="text-sm font-semibold text-white/80">Ask Chief anything</div>
+            <div className="mt-1 text-xs text-white/45">Try: Which job is losing money? or What did we spend this month?</div>
           </div>
         </div>
       ) : (
-        <div className=”mt-6 space-y-4”>
+        <div className="mt-6 space-y-4">
           {msgs.map((m) => (
-            <div key={m.id}>{m.role === “user” ? renderUserBubble(m) : renderChiefBubble(m)}</div>
+            <div key={m.id}>{m.role === "user" ? renderUserBubble(m) : renderChiefBubble(m)}</div>
           ))}
           <div ref={bottomRef} />
         </div>
