@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AppNav } from "./nav";
+import GlobalChiefDock from "./components/GlobalChiefDock";
 
 function MobileTabLink({
   href,
@@ -43,12 +44,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <Link
-                href="/app/chief"
-                className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-              >
-                Ask Chief
-              </Link>
+              <GlobalChiefDock />
             </div>
           </div>
 

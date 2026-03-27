@@ -8,7 +8,6 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import AskChiefMini from "@/app/app/components/AskChiefMini";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
-import ChiefDock from "@/app/app/components/ChiefDock";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "ytd" | "all";
@@ -434,8 +433,6 @@ export default function DashboardPage() {
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
-  const [chiefOpen, setChiefOpen] = useState(false);
-  const [chiefQuery, setChiefQuery] = useState("");
 
   const [summary, setSummary] = useState<Summary>({
     pendingReview: 0,
@@ -599,15 +596,15 @@ export default function DashboardPage() {
   );
 
   function openChief(query?: string) {
-    setChiefQuery(String(query || "").trim());
-    setChiefOpen(true);
+    window.dispatchEvent(
+      new CustomEvent("open-chief", { detail: { query: String(query || "").trim() } })
+    );
   }
 
   if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
 
   return (
-    <>
-      <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-black text-white">
         <div className="mx-auto max-w-[1700px] px-0 py-0">
           <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
@@ -634,13 +631,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </main>
-
-      <ChiefDock
-        open={chiefOpen}
-        onClose={() => setChiefOpen(false)}
-        initialQuery={chiefQuery}
-      />
-    </>
+    </main>
   );
 }
