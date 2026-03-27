@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AppNav } from "./nav";
+import ChiefDockButton from "./components/ChiefDockButton";
 import GlobalChiefDock from "./components/GlobalChiefDock";
 
 function MobileTabLink({
@@ -44,7 +45,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <GlobalChiefDock />
+              <ChiefDockButton />
             </div>
           </div>
 
@@ -53,6 +54,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      {/* Panel lives outside <header> so its position:fixed isn't trapped by backdrop-blur's stacking context */}
+      <GlobalChiefDock />
 
       <main className="w-full px-2 py-3 pb-24 md:pb-3">{children}</main>
 

@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import ChiefDock from "./ChiefDock";
 
 /**
- * Renders the "Ask Chief" header button + the persistent ChiefDock panel.
- * Lives in the app layout so the dock (and its conversation) survives page navigation.
+ * Renders the persistent ChiefDock panel.
+ * Must be placed OUTSIDE the sticky <header> in the layout so that
+ * the header's backdrop-blur stacking context doesn't trap the
+ * position:fixed panel inside it.
  *
  * Any component can open the dock with a pre-filled query by dispatching:
  *   window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: "..." } }))
@@ -25,20 +27,10 @@ export default function GlobalChiefDock() {
   }, []);
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-      >
-        Ask Chief
-      </button>
-
-      <ChiefDock
-        open={open}
-        onClose={() => setOpen(false)}
-        initialQuery={pendingQuery}
-      />
-    </>
+    <ChiefDock
+      open={open}
+      onClose={() => setOpen(false)}
+      initialQuery={pendingQuery}
+    />
   );
 }
