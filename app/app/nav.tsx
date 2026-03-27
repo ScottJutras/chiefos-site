@@ -12,6 +12,7 @@ const primaryItems = [
 ];
 
 const secondaryItems = [
+  { href: "/app/jobs", label: "Jobs" },
   { href: "/app/activity/expenses", label: "Activity" },
   { href: "/app/settings", label: "Settings" },
   { href: "/app/settings/billing", label: "Billing" },
