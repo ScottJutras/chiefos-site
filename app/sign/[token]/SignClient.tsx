@@ -39,12 +39,9 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  function getPos(e: MouseEvent | Touch, canvas: HTMLCanvasElement) {
+  function getPos(clientX: number, clientY: number, canvas: HTMLCanvasElement) {
     const rect = canvas.getBoundingClientRect();
-    return {
-      x: ("clientX" in e ? e.clientX : (e as Touch).clientX) - rect.left,
-      y: ("clientY" in e ? e.clientY : (e as Touch).clientY) - rect.top,
-    };
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
   const startDraw = useCallback((x: number, y: number) => {
@@ -81,25 +78,27 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
 
   // Mouse events
   function onMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    const p = getPos(e.nativeEvent, e.currentTarget);
+    const p = getPos(e.clientX, e.clientY, e.currentTarget);
     startDraw(p.x, p.y);
   }
   function onMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
     if (!drawing) return;
-    const p = getPos(e.nativeEvent, e.currentTarget);
+    const p = getPos(e.clientX, e.clientY, e.currentTarget);
     draw(p.x, p.y);
   }
 
   // Touch events
   function onTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
     e.preventDefault();
-    const p = getPos(e.touches[0], e.currentTarget);
+    const t = e.touches[0];
+    const p = getPos(t.clientX, t.clientY, e.currentTarget);
     startDraw(p.x, p.y);
   }
   function onTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
     e.preventDefault();
     if (!drawing) return;
-    const p = getPos(e.touches[0], e.currentTarget);
+    const t = e.touches[0];
+    const p = getPos(t.clientX, t.clientY, e.currentTarget);
     draw(p.x, p.y);
   }
 
