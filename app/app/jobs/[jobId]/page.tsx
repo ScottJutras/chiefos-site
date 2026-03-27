@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
+import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
+import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,16 @@ type JobDocumentFile = {
 
 type Tab = "overview" | "documents" | "activity" | "photos";
 
+type TxRow = {
+  id: number;
+  date: string | null;
+  amount_cents: number | null;
+  kind: string;
+  job_name: string | null;
+  job_id: number | null;
+  created_at: string | null;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtMoney(cents: number) {
@@ -108,6 +120,44 @@ function calcWorkHours(entries: TimeEntry[]): number {
     }
   }
   return totalMs / (1000 * 60 * 60);
+}
+
+function buildPulsePoints(rows: TxRow[], range: "wtd" | "mtd" | "ytd" | "all"): PulsePoint[] {
+  const now = new Date();
+  const starts: Record<string, Date | null> = {
+    wtd: (() => { const d = new Date(now); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0); return d; })(),
+    mtd: (() => { const d = new Date(now); d.setDate(1); d.setHours(0,0,0,0); return d; })(),
+    ytd: (() => { const d = new Date(now); d.setMonth(0,1); d.setHours(0,0,0,0); return d; })(),
+    all: null,
+  };
+  const start = starts[range];
+  const filtered = rows.filter((r) => {
+    const raw = r.date || r.created_at;
+    if (!raw) return false;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return false;
+    return !start || d >= start;
+  });
+  const buckets = new Map<string, { revenue: number; expenses: number }>();
+  for (const r of filtered) {
+    const raw = r.date || r.created_at;
+    if (!raw) continue;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) continue;
+    const key = d.toISOString().slice(0, 10);
+    const b = buckets.get(key) || { revenue: 0, expenses: 0 };
+    const cents = Number(r.amount_cents || 0);
+    if (r.kind === "revenue") b.revenue += cents; else b.expenses += cents;
+    buckets.set(key, b);
+  }
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, v]) => ({
+      label: new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      revenueCents: v.revenue,
+      expenseCents: v.expenses,
+      profitCents: v.revenue - v.expenses,
+    }));
 }
 
 async function getBearerToken(): Promise<string> {
@@ -940,6 +990,64 @@ function DocumentsTab({
   );
 }
 
+// ─── Activity Tab ─────────────────────────────────────────────────────────────
+
+type RangeKey = "wtd" | "mtd" | "ytd" | "all";
+type ViewKey = "expenses" | "revenue" | "time" | "tasks";
+
+function ActivityTab({ job }: { job: JobRow }) {
+  const [txRows, setTxRows] = useState<TxRow[]>([]);
+  const [pulseLoading, setPulseLoading] = useState(true);
+  const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
+  const [view, setView] = useState<ViewKey>("expenses");
+
+  useEffect(() => {
+    supabase
+      .from("transactions")
+      .select("id, date, amount_cents, kind, job_name, job_id, created_at")
+      .eq("job_id", job.id)
+      .order("date", { ascending: true })
+      .limit(2000)
+      .then(({ data }) => {
+        setTxRows((data as TxRow[]) || []);
+        setPulseLoading(false);
+      });
+  }, [job.id]);
+
+  const pulsePoints = useMemo(() => buildPulsePoints(txRows, pulseRange), [txRows, pulseRange]);
+  const jobTitle = String(job.job_name || job.name || "This job");
+
+  return (
+    <div className="space-y-5">
+      <BusinessPulseChart
+        points={pulsePoints}
+        activeJobs={1}
+        totalJobs={1}
+        title={`${jobTitle} — performance`}
+        subtitle="Revenue and expenses over time for this job."
+        loading={pulseLoading}
+        range={pulseRange}
+        onRangeChange={setPulseRange}
+      />
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4 mb-4">
+          <div className="text-sm font-semibold text-white/90">Records</div>
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-1 flex gap-1">
+            {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
+              <button key={k} type="button" onClick={() => setView(k)}
+                className={["rounded-xl px-3 py-1.5 text-xs font-medium transition", view === k ? "bg-white text-black" : "text-white/60 hover:bg-white/5 hover:text-white/85"].join(" ")}>
+                {k.charAt(0).toUpperCase() + k.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DashboardDataPanel view={view} selectedJobName={String(job.job_name || job.name || "").trim()} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function JobDetailPage() {
@@ -1063,16 +1171,7 @@ export default function JobDetailPage() {
           />
         )}
 
-        {tab === "activity" && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center space-y-4">
-            <div className="text-sm text-white/50">View activity filtered to this job on the Activity pages.</div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Link href="/app/activity/expenses" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10 transition">Expenses</Link>
-              <Link href="/app/activity/revenue" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10 transition">Revenue</Link>
-              <Link href="/app/activity/tasks" className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10 transition">Tasks</Link>
-            </div>
-          </div>
-        )}
+        {tab === "activity" && <ActivityTab job={job} />}
 
         {tab === "photos" && (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">

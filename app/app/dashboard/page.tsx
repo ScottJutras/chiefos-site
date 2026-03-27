@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
 import AskChiefMini from "@/app/app/components/AskChiefMini";
-import JobsDecisionCenterPanel from "@/app/app/components/JobsDecisionCenterPanel";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import ChiefDock from "@/app/app/components/ChiefDock";
@@ -432,7 +431,6 @@ export default function DashboardPage() {
 
   const [workspaceName, setWorkspaceName] = useState<string>("Your system");
   const [view, setView] = useState<ViewKey>("expenses");
-  const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
@@ -521,11 +519,6 @@ export default function DashboardPage() {
               activeJobs,
               totalJobs: jobs.length,
             }));
-
-            if (!selectedJob && jobs.length > 0) {
-              const firstActive = jobs.find((j) => normalizeStatus(j.status, j.active) === "Active");
-              setSelectedJob(firstActive || jobs[0]);
-            }
           }
         } catch {
           // fail-soft
@@ -600,19 +593,10 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const pulsePoints = useMemo(() => {
-    const base = selectedJob
-      ? pulseRows.filter((r) => {
-          // Prefer job_id match (exact); fall back to normalised name comparison
-          if (selectedJob.id != null && r.job_id != null) return r.job_id === selectedJob.id;
-          const a = String(r.job_name || "").trim().toLowerCase();
-          const b = String(selectedJob.job_name || selectedJob.name || "").trim().toLowerCase();
-          return !!b && a === b;
-        })
-      : pulseRows;
-
-    return buildPulsePoints(base, pulseRange);
-  }, [pulseRows, selectedJob, pulseRange]);
+  const pulsePoints = useMemo(
+    () => buildPulsePoints(pulseRows, pulseRange),
+    [pulseRows, pulseRange]
+  );
 
   function openChief(query?: string) {
     setChiefQuery(String(query || "").trim());
@@ -625,17 +609,10 @@ export default function DashboardPage() {
     <>
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto max-w-[1700px] px-0 py-0">
-          <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-            <div className="border-r border-white/10">
-              <JobsDecisionCenterPanel
-                selectedJobId={selectedJob?.id ?? null}
-                onSelectJob={(job) => setSelectedJob(job)}
-              />
-            </div>
-
+          <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
               <CenterWorkspace
-                selectedJob={selectedJob}
+                selectedJob={null}
                 view={view}
                 setView={setView}
                 summary={summary}
