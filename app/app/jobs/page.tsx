@@ -474,10 +474,10 @@ function JobCard({
           {hasBudgets ? "Edit budget" : "Set budget"}
         </button>
         <Link
-          href={`/app/dashboard?jobId=${job.id}`}
+          href={`/app/jobs/${job.id}`}
           className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/10 transition"
         >
-          View job
+          View →
         </Link>
       </div>
     </div>

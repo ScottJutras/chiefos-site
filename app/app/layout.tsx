@@ -31,7 +31,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Link
-                href="/app/dashboard"
+                href="/app/jobs"
                 className="shrink-0 text-base font-semibold tracking-tight text-white hover:text-white/90 transition"
               >
                 ChiefOS
@@ -67,7 +67,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         "
       >
         <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
-          <MobileTabLink href="/app/dashboard" label="Home" />
+          <MobileTabLink href="/app/jobs" label="Home" />
           <MobileTabLink href="/app/pending-review" label="Review" />
           <MobileTabLink href="/app/uploads" label="Capture" />
           <MobileTabLink href="/app/activity/expenses" label="Activity" />
