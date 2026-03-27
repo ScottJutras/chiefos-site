@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const primaryItems = [
-  { href: "/app/dashboard", label: "Home" },
+  { href: "/app/jobs", label: "Home" },
   { href: "/app/pending-review", label: "Review" },
   { href: "/app/uploads", label: "Capture" },
   { href: "/app/chief", label: "Chief" },
 ];
 
 const secondaryItems = [
-  { href: "/app/jobs", label: "Jobs" },
+  { href: "/app/dashboard", label: "Dashboard" },
   { href: "/app/activity/expenses", label: "Activity" },
   { href: "/app/settings", label: "Settings" },
   { href: "/app/settings/billing", label: "Billing" },
