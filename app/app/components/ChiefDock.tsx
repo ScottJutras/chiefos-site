@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChiefPageContext } from "./GlobalChiefDock";
 
 type Props = {
@@ -20,18 +20,17 @@ const DEFAULT_PROMPTS = [
 export default function ChiefDock({ open, onClose, initialQuery, pageContext }: Props) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const hasInitializedRef = useRef(false);
-  const iframeSrcRef = useRef("/app/chief?embed=1");
+  // useState so React properly sets the src attribute on the iframe DOM node
+  const [iframeSrc, setIframeSrc] = useState("/app/chief?embed=1");
 
-  // Set iframe src once on first open — never change it so the conversation persists
+  // Set iframe src exactly once on first open — never update it so the conversation persists
   useEffect(() => {
     if (open && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
       const q = String(initialQuery || "").trim();
-      iframeSrcRef.current = q
-        ? `/app/chief?embed=1&q=${encodeURIComponent(q)}`
-        : "/app/chief?embed=1";
-      // Force a re-render to apply the src (iframe only needs src set once)
-      if (iframeRef.current) iframeRef.current.src = iframeSrcRef.current;
+      setIframeSrc(
+        q ? `/app/chief?embed=1&q=${encodeURIComponent(q)}` : "/app/chief?embed=1"
+      );
     }
   }, [open, initialQuery]);
 
@@ -159,7 +158,7 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
             <iframe
               ref={iframeRef}
               title="Chief"
-              src={iframeSrcRef.current}
+              src={iframeSrc}
               className="h-full w-full bg-black"
             />
           </div>
