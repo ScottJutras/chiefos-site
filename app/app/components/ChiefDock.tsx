@@ -1,32 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import type { ChiefPageContext } from "./GlobalChiefDock";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   initialQuery?: string;
+  pageContext?: ChiefPageContext;
 };
 
-const QUICK_PROMPTS = [
+const DEFAULT_PROMPTS = [
   "What needs my attention right now?",
   "Which jobs are making money?",
   "What is still waiting in Pending Review?",
   "What should I follow up on today?",
 ];
 
-export default function ChiefDock({ open, onClose, initialQuery }: Props) {
-  const [iframeSrc, setIframeSrc] = useState("/app/chief?embed=1");
+export default function ChiefDock({ open, onClose, initialQuery, pageContext }: Props) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const hasInitializedRef = useRef(false);
+  const iframeSrcRef = useRef("/app/chief?embed=1");
 
   // Set iframe src once on first open — never change it so the conversation persists
   useEffect(() => {
     if (open && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
       const q = String(initialQuery || "").trim();
-      setIframeSrc(q ? `/app/chief?embed=1&q=${encodeURIComponent(q)}` : "/app/chief?embed=1");
+      iframeSrcRef.current = q
+        ? `/app/chief?embed=1&q=${encodeURIComponent(q)}`
+        : "/app/chief?embed=1";
+      // Force a re-render to apply the src (iframe only needs src set once)
+      if (iframeRef.current) iframeRef.current.src = iframeSrcRef.current;
     }
   }, [open, initialQuery]);
+
+  // Send page context to iframe via postMessage whenever it changes
+  useEffect(() => {
+    if (!pageContext || !open) return;
+    // Small delay to ensure iframe has loaded
+    const timer = setTimeout(() => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "chief-context", pageContext },
+        window.location.origin
+      );
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [pageContext, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -44,6 +64,27 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
       document.body.style.overflow = prev;
     };
   }, [open, onClose]);
+
+  // Context-aware quick prompts
+  const quickPrompts = useMemo(() => {
+    if (pageContext?.job_name) {
+      return [
+        `How am I doing on ${pageContext.job_name}?`,
+        `Is ${pageContext.job_name} profitable?`,
+        `What have I spent on ${pageContext.job_name}?`,
+        "What should I follow up on today?",
+      ];
+    }
+    return DEFAULT_PROMPTS;
+  }, [pageContext]);
+
+  // Send a prompt to the iframe instead of navigating away
+  function sendPrompt(prompt: string) {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "chief-prompt", prompt },
+      window.location.origin
+    );
+  }
 
   return (
     <>
@@ -82,10 +123,12 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
                   Chief
                 </div>
                 <div className="mt-1 text-base font-semibold text-white/92">
-                  Reason while the business stays visible
+                  {pageContext?.job_name
+                    ? `Viewing: ${pageContext.job_name}`
+                    : "Your on-call CFO"}
                 </div>
                 <div className="mt-1 text-sm text-white/55">
-                  Ask questions, keep context, and close when you are done.
+                  Ask anything — Chief reads your live data.
                 </div>
               </div>
 
@@ -99,22 +142,24 @@ export default function ChiefDock({ open, onClose, initialQuery }: Props) {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map((prompt) => (
-                <a
+              {quickPrompts.map((prompt) => (
+                <button
                   key={prompt}
-                  href={`/app/chief?q=${encodeURIComponent(prompt)}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
+                  type="button"
+                  onClick={() => sendPrompt(prompt)}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10 transition text-left"
                 >
                   {prompt}
-                </a>
+                </button>
               ))}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 bg-black">
             <iframe
+              ref={iframeRef}
               title="Chief"
-              src={iframeSrc}
+              src={iframeSrcRef.current}
               className="h-full w-full bg-black"
             />
           </div>

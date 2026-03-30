@@ -2,12 +2,16 @@
 
 /**
  * Renders the "Ask Chief" header button.
- * Opens the dock by dispatching a custom event so the panel
- * (rendered outside the header) can listen and show itself.
+ * Captures the current page URL and passes it through the open-chief
+ * event so the dock can inject page context into every request.
  */
 export default function ChiefDockButton() {
   function open() {
-    window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: "" } }));
+    window.dispatchEvent(
+      new CustomEvent("open-chief", {
+        detail: { query: "", page: window.location.pathname },
+      })
+    );
   }
 
   return (

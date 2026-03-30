@@ -460,12 +460,13 @@ function JobCard({
 
       {/* Footer actions */}
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-4">
-        <a
-          href={`/app/chief?q=${encodeURIComponent(`Summarise job ${job.job_name || job.name || job.job_no || job.id} — what has been spent, what has been collected, and is it on track?`)}`}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: `How am I doing on ${job.job_name || job.name || job.id}?`, page: window.location.pathname, job_id: job.id, job_name: job.job_name || job.name || null, job_no: job.job_no || null } }))}
           className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/10 transition"
         >
           Ask Chief
-        </a>
+        </button>
         <button
           type="button"
           onClick={() => setEditingBudget((v) => !v)}

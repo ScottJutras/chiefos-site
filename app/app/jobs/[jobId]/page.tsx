@@ -464,7 +464,7 @@ function OverviewTab({ job, expenseCents, revenueCents, hours, onJobUpdated }: {
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 mb-3">Quick actions</div>
         <div className="flex flex-wrap gap-2">
-          <a href={`/app/chief?q=${encodeURIComponent(`Summarise job ${job.job_name || job.name || job.id} — what has been spent, what collected, is it on track?`)}`} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">Ask Chief about this job</a>
+          <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: `How am I doing on ${job.job_name || job.name || job.id}?`, page: window.location.pathname, job_id: job.id, job_name: job.job_name || job.name || null, job_no: job.job_no || null } }))} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">Ask Chief about this job</button>
           <Link href="/app/activity/expenses" className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">All expenses</Link>
         </div>
       </div>

@@ -597,7 +597,7 @@ export default function DashboardPage() {
 
   function openChief(query?: string) {
     window.dispatchEvent(
-      new CustomEvent("open-chief", { detail: { query: String(query || "").trim() } })
+      new CustomEvent("open-chief", { detail: { query: String(query || "").trim(), page: "/app/dashboard" } })
     );
   }
 
