@@ -6,7 +6,7 @@ import ChiefDock from "./ChiefDock";
 export type ChiefPageContext = {
   page?: string;
   job_id?: number | string | null;
-  job_name?: string | null;
+  job_name?: string;
   job_no?: number | string | null;
 } | null;
 
@@ -32,9 +32,9 @@ export default function GlobalChiefDock() {
       const q = (detail.query as string) || "";
       setPendingQuery(q);
       setPageContext({
-        page: (detail.page as string) || null,
+        page: (detail.page as string) || undefined,
         job_id: detail.job_id ?? null,
-        job_name: (detail.job_name as string) || null,
+        job_name: (detail.job_name as string) || undefined,
         job_no: detail.job_no ?? null,
       });
       setOpen(true);
