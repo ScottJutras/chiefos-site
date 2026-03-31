@@ -1,12 +1,12 @@
 // app/app/chief/ChiefClient.tsx
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useSearchParams } from "next/navigation";
 
-type TotalsRange = "all" | "ytd" | "mtd" | "wtd" | "today";
+type TotalsRange = "mtd";
 
 type PageContext = {
   page?: string | null;
@@ -59,24 +59,8 @@ type Msg = {
   pending?: boolean;
 };
 
-function chip(cls: string) {
-  return ["inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", cls].join(" ");
-}
-
-function rangeLabel(r: TotalsRange) {
-  if (r === "all") return "All";
-  if (r === "ytd") return "YTD";
-  if (r === "mtd") return "MTD";
-  if (r === "wtd") return "WTD";
-  return "Today";
-}
-
 function normalizeRange(r: TotalsRange) {
   return r;
-}
-
-function clsJoin(...x: Array<string | false | null | undefined>) {
-  return x.filter(Boolean).join(" ");
 }
 
 function safeId() {
@@ -87,7 +71,7 @@ function ChiefClientInner() {
   const gate = useTenantGate({ requireWhatsApp: false });
   const gateLoading = gate.loading;
 
-  const [range, setRange] = useState<TotalsRange>("mtd");
+  const range: TotalsRange = "mtd";
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -96,29 +80,6 @@ function ChiefClientInner() {
 
   // Stable ref so postMessage handler always sees latest callAskChief
   const callRef = useRef<((p: string) => void) | null>(null);
-
-  const lastChiefResp = useMemo(() => {
-    const last = [...msgs].reverse().find((m) => m.role === "chief" && m.resp && !m.pending);
-    return last?.resp ?? null;
-  }, [msgs]);
-
-  // Context-aware suggested prompts
-  const suggestedPrompts = useMemo(() => {
-    if (pageContext?.job_name) {
-      return [
-        `How am I doing on ${pageContext.job_name}?`,
-        `Is ${pageContext.job_name} profitable right now?`,
-        `What have I spent on ${pageContext.job_name}?`,
-        `What's the revenue on ${pageContext.job_name}?`,
-      ];
-    }
-    return [
-      "How can you help me?",
-      "Are we making money this month?",
-      "Which jobs are profitable right now?",
-      "What should I be paying attention to?",
-    ];
-  }, [pageContext]);
 
   const searchParams = useSearchParams();
   const didAutoRunRef = useRef(false);
@@ -341,24 +302,6 @@ function ChiefClientInner() {
   // Keep callRef up to date so the postMessage handler always calls the latest version
   callRef.current = callAskChief;
 
-  function RangePill({ id }: { id: TotalsRange }) {
-    const active = range === id;
-    return (
-      <button
-        type="button"
-        onClick={() => setRange(id)}
-        className={clsJoin(
-          "rounded-full border px-3 py-1 text-xs transition",
-          active
-            ? "border-white/20 bg-white text-black"
-            : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
-        )}
-      >
-        {rangeLabel(id)}
-      </button>
-    );
-  }
-
   function ChiefAvatar() {
     return (
       <div className="shrink-0 w-7 h-7 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-[11px] font-bold text-white/70 mt-0.5">
@@ -372,7 +315,7 @@ function ChiefClientInner() {
       return (
         <div className="flex items-start gap-2">
           <ChiefAvatar />
-          <div className="rounded-2xl rounded-tl-sm bg-white/5 border border-white/10 px-4 py-3 flex items-center gap-1.5">
+          <div className="rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3 flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
@@ -440,7 +383,7 @@ function ChiefClientInner() {
       return (
         <div className="flex items-start gap-2">
           <ChiefAvatar />
-          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/5 border border-white/10 px-4 py-3">
+          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
             <p className="text-sm text-white/70">{body}</p>
             {actions.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -465,7 +408,7 @@ function ChiefClientInner() {
       <div className="flex items-start gap-2">
         <ChiefAvatar />
         <div className="max-w-[85%] space-y-2">
-          <div className="rounded-2xl rounded-tl-sm bg-white/5 border border-white/10 px-4 py-3">
+          <div className="rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
             <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">{ok.answer}</p>
           </div>
 
@@ -493,7 +436,7 @@ function ChiefClientInner() {
   function renderUserBubble(m: Msg) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-white/10 border border-white/15 px-4 py-3">
+        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-white/15 px-4 py-3">
           <p className="text-sm text-white/90 whitespace-pre-wrap">{m.prompt}</p>
         </div>
       </div>
@@ -508,50 +451,9 @@ function ChiefClientInner() {
 
   if (gateLoading) return <div className="p-8 text-white/70">Loading Chief…</div>;
 
-  const contextHint = pageContext?.job_name
-    ? `Viewing: ${pageContext.job_name}`
-    : null;
-
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className={chip("border-white/10 bg-white/5 text-white/70")}>Intelligence</div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">Chief</h1>
-            <p className="mt-1 text-sm text-white/60">
-              {contextHint
-                ? `Context: ${contextHint} · Answers pull from your live ledger.`
-                : "Answers are based on your logged ledger — with scope and evidence."}
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {suggestedPrompts.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => callAskChief(p)}
-                  disabled={busy}
-                  className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10 transition disabled:opacity-50"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-xs text-white/55">Default range</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <RangePill id="all" />
-              <RangePill id="ytd" />
-              <RangePill id="mtd" />
-              <RangePill id="wtd" />
-              <RangePill id="today" />
-            </div>
-          </div>
-        </div>
-
         {msgs.length === 0 ? (
           <div className="mt-12 flex flex-col items-center gap-4 text-center">
             <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-lg font-bold text-white/70">

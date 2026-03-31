@@ -37,20 +37,15 @@ export default function ChiefPullTab() {
       aria-label="Ask Chief"
       className="
         fixed right-0 top-1/2 z-40 -translate-y-1/2
-        flex items-center justify-center
+        flex flex-col items-center justify-center gap-0.5
         w-8 rounded-l-xl border border-r-0 border-white/10
-        bg-white/5 py-7 backdrop-blur-sm
+        bg-white/5 py-5 backdrop-blur-sm
         hover:bg-white/10 transition
         select-none
       "
-      style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
     >
-      <span
-        className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50 rotate-180"
-        style={{ writingMode: "vertical-rl" }}
-      >
-        Ask Chief
-      </span>
+      <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50 leading-tight">Ask</span>
+      <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50 leading-tight">Chief</span>
     </button>
   );
 }

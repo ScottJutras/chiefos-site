@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChiefPageContext } from "./GlobalChiefDock";
 
 type Props = {
@@ -9,13 +9,6 @@ type Props = {
   initialQuery?: string;
   pageContext?: ChiefPageContext;
 };
-
-const DEFAULT_PROMPTS = [
-  "What needs my attention right now?",
-  "Which jobs are making money?",
-  "What is still waiting in Pending Review?",
-  "What should I follow up on today?",
-];
 
 export default function ChiefDock({ open, onClose, initialQuery, pageContext }: Props) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -64,26 +57,6 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
     };
   }, [open, onClose]);
 
-  // Context-aware quick prompts
-  const quickPrompts = useMemo(() => {
-    if (pageContext?.job_name) {
-      return [
-        `How am I doing on ${pageContext.job_name}?`,
-        `Is ${pageContext.job_name} profitable?`,
-        `What have I spent on ${pageContext.job_name}?`,
-        "What should I follow up on today?",
-      ];
-    }
-    return DEFAULT_PROMPTS;
-  }, [pageContext]);
-
-  // Send a prompt to the iframe instead of navigating away
-  function sendPrompt(prompt: string) {
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "chief-prompt", prompt },
-      window.location.origin
-    );
-  }
 
   return (
     <>
@@ -93,7 +66,7 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
           type="button"
           aria-label="Minimize Chief"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[2px]"
+          className="fixed inset-0 z-40 bg-black/25"
         />
       )}
 
@@ -111,47 +84,19 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
             md:h-full md:max-w-[620px] md:rounded-none md:rounded-l-[28px] md:border-y-0 md:border-r-0 md:border-l
           "
         >
-          <div className="flex items-center justify-center pt-2 md:hidden">
-            <div className="h-1.5 w-14 rounded-full bg-white/20" />
-          </div>
-
-          <div className="border-b border-white/10 px-4 py-4 md:px-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">
-                  Chief
-                </div>
-                <div className="mt-1 text-base font-semibold text-white/92">
-                  {pageContext?.job_name
-                    ? `Viewing: ${pageContext.job_name}`
-                    : "Your on-call CFO"}
-                </div>
-                <div className="mt-1 text-sm text-white/55">
-                  Ask anything — Chief reads your live data.
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
-              >
-                Minimize
-              </button>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {quickPrompts.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => sendPrompt(prompt)}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10 transition text-left"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
+          {/* Mobile drag handle + close button */}
+          <div className="flex items-center justify-between px-4 pt-2 pb-1 md:pt-3">
+            <div className="h-1.5 w-14 rounded-full bg-white/20 md:hidden" />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="ml-auto rounded-lg p-1.5 text-white/40 hover:text-white/70 hover:bg-white/5 transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+              </svg>
+            </button>
           </div>
 
           <div className="min-h-0 flex-1 bg-black">
