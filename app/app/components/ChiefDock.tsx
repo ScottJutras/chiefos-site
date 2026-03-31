@@ -90,12 +90,10 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
-              className="ml-auto rounded-lg p-1.5 text-white/40 hover:text-white/70 hover:bg-white/5 transition"
+              aria-label="Minimize"
+              className="ml-auto rounded-lg px-2 py-1 text-white/40 hover:text-white/70 hover:bg-white/5 transition text-lg font-light leading-none"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-              </svg>
+              –
             </button>
           </div>
 

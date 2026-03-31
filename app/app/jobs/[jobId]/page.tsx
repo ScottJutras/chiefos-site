@@ -7,7 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
-import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
+import { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,7 +26,6 @@ type JobRow = {
   contract_value_cents: number | null;
 };
 
-type TimeEntry = { job_no: number | null; type: string | null; timestamp: string | null };
 
 type JobDocument = {
   id: string;
@@ -42,6 +41,7 @@ type Customer = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  notes: string | null;
 };
 
 type QuoteLineItem = {
@@ -75,7 +75,7 @@ type JobDocumentFile = {
   created_at: string;
 };
 
-type Tab = "overview" | "documents" | "activity" | "photos";
+type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos";
 
 type TxRow = {
   id: number;
@@ -103,24 +103,6 @@ function fmtHours(h: number) {
   return `${h % 1 === 0 ? h.toFixed(0) : h.toFixed(1)}h`;
 }
 
-function calcWorkHours(entries: TimeEntry[]): number {
-  const sorted = [...entries]
-    .filter((e) => e.timestamp && e.type)
-    .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
-  let totalMs = 0, clockInAt: number | null = null, bStart: number | null = null, lStart: number | null = null, bDeduct = 0, lDeduct = 0;
-  for (const e of sorted) {
-    const ts = new Date(e.timestamp!).getTime();
-    switch (e.type) {
-      case "clock_in": clockInAt = ts; bDeduct = 0; lDeduct = 0; bStart = null; lStart = null; break;
-      case "break_start": bStart = ts; break;
-      case "break_stop": if (bStart) { bDeduct += ts - bStart; bStart = null; } break;
-      case "lunch_start": lStart = ts; break;
-      case "lunch_end": if (lStart) { lDeduct += ts - lStart; lStart = null; } break;
-      case "clock_out": if (clockInAt) { totalMs += Math.max(0, ts - clockInAt - bDeduct - lDeduct); clockInAt = null; bDeduct = 0; lDeduct = 0; } break;
-    }
-  }
-  return totalMs / (1000 * 60 * 60);
-}
 
 function buildPulsePoints(rows: TxRow[], range: "wtd" | "mtd" | "qtd" | "ytd" | "all"): PulsePoint[] {
   const now = new Date();
@@ -396,82 +378,6 @@ function SendForm({
   );
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
-
-function OverviewTab({ job, expenseCents, revenueCents, hours, onJobUpdated }: {
-  job: JobRow; expenseCents: number; revenueCents: number; hours: number; onJobUpdated: (u: Partial<JobRow>) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [matStr, setMatStr] = useState(job.material_budget_cents != null ? String(job.material_budget_cents / 100) : "");
-  const [contractStr, setContractStr] = useState(job.contract_value_cents != null ? String(job.contract_value_cents / 100) : "");
-  const [hoursStr, setHoursStr] = useState(job.labour_hours_budget != null ? String(job.labour_hours_budget) : "");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const profitCents = revenueCents - expenseCents;
-  const hasBudgets = job.material_budget_cents != null || job.contract_value_cents != null || job.labour_hours_budget != null;
-  const hasActivity = expenseCents > 0 || revenueCents > 0 || hours > 0;
-  const inputCls = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25";
-
-  async function saveBudgets() {
-    setSaving(true); setErr(null);
-    const m = matStr.trim() ? Math.round(parseFloat(matStr) * 100) : null;
-    const c = contractStr.trim() ? Math.round(parseFloat(contractStr) * 100) : null;
-    const h = hoursStr.trim() ? parseFloat(hoursStr) : null;
-    const { error } = await supabase.from("jobs").update({ material_budget_cents: m, contract_value_cents: c, labour_hours_budget: h }).eq("id", job.id);
-    if (error) { setErr(error.message); setSaving(false); return; }
-    onJobUpdated({ material_budget_cents: m, contract_value_cents: c, labour_hours_budget: h });
-    setEditing(false); setSaving(false);
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Budget health</div>
-        {(hasActivity || hasBudgets) ? (
-          <div className="space-y-4">
-            <LifeBar label="Materials" actual={expenseCents} budget={job.material_budget_cents ?? null} unit="money" />
-            <LifeBar label="Revenue" actual={revenueCents} budget={job.contract_value_cents ?? null} unit="money" inverse />
-            <LifeBar label="Labour" actual={hours} budget={job.labour_hours_budget ?? null} unit="hours" />
-          </div>
-        ) : <div className="text-sm text-white/35 italic">No activity logged yet.</div>}
-        {(expenseCents > 0 || revenueCents > 0) && (
-          <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-white/40">Net</span>
-            <span className={`text-sm font-semibold ${profitCents > 0 ? "text-emerald-400" : profitCents < 0 ? "text-red-400" : "text-white/50"}`}>
-              {profitCents > 0 ? "+" : ""}{fmtMoney(profitCents)}
-            </span>
-            {profitCents !== 0 && <span className="text-[10px] text-white/30">{profitCents > 0 ? "profit" : "loss"} so far</span>}
-          </div>
-        )}
-        <button type="button" onClick={() => setEditing((v) => !v)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">
-          {hasBudgets ? "Edit budgets" : "Set budgets"}
-        </button>
-      </div>
-      {editing && (
-        <div className="rounded-2xl border border-white/10 bg-black/40 p-5 space-y-4">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Set budgets</div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div><label className="mb-1 block text-[11px] text-white/50">Materials ($)</label><input type="number" min="0" step="0.01" placeholder="e.g. 8000" value={matStr} onChange={(e) => setMatStr(e.target.value)} className={inputCls} /></div>
-            <div><label className="mb-1 block text-[11px] text-white/50">Contract value ($)</label><input type="number" min="0" step="0.01" placeholder="e.g. 24000" value={contractStr} onChange={(e) => setContractStr(e.target.value)} className={inputCls} /></div>
-            <div><label className="mb-1 block text-[11px] text-white/50">Labour hours</label><input type="number" min="0" step="0.5" placeholder="e.g. 120" value={hoursStr} onChange={(e) => setHoursStr(e.target.value)} className={inputCls} /></div>
-          </div>
-          {err && <div className="text-xs text-red-300">{err}</div>}
-          <div className="flex gap-2">
-            <button type="button" onClick={saveBudgets} disabled={saving} className="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 disabled:opacity-50">{saving ? "Saving…" : "Save"}</button>
-            <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/70 hover:bg-white/10">Cancel</button>
-          </div>
-        </div>
-      )}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 mb-3">Quick actions</div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: `How am I doing on ${job.job_name || job.name || job.id}?`, page: window.location.pathname, job_id: job.id, job_name: job.job_name || job.name || null, job_no: job.job_no || null } }))} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">Ask Chief about this job</button>
-          <Link href="/app/activity/expenses" className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">All expenses</Link>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Documents Tab ─────────────────────────────────────────────────────────────
 
@@ -991,60 +897,356 @@ function DocumentsTab({
   );
 }
 
-// ─── Activity Tab ─────────────────────────────────────────────────────────────
+// ─── Types (continued) ────────────────────────────────────────────────────────
 
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
-type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 
-function ActivityTab({ job }: { job: JobRow }) {
+const RANGE_LABELS: Record<RangeKey, string> = { wtd: "WTD", mtd: "MTD", qtd: "QTD", ytd: "YTD", all: "All" };
+
+// ─── Job Performance Chart ────────────────────────────────────────────────────
+
+const ML = 62, MR = 16, MT = 18, MB = 44;
+const SVG_W = 560, SVG_H = 230;
+const PW = SVG_W - ML - MR;
+const PH = SVG_H - MT - MB;
+
+function JobPerformanceChart({ jobId }: { jobId: number }) {
   const [txRows, setTxRows] = useState<TxRow[]>([]);
-  const [pulseLoading, setPulseLoading] = useState(true);
-  const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
-  const [view, setView] = useState<ViewKey>("expenses");
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<RangeKey>("mtd");
 
   useEffect(() => {
-    supabase
-      .from("transactions")
-      .select("id, date, amount_cents, kind, job_name, job_id, created_at")
-      .eq("job_id", job.id)
-      .order("date", { ascending: true })
-      .limit(2000)
-      .then(({ data }) => {
-        setTxRows((data as TxRow[]) || []);
-        setPulseLoading(false);
-      });
-  }, [job.id]);
+    supabase.from("transactions").select("id, date, amount_cents, kind, job_name, job_id, created_at")
+      .eq("job_id", jobId).order("date", { ascending: true }).limit(2000)
+      .then(({ data }) => { setTxRows((data as TxRow[]) || []); setLoading(false); });
+  }, [jobId]);
 
-  const pulsePoints = useMemo(() => buildPulsePoints(txRows, pulseRange), [txRows, pulseRange]);
-  const jobTitle = String(job.job_name || job.name || "This job");
+  const points = useMemo(() => buildPulsePoints(txRows, range), [txRows, range]);
+  const n = points.length;
+
+  const allVals = points.flatMap((p) => [p.revenueCents, p.expenseCents, p.profitCents]);
+  const yMin = Math.min(0, ...(allVals.length ? allVals : [0]));
+  const yMax = Math.max(1, ...(allVals.length ? allVals : [1]));
+  const yRange = yMax - yMin || 1;
+
+  function toY(v: number) { return MT + PH * (1 - (v - yMin) / yRange); }
+  function toX(i: number) { return n <= 1 ? ML + PW / 2 : ML + (i / (n - 1)) * PW; }
+  function makePath(vals: number[]) {
+    return vals.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
+  }
+
+  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (yRange / 4) * i);
+  const xLabels: { x: number; label: string }[] = n === 0 ? [] : n === 1
+    ? [{ x: toX(0), label: points[0].label }]
+    : [
+        { x: toX(0), label: points[0].label },
+        ...(n >= 3 ? [{ x: toX(Math.floor((n - 1) / 2)), label: points[Math.floor((n - 1) / 2)].label }] : []),
+        { x: toX(n - 1), label: points[n - 1].label },
+      ];
 
   return (
-    <div className="space-y-5">
-      <BusinessPulseChart
-        points={pulsePoints}
-        activeJobs={1}
-        totalJobs={1}
-        title={`${jobTitle} — performance`}
-        subtitle="Revenue and expenses over time for this job."
-        loading={pulseLoading}
-        range={pulseRange}
-        onRangeChange={setPulseRange}
-      />
+    <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Performance</div>
+          <h2 className="mt-1 text-lg font-semibold text-white/95">Job overview</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(["wtd", "mtd", "qtd", "ytd", "all"] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setRange(k)}
+              className={["rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                range === k ? "border-white/20 bg-white text-black" : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+              ].join(" ")}>
+              {RANGE_LABELS[k]}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4 mb-4">
-          <div className="text-sm font-semibold text-white/90">Records</div>
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-1 flex gap-1">
-            {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
-              <button key={k} type="button" onClick={() => setView(k)}
-                className={["rounded-xl px-3 py-1.5 text-xs font-medium transition", view === k ? "bg-white text-black" : "text-white/60 hover:bg-white/5 hover:text-white/85"].join(" ")}>
-                {k.charAt(0).toUpperCase() + k.slice(1)}
-              </button>
+      <div className="mt-5 overflow-x-auto">
+        {loading ? (
+          <div className="flex h-[200px] items-center justify-center">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+          </div>
+        ) : n === 0 ? (
+          <div className="flex h-[200px] items-center justify-center text-sm text-white/40">
+            No transactions in this range yet.
+          </div>
+        ) : (
+          <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full" preserveAspectRatio="xMidYMid meet" style={{ height: 200 }}>
+            {/* Horizontal grid lines + Y axis labels */}
+            {yTicks.map((v, i) => {
+              const y = toY(v);
+              const isZero = Math.abs(v) < yRange * 0.01;
+              return (
+                <g key={i}>
+                  <line x1={ML} x2={ML + PW} y1={y.toFixed(1)} y2={y.toFixed(1)}
+                    stroke={isZero ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)"}
+                    strokeWidth={isZero ? "0.8" : "0.5"}
+                    strokeDasharray={isZero ? undefined : "3 3"} />
+                  <text x={(ML - 5).toFixed(0)} y={y.toFixed(1)} textAnchor="end" dominantBaseline="middle"
+                    fill="rgba(255,255,255,0.35)" fontSize="8">
+                    {v === 0 ? "$0" : fmtMoney(Math.round(v))}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* X axis line */}
+            <line x1={ML} x2={ML + PW} y1={SVG_H - MB} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+
+            {/* Y axis line */}
+            <line x1={ML} x2={ML} y1={MT} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
+
+            {/* X axis date labels */}
+            {xLabels.map(({ x, label }, i) => (
+              <text key={i} x={x.toFixed(1)} y={(SVG_H - MB + 14).toFixed(0)} textAnchor="middle"
+                fill="rgba(255,255,255,0.35)" fontSize="8">{label}</text>
             ))}
+
+            {/* Revenue line */}
+            <path d={makePath(points.map((p) => p.revenueCents))} fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+            {/* Expenses line */}
+            <path d={makePath(points.map((p) => p.expenseCents))} fill="none" stroke="#f87171" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+            {/* Profit line (dashed) */}
+            <path d={makePath(points.map((p) => p.profitCents))} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
+          </svg>
+        )}
+      </div>
+
+      {/* Legend */}
+      {n > 0 && (
+        <div className="mt-3 flex flex-wrap gap-5 text-xs">
+          {[
+            { color: "#34d399", label: "Revenue", dashed: false },
+            { color: "#f87171", label: "Expenses", dashed: false },
+            { color: "rgba(255,255,255,0.75)", label: "Profit", dashed: true },
+          ].map(({ color, label, dashed }) => (
+            <div key={label} className="flex items-center gap-2">
+              <svg width="22" height="10" className="shrink-0">
+                <line x1="0" y1="5" x2="22" y2="5" stroke={color} strokeWidth="2" strokeDasharray={dashed ? "4 2" : undefined} />
+              </svg>
+              <span className="text-white/50">{label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Contact Section ──────────────────────────────────────────────────────────
+
+function ContactSection({ customer, jobId, jobDoc, tenantId, onCustomerUpdated, onDocUpdated }: {
+  customer: Customer | null;
+  jobId: number;
+  jobDoc: JobDocument | null;
+  tenantId: string;
+  onCustomerUpdated: (c: Customer) => void;
+  onDocUpdated: (u: Partial<JobDocument>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    name: customer?.name || "",
+    phone: customer?.phone || "",
+    email: customer?.email || "",
+    address: customer?.address || "",
+    notes: customer?.notes || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputCls = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25";
+
+  function startEdit() {
+    setForm({ name: customer?.name || "", phone: customer?.phone || "", email: customer?.email || "", address: customer?.address || "", notes: customer?.notes || "" });
+    setEditing(true);
+  }
+
+  async function save() {
+    if (!form.name.trim()) { setErr("Name is required."); return; }
+    setSaving(true); setErr(null);
+    try {
+      let custId = customer?.id;
+      if (custId) {
+        await supabase.from("customers").update({ name: form.name.trim(), phone: form.phone.trim() || null, email: form.email.trim() || null, address: form.address.trim() || null, notes: form.notes.trim() || null }).eq("id", custId);
+      } else {
+        const { data } = await supabase.from("customers").insert({ tenant_id: tenantId, name: form.name.trim(), phone: form.phone.trim() || null, email: form.email.trim() || null, address: form.address.trim() || null, notes: form.notes.trim() || null }).select("id, name, phone, email, address, notes").single();
+        if (data) custId = data.id;
+      }
+      if (custId) {
+        // Ensure job_documents record exists and is linked
+        if (jobDoc?.id) {
+          await supabase.from("job_documents").update({ customer_id: custId }).eq("id", jobDoc.id);
+        } else {
+          const { data: jdData } = await supabase.from("job_documents").insert({ tenant_id: tenantId, job_id: jobId, stage: "lead", customer_id: custId }).select("id, stage, lead_notes, lead_source, customer_id").single();
+          if (jdData) onDocUpdated(jdData);
+        }
+        onCustomerUpdated({ id: custId, name: form.name.trim(), phone: form.phone.trim() || null, email: form.email.trim() || null, address: form.address.trim() || null, notes: form.notes.trim() || null });
+      }
+      setEditing(false);
+    } catch (e: any) {
+      setErr(e?.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing && customer) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Client</div>
+          <button type="button" onClick={startEdit} className="text-xs text-white/40 hover:text-white/70 transition">Edit</button>
+        </div>
+        <div className="mt-3 space-y-1">
+          <div className="text-base font-semibold text-white/90">{customer.name}</div>
+          {customer.phone && <div className="text-sm text-white/55">{customer.phone}</div>}
+          {customer.email && <div className="text-sm text-white/55">{customer.email}</div>}
+          {customer.address && <div className="text-sm text-white/45 mt-1">{customer.address}</div>}
+          {customer.notes && (
+            <div className="mt-2 border-t border-white/8 pt-2 text-sm text-white/40 italic">{customer.notes}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">{customer ? "Edit client" : "Add client"}</div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-[11px] text-white/50">Name *</label>
+          <input type="text" placeholder="e.g. John Smith" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-white/50">Phone</label>
+          <input type="tel" placeholder="e.g. 519-555-0100" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-white/50">Email</label>
+          <input type="email" placeholder="e.g. john@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-[11px] text-white/50">Address</label>
+          <input type="text" placeholder="e.g. 349 Brock St, London, ON N6P 1A1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className={inputCls} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-[11px] text-white/50">Notes</label>
+          <textarea rows={3} placeholder="Anything worth remembering about this client…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={`${inputCls} resize-none`} />
+        </div>
+      </div>
+      {err && <div className="text-xs text-red-300">{err}</div>}
+      <div className="flex gap-2">
+        <button type="button" onClick={save} disabled={saving} className="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 disabled:opacity-50">
+          {saving ? "Saving…" : "Save client"}
+        </button>
+        {customer && (
+          <button type="button" onClick={() => setEditing(false)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/70 hover:bg-white/10">Cancel</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Budget forms shared helper ───────────────────────────────────────────────
+
+function BudgetCard({ label, currentCents, currentHours, fieldType, jobId, onSaved }: {
+  label: string;
+  currentCents?: number | null;
+  currentHours?: number | null;
+  fieldType: "material_budget_cents" | "contract_value_cents" | "labour_hours_budget";
+  jobId: number;
+  onSaved: (v: number | null) => void;
+}) {
+  const isHours = fieldType === "labour_hours_budget";
+  const current = isHours ? currentHours : currentCents;
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState(current != null ? (isHours ? String(current) : String(current / 100)) : "");
+  const [saving, setSaving] = useState(false);
+  const inputCls = "rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25 w-full";
+
+  async function save() {
+    setSaving(true);
+    const parsed = val.trim() ? parseFloat(val) : NaN;
+    const dbVal = val.trim() ? (isHours ? parsed : Math.round(parsed * 100)) : null;
+    if (!isNaN(parsed) || !val.trim()) {
+      await supabase.from("jobs").update({ [fieldType]: dbVal }).eq("id", jobId);
+      onSaved(dbVal);
+      setOpen(false);
+    }
+    setSaving(false);
+  }
+
+  const displayVal = current != null
+    ? (isHours ? fmtHours(current) : fmtMoney(current))
+    : null;
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">{label}</div>
+          <div className="mt-1 text-base font-semibold text-white/85">
+            {displayVal ?? <span className="text-white/30 text-sm italic font-normal">Not set</span>}
           </div>
         </div>
-        <DashboardDataPanel view={view} selectedJobName={String(job.job_name || job.name || "").trim()} />
+        <button type="button" onClick={() => setOpen((v) => !v)}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 hover:bg-white/10 transition">
+          {displayVal ? "Edit" : "Set budget"}
+        </button>
       </div>
+      {open && (
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/8 pt-4">
+          <div className="flex-1 min-w-36">
+            <label className="mb-1 block text-[11px] text-white/50">{isHours ? "Hours" : "Amount ($)"}</label>
+            <input type="number" min="0" step={isHours ? "0.5" : "0.01"}
+              placeholder={isHours ? "e.g. 120" : "e.g. 8000"}
+              value={val} onChange={(e) => setVal(e.target.value)} className={inputCls} />
+          </div>
+          <button type="button" onClick={save} disabled={saving}
+            className="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 disabled:opacity-50">
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button type="button" onClick={() => setOpen(false)}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/60 hover:bg-white/10">Cancel</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Simple data tabs ─────────────────────────────────────────────────────────
+
+function ExpensesTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
+  const jobName = String(job.job_name || job.name || "").trim();
+  return (
+    <div className="space-y-4">
+      <BudgetCard label="Materials budget" currentCents={job.material_budget_cents} fieldType="material_budget_cents" jobId={job.id}
+        onSaved={(v) => onJobUpdated({ material_budget_cents: v })} />
+      <DashboardDataPanel view="expenses" selectedJobName={jobName || null} />
+    </div>
+  );
+}
+
+function RevenueTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
+  const jobName = String(job.job_name || job.name || "").trim();
+  return (
+    <div className="space-y-4">
+      <BudgetCard label="Contract value" currentCents={job.contract_value_cents} fieldType="contract_value_cents" jobId={job.id}
+        onSaved={(v) => onJobUpdated({ contract_value_cents: v })} />
+      <DashboardDataPanel view="revenue" selectedJobName={jobName || null} />
+    </div>
+  );
+}
+
+function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
+  const jobName = String(job.job_name || job.name || "").trim();
+  return (
+    <div className="space-y-4">
+      <BudgetCard label="Labour hours budget" currentHours={job.labour_hours_budget} fieldType="labour_hours_budget" jobId={job.id}
+        onSaved={(v) => onJobUpdated({ labour_hours_budget: v })} />
+      <DashboardDataPanel view="time" selectedJobName={jobName || null} />
     </div>
   );
 }
@@ -1057,9 +1259,6 @@ export default function JobDetailPage() {
   const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
 
   const [job, setJob] = useState<JobRow | null>(null);
-  const [expenseCents, setExpenseCents] = useState(0);
-  const [revenueCents, setRevenueCents] = useState(0);
-  const [hours, setHours] = useState(0);
   const [jobDoc, setJobDoc] = useState<JobDocument | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [quoteLines, setQuoteLines] = useState<QuoteLineItem[]>([]);
@@ -1067,7 +1266,7 @@ export default function JobDetailPage() {
   const [documentFiles, setDocumentFiles] = useState<JobDocumentFile[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("expenses");
   const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
@@ -1078,25 +1277,14 @@ export default function JobDetailPage() {
       if (!jobData) { setNotFound(true); setLoading(false); return; }
       setJob(jobData as JobRow);
 
-      const [expRes, revRes, tenantRes] = await Promise.all([
-        supabase.from("chiefos_portal_expenses").select("amount_cents").eq("job_int_id", jobId).is("deleted_at", null),
-        supabase.from("chiefos_portal_revenue").select("amount_cents").eq("job_int_id", jobId).is("deleted_at", null),
-        supabase.from("chiefos_tenants").select("business_name, name, company_name").eq("id", tenantId).maybeSingle(),
-      ]);
-      setExpenseCents((expRes.data || []).reduce((s, r) => s + Number(r.amount_cents || 0), 0));
-      setRevenueCents((revRes.data || []).reduce((s, r) => s + Number(r.amount_cents || 0), 0));
-      setBusinessName(tenantRes.data?.business_name || tenantRes.data?.company_name || tenantRes.data?.name || "");
-
-      if ((jobData as JobRow).job_no != null) {
-        const { data: timeData } = await supabase.from("time_entries").select("job_no, type, timestamp").eq("job_no", (jobData as JobRow).job_no).is("deleted_at", null);
-        setHours(calcWorkHours((timeData as TimeEntry[]) || []));
-      }
+      const { data: tenantRes } = await supabase.from("chiefos_tenants").select("business_name, name, company_name").eq("id", tenantId).maybeSingle();
+      setBusinessName(tenantRes?.business_name || tenantRes?.company_name || tenantRes?.name || "");
 
       const { data: docData } = await supabase.from("job_documents").select("id, stage, lead_notes, lead_source, customer_id").eq("job_id", jobId).maybeSingle();
       if (docData) {
         setJobDoc(docData as JobDocument);
         if (docData.customer_id) {
-          const { data: custData } = await supabase.from("customers").select("id, name, phone, email, address").eq("id", docData.customer_id).single();
+          const { data: custData } = await supabase.from("customers").select("id, name, phone, email, address, notes").eq("id", docData.customer_id).single();
           if (custData) setCustomer(custData as Customer);
         }
       }
@@ -1125,9 +1313,12 @@ export default function JobDetailPage() {
 
   const title = String(job.job_name || job.name || "Untitled job");
   const tabs: { key: Tab; label: string }[] = [
-    { key: "overview", label: "Overview" },
+    { key: "expenses", label: "Expenses" },
+    { key: "revenue", label: "Revenue" },
+    { key: "timeclock", label: "Time Clock" },
+    { key: "tasks", label: "Tasks" },
+    { key: "reminders", label: "Reminders" },
     { key: "documents", label: "Documents" },
-    { key: "activity", label: "Activity" },
     { key: "photos", label: "Photos" },
   ];
 
@@ -1135,8 +1326,9 @@ export default function JobDetailPage() {
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6"><Link href="/app/jobs" className="text-[11px] text-white/40 hover:text-white/60 transition">← All jobs</Link></div>
+        {/* Header */}
         <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">{job.job_no ? `Job #${job.job_no}` : "Job"}</div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Job</div>
           <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white/95">{title}</h1>
           {(job.start_date || job.end_date) && (
             <div className="mt-1 text-sm text-white/40">
@@ -1146,39 +1338,70 @@ export default function JobDetailPage() {
           )}
         </div>
 
-        <div className="flex gap-1 mb-8 border-b border-white/10">
-          {tabs.map((t) => (
-            <button key={t.key} type="button" onClick={() => setTab(t.key)}
-              className={["px-4 py-2.5 text-sm font-medium transition border-b-2 -mb-px", tab === t.key ? "border-white text-white" : "border-transparent text-white/45 hover:text-white/70"].join(" ")}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Performance chart — always visible */}
+        <JobPerformanceChart jobId={job.id} />
 
-        {tab === "overview" && (
-          <OverviewTab job={job} expenseCents={expenseCents} revenueCents={revenueCents} hours={hours} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
-        )}
-
-        {tab === "documents" && tenantId && (
-          <DocumentsTab
-            job={job} jobDoc={jobDoc} customer={customer} quoteLines={quoteLines}
-            changeOrders={changeOrders} documentFiles={documentFiles} tenantId={tenantId} businessName={businessName}
-            onDocUpdated={(u) => setJobDoc((d) => d ? { ...d, ...u } : { id: "", stage: "lead", lead_notes: null, lead_source: null, customer_id: null, ...u })}
-            onCustomerUpdated={setCustomer}
-            onQuoteLinesUpdated={setQuoteLines}
-            onChangeOrdersUpdated={setChangeOrders}
-            onDocFileAdded={(f) => setDocumentFiles((prev) => [f, ...prev])}
-            onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)}
-          />
-        )}
-
-        {tab === "activity" && <ActivityTab job={job} />}
-
-        {tab === "photos" && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-            <div className="text-sm text-white/50">Photo gallery coming soon. Photos sent via WhatsApp will appear here, tagged by job.</div>
+        {/* Contact information */}
+        {tenantId && (
+          <div className="mt-5">
+            <ContactSection
+              customer={customer} jobId={job.id} jobDoc={jobDoc} tenantId={tenantId}
+              onCustomerUpdated={setCustomer}
+              onDocUpdated={(u) => setJobDoc((d) => d ? { ...d, ...u } : { id: "", stage: "lead", lead_notes: null, lead_source: null, customer_id: null, ...u })}
+            />
           </div>
         )}
+
+        {/* Tab bar */}
+        <div className="mt-6 overflow-x-auto">
+          <div className="flex gap-1 border-b border-white/10 min-w-max">
+            {tabs.map((t) => (
+              <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                className={["px-4 py-2.5 text-sm font-medium transition border-b-2 -mb-px whitespace-nowrap",
+                  tab === t.key ? "border-white text-white" : "border-transparent text-white/45 hover:text-white/70",
+                ].join(" ")}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          {tab === "expenses" && (
+            <ExpensesTab job={job} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
+          )}
+          {tab === "revenue" && (
+            <RevenueTab job={job} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
+          )}
+          {tab === "timeclock" && (
+            <TimeClockTab job={job} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
+          )}
+          {tab === "tasks" && (
+            <DashboardDataPanel view="tasks" selectedJobName={String(job.job_name || job.name || "").trim() || null} />
+          )}
+          {tab === "reminders" && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <div className="text-sm text-white/50">Reminders coming soon. Set follow-up reminders for this job.</div>
+            </div>
+          )}
+          {tab === "documents" && tenantId && (
+            <DocumentsTab
+              job={job} jobDoc={jobDoc} customer={customer} quoteLines={quoteLines}
+              changeOrders={changeOrders} documentFiles={documentFiles} tenantId={tenantId} businessName={businessName}
+              onDocUpdated={(u) => setJobDoc((d) => d ? { ...d, ...u } : { id: "", stage: "lead", lead_notes: null, lead_source: null, customer_id: null, ...u })}
+              onCustomerUpdated={setCustomer}
+              onQuoteLinesUpdated={setQuoteLines}
+              onChangeOrdersUpdated={setChangeOrders}
+              onDocFileAdded={(f) => setDocumentFiles((prev) => [f, ...prev])}
+              onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)}
+            />
+          )}
+          {tab === "photos" && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+              <div className="text-sm text-white/50">Photo gallery coming soon. Job-site photos sent via WhatsApp will appear here.</div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
