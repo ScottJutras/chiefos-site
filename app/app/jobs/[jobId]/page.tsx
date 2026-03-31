@@ -992,7 +992,7 @@ function DocumentsTab({
 
 // ─── Activity Tab ─────────────────────────────────────────────────────────────
 
-type RangeKey = "wtd" | "mtd" | "ytd" | "all";
+type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 
 function ActivityTab({ job }: { job: JobRow }) {
