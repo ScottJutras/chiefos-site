@@ -122,11 +122,12 @@ function calcWorkHours(entries: TimeEntry[]): number {
   return totalMs / (1000 * 60 * 60);
 }
 
-function buildPulsePoints(rows: TxRow[], range: "wtd" | "mtd" | "ytd" | "all"): PulsePoint[] {
+function buildPulsePoints(rows: TxRow[], range: "wtd" | "mtd" | "qtd" | "ytd" | "all"): PulsePoint[] {
   const now = new Date();
   const starts: Record<string, Date | null> = {
     wtd: (() => { const d = new Date(now); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0); return d; })(),
     mtd: (() => { const d = new Date(now); d.setDate(1); d.setHours(0,0,0,0); return d; })(),
+    qtd: (() => { const d = new Date(now); d.setMonth(Math.floor(d.getMonth() / 3) * 3, 1); d.setHours(0,0,0,0); return d; })(),
     ytd: (() => { const d = new Date(now); d.setMonth(0,1); d.setHours(0,0,0,0); return d; })(),
     all: null,
   };
