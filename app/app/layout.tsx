@@ -53,7 +53,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <MobileTabLink href="/app/activity/expenses" label="My Books" />
           <MobileTabLink href="/app/pending-review"    label="Review" />
           <MobileTabLink href="/app/uploads"           label="Log" />
-          <MobileTabLink href="/app/documents"         label="Docs" />
+          <MobileTabLink href="/app/overhead"           label="Overhead" />
         </div>
       </nav>
     </div>

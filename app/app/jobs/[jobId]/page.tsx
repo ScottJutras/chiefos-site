@@ -1149,6 +1149,26 @@ function ContactSection({ customer, jobId, jobDoc, tenantId, onCustomerUpdated, 
   );
 }
 
+// ─── Overhead helpers ─────────────────────────────────────────────────────────
+
+type OverheadRow = {
+  item_type: string;
+  amount_cents: number;
+  frequency: string;
+  amortization_months: number | null;
+};
+
+function monthlyEquivalent(item: OverheadRow): number {
+  if (item.item_type === "amortized") {
+    return item.amortization_months
+      ? Math.round(item.amount_cents / item.amortization_months)
+      : 0;
+  }
+  if (item.frequency === "weekly") return Math.round((item.amount_cents * 52) / 12);
+  if (item.frequency === "annual") return Math.round(item.amount_cents / 12);
+  return item.amount_cents;
+}
+
 // ─── Budget forms shared helper ───────────────────────────────────────────────
 
 function BudgetCard({ label, currentCents, currentHours, fieldType, jobId, onSaved }: {
@@ -1220,10 +1240,80 @@ function BudgetCard({ label, currentCents, currentHours, fieldType, jobId, onSav
 
 function ExpensesTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
   const jobName = String(job.job_name || job.name || "").trim();
+  const [monthlyOverhead, setMonthlyOverhead] = useState<number | null>(null);
+  const [activeJobCount, setActiveJobCount] = useState<number>(1);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u?.user?.id;
+        if (!userId) return;
+        const { data: pu } = await supabase.from("chiefos_portal_users").select("tenant_id").eq("user_id", userId).maybeSingle();
+        const tenantId = (pu as any)?.tenant_id as string | null;
+        if (!tenantId) return;
+
+        const [overheadRes, jobsRes] = await Promise.all([
+          supabase.from("overhead_items").select("item_type, amount_cents, frequency, amortization_months").eq("tenant_id", tenantId).eq("active", true),
+          supabase.from("jobs").select("id, status, active").limit(500),
+        ]);
+
+        const total = ((overheadRes.data as OverheadRow[]) || []).reduce(
+          (sum, item) => sum + monthlyEquivalent(item), 0
+        );
+        setMonthlyOverhead(total);
+
+        const activeCount = ((jobsRes.data as any[]) || []).filter((j: any) => {
+          const s = String(j.status || "").toLowerCase();
+          return j.active || s === "active" || s === "open" || s.includes("active");
+        }).length;
+        setActiveJobCount(Math.max(1, activeCount));
+      } catch {
+        // fail-soft
+      }
+    })();
+  }, []);
+
+  const allocationPerJob = monthlyOverhead !== null && activeJobCount > 0
+    ? Math.round(monthlyOverhead / activeJobCount)
+    : null;
+
   return (
     <div className="space-y-4">
       <BudgetCard label="Materials budget" currentCents={job.material_budget_cents} fieldType="material_budget_cents" jobId={job.id}
         onSaved={(v) => onJobUpdated({ material_budget_cents: v })} />
+
+      {/* Overhead allocation card */}
+      {monthlyOverhead !== null && (
+        monthlyOverhead > 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-1">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Overhead allocation</div>
+            <div className="text-sm text-white/70 mt-2">
+              <span className="text-white font-medium">
+                {(monthlyOverhead / 100).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 })}/mo
+              </span>
+              {" fixed ÷ "}
+              <span className="text-white font-medium">{activeJobCount}</span>
+              {" active job" + (activeJobCount !== 1 ? "s" : "") + " = "}
+              <span className="text-amber-400 font-semibold">
+                ~{(allocationPerJob! / 100).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 })} per job
+              </span>
+            </div>
+            <p className="text-xs text-white/40">Add this to your job costs for a true margin view.</p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+            <p className="text-sm text-white/40">
+              No overhead set —{" "}
+              <a href="/app/overhead" className="text-white/60 underline underline-offset-2 hover:text-white transition">
+                add fixed costs
+              </a>
+              {" "}to see your true job margin.
+            </p>
+          </div>
+        )
+      )}
+
       <DashboardDataPanel view="expenses" selectedJobName={jobName || null} />
     </div>
   );

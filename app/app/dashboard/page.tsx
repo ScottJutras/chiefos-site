@@ -41,6 +41,24 @@ type TxRow = {
   created_at: string | null;
 };
 
+type OverheadRow = {
+  item_type: string;
+  amount_cents: number;
+  frequency: string;
+  amortization_months: number | null;
+};
+
+function monthlyEquivalent(item: OverheadRow): number {
+  if (item.item_type === "amortized") {
+    return item.amortization_months
+      ? Math.round(item.amount_cents / item.amortization_months)
+      : 0;
+  }
+  if (item.frequency === "weekly") return Math.round((item.amount_cents * 52) / 12);
+  if (item.frequency === "annual") return Math.round(item.amount_cents / 12);
+  return item.amount_cents;
+}
+
 function normalizeStatus(raw?: string | null, active?: boolean | null) {
   const s = String(raw || "").trim().toLowerCase();
   if (active || s === "active" || s === "open" || s.includes("active")) return "Active";
@@ -204,6 +222,7 @@ function CenterWorkspace({
   pulseRange,
   setPulseRange,
   pulseLoading,
+  monthlyOverhead,
 }: {
   view: ViewKey;
   setView: (v: ViewKey) => void;
@@ -213,6 +232,7 @@ function CenterWorkspace({
   pulseRange: RangeKey;
   setPulseRange: (v: RangeKey) => void;
   pulseLoading: boolean;
+  monthlyOverhead: number;
 }) {
   // Range-filtered financial totals
   const { rangeRevenue, rangeExpenses, rangeNet } = useMemo(() => {
@@ -239,6 +259,15 @@ function CenterWorkspace({
     return { rangeRevenue: rev, rangeExpenses: exp, rangeNet: rev - exp };
   }, [pulseRows, pulseRange]);
 
+  const overheadForRange = useMemo(() => {
+    const now = new Date();
+    if (pulseRange === "wtd") return Math.round(monthlyOverhead * 7 / 30);
+    if (pulseRange === "mtd") return monthlyOverhead;
+    if (pulseRange === "qtd") return monthlyOverhead * 3;
+    if (pulseRange === "ytd") return monthlyOverhead * (now.getMonth() + 1);
+    return monthlyOverhead * 12;
+  }, [monthlyOverhead, pulseRange]);
+
   const rangeLabel =
     pulseRange === "wtd" ? "This week"
     : pulseRange === "mtd" ? "This month"
@@ -261,8 +290,8 @@ function CenterWorkspace({
         </div>
       </div>
 
-      {/* 6 KPI cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      {/* 8 KPI cards — 2 rows of 4 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
           label={`Revenue (${rangeLabel})`}
           value={moneyFmt(rangeRevenue)}
@@ -277,6 +306,24 @@ function CenterWorkspace({
           label={`Net profit (${rangeLabel})`}
           value={(rangeNet >= 0 ? "+" : "–") + moneyFmt(Math.abs(rangeNet))}
           color={rangeNet >= 0 ? "text-emerald-400" : "text-red-400"}
+        />
+        <KpiCard
+          label="Monthly overhead"
+          value={monthlyOverhead > 0 ? moneyFmt(monthlyOverhead) : "—"}
+          sub="Fixed monthly burden"
+          color="text-amber-400"
+        />
+        <KpiCard
+          label={`True net (${rangeLabel})`}
+          value={
+            monthlyOverhead > 0
+              ? ((rangeNet - overheadForRange) >= 0 ? "+" : "–") + moneyFmt(Math.abs(rangeNet - overheadForRange))
+              : "—"
+          }
+          sub={monthlyOverhead > 0 ? "After overhead" : "Set overhead to see"}
+          color={monthlyOverhead > 0
+            ? (rangeNet - overheadForRange) >= 0 ? "text-emerald-400" : "text-red-400"
+            : "text-white/40"}
         />
         <KpiCard
           label="Active jobs"
@@ -350,6 +397,7 @@ export default function DashboardPage() {
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
+  const [monthlyOverhead, setMonthlyOverhead] = useState(0);
 
   const [summary, setSummary] = useState<Summary>({
     pendingReview: 0,
@@ -466,6 +514,24 @@ export default function DashboardPage() {
         } catch {
           if (alive) setPulseLoading(false);
         }
+
+        try {
+          const { data: overheadRows } = await supabase
+            .from("overhead_items")
+            .select("item_type, amount_cents, frequency, amortization_months")
+            .eq("tenant_id", tenantId)
+            .eq("active", true);
+
+          if (alive && overheadRows) {
+            const total = (overheadRows as OverheadRow[]).reduce(
+              (sum, item) => sum + monthlyEquivalent(item),
+              0
+            );
+            setMonthlyOverhead(total);
+          }
+        } catch {
+          // fail-soft
+        }
       } catch {
         // fail-soft
       }
@@ -494,6 +560,7 @@ export default function DashboardPage() {
         pulseRange={pulseRange}
         setPulseRange={setPulseRange}
         pulseLoading={pulseLoading}
+        monthlyOverhead={monthlyOverhead}
       />
     </div>
   );
