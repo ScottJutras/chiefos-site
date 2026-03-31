@@ -216,135 +216,126 @@ function LifeBar({
   );
 }
 
-// ─── Budget Edit Form ─────────────────────────────────────────────────────────
+// ─── Business Pulse ───────────────────────────────────────────────────────────
 
-function BudgetEditForm({
-  job,
-  onSave,
-  onCancel,
+function BusinessPulse({
+  jobs,
+  expenses,
+  revenue,
+  labour,
 }: {
-  job: JobRow;
-  onSave: (updated: Partial<JobRow>) => void;
-  onCancel: () => void;
+  jobs: JobRow[];
+  expenses: Record<number, number>;
+  revenue: Record<number, number>;
+  labour: Record<number, number>;
 }) {
-  const [matStr, setMatStr] = useState(
-    job.material_budget_cents != null ? String(job.material_budget_cents / 100) : ""
-  );
-  const [contractStr, setContractStr] = useState(
-    job.contract_value_cents != null ? String(job.contract_value_cents / 100) : ""
-  );
-  const [hoursStr, setHoursStr] = useState(
-    job.labour_hours_budget != null ? String(job.labour_hours_budget) : ""
-  );
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
-  async function save() {
-    setSaving(true);
-    setErr(null);
+  const activeJobs = jobs.filter((j) => normalizeStatus(j.status, j.active) === "active");
 
-    const matCents = matStr.trim() ? Math.round(parseFloat(matStr) * 100) : null;
-    const contractCents = contractStr.trim() ? Math.round(parseFloat(contractStr) * 100) : null;
-    const hoursVal = hoursStr.trim() ? parseFloat(hoursStr) : null;
+  const totalRevenue = Object.values(revenue).reduce((a, b) => a + b, 0);
+  const totalExpenses = Object.values(expenses).reduce((a, b) => a + b, 0);
+  const netProfit = totalRevenue - totalExpenses;
 
-    if (
-      (matStr.trim() && (isNaN(matCents!) || matCents! < 0)) ||
-      (contractStr.trim() && (isNaN(contractCents!) || contractCents! < 0)) ||
-      (hoursStr.trim() && (isNaN(hoursVal!) || hoursVal! < 0))
-    ) {
-      setErr("Please enter valid positive numbers.");
-      setSaving(false);
-      return;
-    }
+  // Aggregate budget totals (only jobs that have a budget set)
+  const totalContractCents = jobs.reduce((a, j) => a + (j.contract_value_cents ?? 0), 0);
+  const totalMaterialBudgetCents = jobs.reduce((a, j) => a + (j.material_budget_cents ?? 0), 0);
+  const totalLabourBudgetHours = jobs.reduce((a, j) => a + (j.labour_hours_budget ?? 0), 0);
+  const totalLabourHours = Object.values(labour).reduce((a, b) => a + b, 0);
 
-    const { error } = await supabase
-      .from("jobs")
-      .update({
-        material_budget_cents: matCents,
-        contract_value_cents: contractCents,
-        labour_hours_budget: hoursVal,
-      })
-      .eq("id", job.id);
+  const hasRevenueBudget = totalContractCents > 0;
+  const hasMaterialBudget = totalMaterialBudgetCents > 0;
+  const hasLabourBudget = totalLabourBudgetHours > 0;
 
-    if (error) {
-      setErr(error.message);
-      setSaving(false);
-      return;
-    }
+  // Jobs on track: active jobs where all bars with a budget are < 75%
+  const onTrackCount = activeJobs.filter((j) => {
+    const expPct = j.material_budget_cents ? (expenses[j.id] || 0) / j.material_budget_cents : 0;
+    const revPct = j.contract_value_cents ? (revenue[j.id] || 0) / j.contract_value_cents : 1;
+    const hrsPct = j.labour_hours_budget ? (labour[j.id] || 0) / j.labour_hours_budget : 0;
+    return expPct < 0.75 && (j.contract_value_cents ? revPct >= 0 : true) && hrsPct < 0.75;
+  }).length;
 
-    onSave({
-      material_budget_cents: matCents,
-      contract_value_cents: contractCents,
-      labour_hours_budget: hoursVal,
-    });
-    setSaving(false);
-  }
-
-  const inputCls =
-    "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25";
+  const hasSomeData = totalRevenue > 0 || totalExpenses > 0 || totalLabourHours > 0;
+  if (!hasSomeData && activeJobs.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-black/40 p-4 space-y-3">
-      <div className="text-[10px] uppercase tracking-[0.14em] text-white/40">Set budgets</div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-[11px] text-white/50">Materials ($)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="e.g. 8000"
-            value={matStr}
-            onChange={(e) => setMatStr(e.target.value)}
-            className={inputCls}
-          />
+    <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03]">
+      {/* Section header */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
+      >
+        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">
+          Business Pulse
         </div>
-        <div>
-          <label className="mb-1 block text-[11px] text-white/50">Contract value ($)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            placeholder="e.g. 24000"
-            value={contractStr}
-            onChange={(e) => setContractStr(e.target.value)}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-[11px] text-white/50">Labour hours</label>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            placeholder="e.g. 120"
-            value={hoursStr}
-            onChange={(e) => setHoursStr(e.target.value)}
-            className={inputCls}
-          />
-        </div>
-      </div>
+        <span className="text-white/30 text-xs">{collapsed ? "▶" : "▼"}</span>
+      </button>
 
-      {err && <div className="text-xs text-red-300">{err}</div>}
+      {!collapsed && (
+        <div className="px-5 pb-5 space-y-5">
+          {/* KPI chips */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Active Jobs", value: String(activeJobs.length), color: "text-white/90" },
+              { label: "Total Revenue", value: fmtMoney(totalRevenue), color: "text-emerald-400" },
+              { label: "Total Expenses", value: fmtMoney(totalExpenses), color: "text-white/70" },
+              {
+                label: "Net Profit",
+                value: (netProfit >= 0 ? "+" : "") + fmtMoney(netProfit),
+                color: netProfit > 0 ? "text-emerald-400" : netProfit < 0 ? "text-red-400" : "text-white/50",
+              },
+            ].map((chip) => (
+              <div
+                key={chip.label}
+                className="rounded-xl border border-white/8 bg-black/30 px-3 py-3"
+              >
+                <div className="text-[10px] uppercase tracking-[0.12em] text-white/35">{chip.label}</div>
+                <div className={`mt-1 text-base font-semibold ${chip.color}`}>{chip.value}</div>
+              </div>
+            ))}
+          </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save budgets"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/70 hover:bg-white/10"
-        >
-          Cancel
-        </button>
-      </div>
+          {/* Aggregate power bars */}
+          {(hasRevenueBudget || hasMaterialBudget || hasLabourBudget) && (
+            <div className="space-y-3">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Portfolio health</div>
+              {hasRevenueBudget && (
+                <LifeBar
+                  label="Revenue collected"
+                  actual={totalRevenue}
+                  budget={totalContractCents}
+                  unit="money"
+                  inverse
+                />
+              )}
+              {hasMaterialBudget && (
+                <LifeBar
+                  label="Materials spend"
+                  actual={totalExpenses}
+                  budget={totalMaterialBudgetCents}
+                  unit="money"
+                />
+              )}
+              {hasLabourBudget && (
+                <LifeBar
+                  label="Labour hours"
+                  actual={totalLabourHours}
+                  budget={totalLabourBudgetHours}
+                  unit="hours"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Jobs on track */}
+          {activeJobs.length > 0 && (
+            <p className="text-xs text-white/40">
+              <span className="font-semibold text-white/65">{onTrackCount} of {activeJobs.length}</span> active jobs on track
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -356,15 +347,12 @@ function JobCard({
   expenseCents,
   revenueCents,
   hours,
-  onBudgetSaved,
 }: {
   job: JobRow;
   expenseCents: number;
   revenueCents: number;
   hours: number;
-  onBudgetSaved: (jobId: number, updated: Partial<JobRow>) => void;
 }) {
-  const [editingBudget, setEditingBudget] = useState(false);
   const status = normalizeStatus(job.status, job.active);
   const title = String(job.job_name || job.name || "Untitled job");
   const profitCents = revenueCents - expenseCents;
@@ -375,7 +363,10 @@ function JobCard({
   const hasActivity = expenseCents > 0 || revenueCents > 0 || hours > 0;
 
   return (
-    <div className="flex flex-col rounded-[24px] border border-white/10 bg-white/[0.03] p-5 transition hover:bg-white/[0.05]">
+    <Link
+      href={`/app/jobs/${job.id}`}
+      className="flex flex-col rounded-[24px] border border-white/10 bg-white/[0.03] p-5 transition hover:bg-white/[0.06] cursor-pointer"
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -390,6 +381,7 @@ function JobCard({
             {job.end_date ? <span>Ends {formatDate(job.end_date)}</span> : null}
           </div>
         </div>
+        <span className="shrink-0 text-[11px] text-white/20">→</span>
       </div>
 
       {/* Life bars */}
@@ -445,43 +437,7 @@ function JobCard({
       {!hasActivity && !hasBudgets ? (
         <div className="mt-4 text-xs text-white/30 italic">No expenses, revenue, or hours logged yet.</div>
       ) : null}
-
-      {/* Budget edit form */}
-      {editingBudget ? (
-        <BudgetEditForm
-          job={job}
-          onSave={(updated) => {
-            onBudgetSaved(job.id, updated);
-            setEditingBudget(false);
-          }}
-          onCancel={() => setEditingBudget(false)}
-        />
-      ) : null}
-
-      {/* Footer actions */}
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-4">
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new CustomEvent("open-chief", { detail: { query: `How am I doing on ${job.job_name || job.name || job.id}?`, page: window.location.pathname, job_id: job.id, job_name: job.job_name || job.name || null, job_no: job.job_no || null } }))}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/10 transition"
-        >
-          Ask Chief
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditingBudget((v) => !v)}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/10 transition"
-        >
-          {hasBudgets ? "Edit budget" : "Set budget"}
-        </button>
-        <Link
-          href={`/app/jobs/${job.id}`}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-white/70 hover:bg-white/10 transition"
-        >
-          View →
-        </Link>
-      </div>
-    </div>
+    </Link>
   );
 }
 
@@ -603,120 +559,117 @@ export default function JobsPage() {
     });
   }, [jobs, q, statusFilter]);
 
-  function handleBudgetSaved(jobId: number, updated: Partial<JobRow>) {
-    setJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, ...updated } : j))
-    );
-  }
-
   if (gateLoading || loading) {
     return <div className="p-8 text-sm text-white/60">Loading jobs…</div>;
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl py-2">
 
-        {/* Page header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Jobs</div>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">
-              Job health at a glance.
-            </h1>
-            <p className="mt-2 text-sm text-white/55">
-              Each bar shows how far through budget you are — like a power bar for every job.
-            </p>
-          </div>
-          <Link
-            href="/app/jobs/new"
-            className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition"
-          >
-            + Create job
-          </Link>
+      {/* Page header */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Jobs</div>
+          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">
+            Jobs
+          </h1>
+          <p className="mt-1.5 text-sm text-white/50">
+            Every dollar and hour lives inside a job. Select one to see the full picture.
+          </p>
         </div>
-
-        {/* Filters */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or number…"
-            className="w-64 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/20"
-          />
-          <div className="flex flex-wrap gap-2">
-            {(["all", "active", "paused", "closed", "other"] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setStatusFilter(key)}
-                className={[
-                  "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                  statusFilter === key
-                    ? "border-white/20 bg-white text-black"
-                    : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10",
-                ].join(" ")}
-              >
-                {key === "all"
-                  ? `All (${counts.all})`
-                  : key === "active"
-                  ? `Active (${counts.active})`
-                  : key === "paused"
-                  ? `Paused (${counts.paused})`
-                  : key === "closed"
-                  ? `Closed (${counts.closed})`
-                  : `Other (${counts.other})`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Grid */}
-        {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-sm text-white/45">
-            {jobs.length === 0
-              ? "No jobs yet. Create your first job to start tracking."
-              : "No jobs match your filter."}
-          </div>
-        ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((job) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                expenseCents={expenses[job.id] || 0}
-                revenueCents={revenue[job.id] || 0}
-                hours={labour[job.id] || 0}
-                onBudgetSaved={handleBudgetSaved}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Legend */}
-        {filtered.length > 0 && (
-          <div className="mt-8 flex flex-wrap items-center gap-4 text-[11px] text-white/30">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-6 rounded-full bg-emerald-500" />
-              <span>On track (&lt;75%)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-6 rounded-full bg-amber-400" />
-              <span>Watch it (75–89%)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-6 rounded-full bg-red-400" />
-              <span>Danger (90%+)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-6 rounded-full bg-red-500" />
-              <span>Over budget</span>
-            </div>
-            <span className="text-white/20">·</span>
-            <span>Revenue bar: green = more collected is better</span>
-          </div>
-        )}
+        <Link
+          href="/app/jobs/new"
+          className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition"
+        >
+          + Create job
+        </Link>
       </div>
+
+      {/* Search + filters */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by name or number…"
+          className="w-64 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/20"
+        />
+        <div className="flex flex-wrap gap-2">
+          {(["all", "active", "paused", "closed", "other"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setStatusFilter(key)}
+              className={[
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                statusFilter === key
+                  ? "border-white/20 bg-white text-black"
+                  : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10",
+              ].join(" ")}
+            >
+              {key === "all"
+                ? `All (${counts.all})`
+                : key === "active"
+                ? `Active (${counts.active})`
+                : key === "paused"
+                ? `Paused (${counts.paused})`
+                : key === "closed"
+                ? `Closed (${counts.closed})`
+                : `Other (${counts.other})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Legend — below filters, above everything else */}
+      <div className="mb-6 flex flex-wrap items-center gap-4 text-[11px] text-white/30">
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-5 rounded-full bg-emerald-500" />
+          <span>On track (&lt;75%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-5 rounded-full bg-amber-400" />
+          <span>Watch it (75–89%)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-5 rounded-full bg-red-400" />
+          <span>Danger (90%+)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-5 rounded-full bg-red-500" />
+          <span>Over budget</span>
+        </div>
+        <span className="text-white/20">·</span>
+        <span>Revenue bar: green = more collected is better</span>
+      </div>
+
+      {/* Business Pulse */}
+      <BusinessPulse
+        jobs={jobs}
+        expenses={expenses}
+        revenue={revenue}
+        labour={labour}
+      />
+
+      {/* Job grid */}
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-sm text-white/45">
+          {jobs.length === 0
+            ? "No jobs yet — create your first job to start tracking."
+            : "No jobs match your filter."}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((job) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              expenseCents={expenses[job.id] || 0}
+              revenueCents={revenue[job.id] || 0}
+              hours={labour[job.id] || 0}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

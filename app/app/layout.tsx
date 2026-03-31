@@ -1,16 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { AppNav } from "./nav";
-import ChiefDockButton from "./components/ChiefDockButton";
+import Sidebar from "./components/Sidebar";
+import ChiefPullTab from "./components/ChiefPullTab";
 import GlobalChiefDock from "./components/GlobalChiefDock";
 
-function MobileTabLink({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
+function MobileTabLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
@@ -24,54 +18,42 @@ function MobileTabLink({
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header
-        className="sticky z-30 border-b border-white/10 bg-black/80 backdrop-blur-xl"
-        style={{ top: "var(--early-access-banner-h)" }}
-      >
-        <div className="w-full px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Link
-                href="/app/jobs"
-                className="shrink-0 text-base font-semibold tracking-tight text-white hover:text-white/90 transition"
-              >
-                ChiefOS
-              </Link>
+    <div className="flex min-h-screen bg-black text-white">
+      {/* Left sidebar — desktop (md+) only */}
+      <Sidebar />
 
-              <div className="hidden xl:block">
-                <AppNav />
-              </div>
-            </div>
+      {/* Main content area */}
+      <div className="flex flex-1 flex-col md:ml-56">
+        {/* Mobile-only slim top bar */}
+        <header
+          className="sticky top-0 z-30 flex items-center border-b border-white/10 bg-black/80 px-4 py-3 backdrop-blur-xl md:hidden"
+          style={{ top: "var(--early-access-banner-h, 0px)" }}
+        >
+          <Link
+            href="/app/jobs"
+            className="text-base font-semibold tracking-tight text-white"
+          >
+            ChiefOS
+          </Link>
+        </header>
 
-            <div className="flex items-center gap-2">
-              <ChiefDockButton />
-            </div>
-          </div>
+        <main className="w-full px-4 py-6 pb-24 md:pb-6">{children}</main>
+      </div>
 
-          <div className="mt-3 hidden md:block xl:hidden">
-            <AppNav />
-          </div>
-        </div>
-      </header>
+      {/* Ask Chief floating pull-tab — right edge */}
+      <ChiefPullTab />
 
-      {/* Panel lives outside <header> so its position:fixed isn't trapped by backdrop-blur's stacking context */}
+      {/* Chief panel lives outside main so backdrop-blur doesn't trap it */}
       <GlobalChiefDock />
 
-      <main className="w-full px-2 py-3 pb-24 md:pb-3">{children}</main>
-
-      <nav
-        className="
-          fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/92 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 backdrop-blur-xl
-          md:hidden
-        "
-      >
+      {/* Mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/92 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
-          <MobileTabLink href="/app/jobs" label="Home" />
-          <MobileTabLink href="/app/pending-review" label="Review" />
-          <MobileTabLink href="/app/uploads" label="Capture" />
-          <MobileTabLink href="/app/activity/expenses" label="Activity" />
-          <MobileTabLink href="/app/chief" label="Chief" />
+          <MobileTabLink href="/app/jobs"              label="Jobs" />
+          <MobileTabLink href="/app/activity/expenses" label="My Books" />
+          <MobileTabLink href="/app/pending-review"    label="Review" />
+          <MobileTabLink href="/app/uploads"           label="Log" />
+          <MobileTabLink href="/app/documents"         label="Docs" />
         </div>
       </nav>
     </div>

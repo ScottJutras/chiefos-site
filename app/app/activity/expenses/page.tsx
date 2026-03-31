@@ -1049,7 +1049,7 @@ export default function ExpensesPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className={chip("border-white/10 bg-white/5 text-white/60")}>
-              Activity
+              My Books
             </div>
             <h1 className="mt-3 text-3xl font-bold tracking-tight">Expense ledger</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/55">

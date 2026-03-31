@@ -43,10 +43,15 @@ export default function GlobalChiefDock() {
     return () => window.removeEventListener("open-chief", handler);
   }, []);
 
+  function handleClose() {
+    setOpen(false);
+    window.dispatchEvent(new CustomEvent("close-chief"));
+  }
+
   return (
     <ChiefDock
       open={open}
-      onClose={() => setOpen(false)}
+      onClose={handleClose}
       initialQuery={pendingQuery}
       pageContext={pageContext}
     />

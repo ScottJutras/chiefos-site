@@ -9,7 +9,7 @@ export type PulsePoint = {
   profitCents: number;
 };
 
-export type RangeKey = "wtd" | "mtd" | "ytd" | "all";
+export type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
 type MetricKey = "profit" | "revenue" | "expenses";
 
 type Props = {
@@ -97,6 +97,7 @@ const METRIC_COLOR: Record<MetricKey, string> = {
 const RANGE_LABEL: Record<RangeKey, string> = {
   wtd: "WTD",
   mtd: "MTD",
+  qtd: "QTD",
   ytd: "YTD",
   all: "All",
 };
@@ -104,6 +105,7 @@ const RANGE_LABEL: Record<RangeKey, string> = {
 const RANGE_TOTAL_LABEL: Record<RangeKey, string> = {
   wtd: "This week",
   mtd: "This month",
+  qtd: "This quarter",
   ytd: "This year",
   all: "All time",
 };
@@ -173,7 +175,7 @@ export default function BusinessPulseChart({
 
           {/* Range selector */}
           <div className="flex flex-wrap gap-2">
-            {(["wtd", "mtd", "ytd", "all"] as const).map((k) => (
+            {(["wtd", "mtd", "qtd", "ytd", "all"] as const).map((k) => (
               <button
                 key={k}
                 type="button"

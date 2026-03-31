@@ -5,12 +5,11 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
-import AskChiefMini from "@/app/app/components/AskChiefMini";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
-type RangeKey = "wtd" | "mtd" | "ytd" | "all";
+type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
 
 type JobRow = {
   id: number;
@@ -41,36 +40,6 @@ type TxRow = {
   job_id: number | null;
   created_at: string | null;
 };
-
-function prettyFromEmail(email?: string | null) {
-  if (!email) return "";
-  const left = email.split("@")[0] || "";
-  if (!left) return "";
-  const cleaned = left.replace(/[._-]+/g, " ").trim();
-  if (!cleaned) return "";
-  return cleaned.replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function pickBestName({
-  tenantName,
-  metaFallback,
-  emailFallback,
-}: {
-  tenantName?: string | null;
-  metaFallback?: string | null;
-  emailFallback?: string | null;
-}) {
-  const a = String(tenantName ?? "").trim();
-  if (a) return a;
-
-  const b = String(metaFallback ?? "").trim();
-  if (b) return b;
-
-  const c = String(emailFallback ?? "").trim();
-  if (c) return c;
-
-  return "Your system";
-}
 
 function normalizeStatus(raw?: string | null, active?: boolean | null) {
   const s = String(raw || "").trim().toLowerCase();
@@ -127,6 +96,14 @@ function startOfYear(d: Date) {
   return x;
 }
 
+function startOfQuarter(d: Date) {
+  const x = new Date(d);
+  const q = Math.floor(x.getMonth() / 3) * 3;
+  x.setMonth(q, 1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
 function toDayKey(dateLike: string | null | undefined) {
   const d = dateLike ? new Date(dateLike) : new Date();
   if (Number.isNaN(d.getTime())) return "";
@@ -147,6 +124,8 @@ function buildPulsePoints(rows: TxRow[], range: RangeKey): PulsePoint[] {
       ? startOfWeek(now)
       : range === "mtd"
       ? startOfMonth(now)
+      : range === "qtd"
+      ? startOfQuarter(now)
       : range === "ytd"
       ? startOfYear(now)
       : null;
@@ -188,247 +167,185 @@ function buildPulsePoints(rows: TxRow[], range: RangeKey): PulsePoint[] {
   }));
 }
 
-function HeroStat({
+function KpiCard({
   label,
   value,
   sub,
+  color = "text-white/95",
 }: {
   label: string;
   value: string;
   sub?: string;
+  color?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
       <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-white/95">{value}</div>
+      <div className={`mt-2 text-xl font-semibold ${color}`}>{value}</div>
       {sub ? <div className="mt-1 text-xs text-white/50">{sub}</div> : null}
     </div>
   );
 }
 
+function moneyFmt(cents: number) {
+  return (Math.abs(cents) / 100).toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
 function CenterWorkspace({
-  selectedJob,
   view,
   setView,
   summary,
   pulsePoints,
+  pulseRows,
   pulseRange,
   setPulseRange,
   pulseLoading,
-  onAskChief,
 }: {
-  selectedJob: JobRow | null;
   view: ViewKey;
   setView: (v: ViewKey) => void;
   summary: Summary;
   pulsePoints: PulsePoint[];
+  pulseRows: TxRow[];
   pulseRange: RangeKey;
   setPulseRange: (v: RangeKey) => void;
   pulseLoading: boolean;
-  onAskChief: (q?: string) => void;
 }) {
-  const title = selectedJob
-    ? String(selectedJob.job_name || selectedJob.name || "Untitled job")
-    : "Business overview";
+  // Range-filtered financial totals
+  const { rangeRevenue, rangeExpenses, rangeNet } = useMemo(() => {
+    const now = new Date();
+    const start =
+      pulseRange === "wtd" ? startOfWeek(now)
+      : pulseRange === "mtd" ? startOfMonth(now)
+      : pulseRange === "qtd" ? startOfQuarter(now)
+      : pulseRange === "ytd" ? startOfYear(now)
+      : null;
 
-  const subtitle = selectedJob
-    ? `${selectedJob.job_no ? `#${selectedJob.job_no} • ` : ""}${normalizeStatus(
-        selectedJob.status,
-        selectedJob.active
-      )}`
-    : "Run the business from one operating screen.";
+    let rev = 0;
+    let exp = 0;
+    for (const row of pulseRows) {
+      const raw = row.date || row.created_at;
+      if (!raw) continue;
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) continue;
+      if (start && d < start) continue;
+      const cents = Number(row.amount_cents || 0);
+      if (String(row.kind).toLowerCase() === "revenue") rev += cents;
+      else if (String(row.kind).toLowerCase() === "expense") exp += cents;
+    }
+    return { rangeRevenue: rev, rangeExpenses: exp, rangeNet: rev - exp };
+  }, [pulseRows, pulseRange]);
+
+  const rangeLabel =
+    pulseRange === "wtd" ? "This week"
+    : pulseRange === "mtd" ? "This month"
+    : pulseRange === "qtd" ? "This quarter"
+    : pulseRange === "ytd" ? "This year"
+    : "All time";
 
   return (
-    <div className="flex h-full min-h-[84vh] flex-col bg-black">
-      <div className="border-b border-white/10 px-5 py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">
-              {selectedJob ? "Job scope" : "Business scope"}
-            </div>
-            <div className="mt-2 truncate text-2xl font-semibold text-white/95">{title}</div>
-            <div className="mt-2 text-sm text-white/55">{subtitle}</div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <UtilityLink href="/app/jobs/new" label="Create job" tone="primary" />
-            <UtilityLink href="/app/uploads" label="Upload" />
-            <button
-              type="button"
-              onClick={() => onAskChief()}
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
-            >
-              Ask Chief
-            </button>
-          </div>
+    <div className="space-y-5">
+      {/* Page header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Dashboard</div>
+          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Business overview</h1>
+          <p className="mt-1.5 text-sm text-white/50">Your numbers at a glance — real data, real time.</p>
         </div>
-
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <HeroStat label="Active jobs" value={String(summary.activeJobs)} sub={`${summary.totalJobs} total`} />
-          <HeroStat label="Pending review" value={String(summary.pendingReview)} sub="Needs owner confirmation" />
-          <HeroStat label="Open tasks" value={String(summary.openTasks)} sub="Still needs action" />
+        <div className="flex flex-wrap gap-2">
+          <UtilityLink href="/app/jobs/new" label="+ Create job" tone="primary" />
+          <UtilityLink href="/app/uploads" label="Log / Upload" />
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-        <div className="space-y-5">
-          <BusinessPulseChart
-            points={pulsePoints}
-            activeJobs={summary.activeJobs}
-            totalJobs={summary.totalJobs}
-            title={selectedJob ? `${title} performance pulse` : "Business performance pulse"}
-            subtitle={
-              selectedJob
-                ? "Keep job scope visible while asking Chief and reviewing records."
-                : "A simple line graph keeps performance visible without turning the screen into a spreadsheet."
-            }
-            loading={pulseLoading}
-            range={pulseRange}
-            onRangeChange={setPulseRange}
-          />
-
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Records</div>
-                <div className="mt-2 text-lg font-semibold text-white/92">
-                  {selectedJob ? `${title} records` : "Business records"}
-                </div>
-                <div className="mt-1 text-sm text-white/55">
-                  Keep the data visible while you reason.
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/30 p-1">
-  <div className="flex flex-wrap gap-1">
-    {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
-      <button
-        key={k}
-        type="button"
-        onClick={() => setView(k)}
-        className={[
-          "rounded-xl px-3 py-1.5 text-xs font-medium transition",
-          view === k
-            ? "bg-white text-black"
-            : "text-white/60 hover:bg-white/5 hover:text-white/85",
-        ].join(" ")}
-      >
-        {k === "expenses"
-          ? "Expenses"
-          : k === "revenue"
-          ? "Revenue"
-          : k === "time"
-          ? "Time"
-          : "Tasks"}
-      </button>
-    ))}
-  </div>
-</div>
-            </div>
-
-            <div className="mt-4">
-              <DashboardDataPanel
-  view={view}
-  selectedJobName={selectedJob ? String(selectedJob.job_name || selectedJob.name || "").trim() : null}
-/>
-            </div>
-          </section>
-        </div>
+      {/* 6 KPI cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <KpiCard
+          label={`Revenue (${rangeLabel})`}
+          value={moneyFmt(rangeRevenue)}
+          color="text-emerald-400"
+        />
+        <KpiCard
+          label={`Expenses (${rangeLabel})`}
+          value={moneyFmt(rangeExpenses)}
+          color="text-white/90"
+        />
+        <KpiCard
+          label={`Net profit (${rangeLabel})`}
+          value={(rangeNet >= 0 ? "+" : "–") + moneyFmt(Math.abs(rangeNet))}
+          color={rangeNet >= 0 ? "text-emerald-400" : "text-red-400"}
+        />
+        <KpiCard
+          label="Active jobs"
+          value={String(summary.activeJobs)}
+          sub={`${summary.totalJobs} total`}
+        />
+        <KpiCard
+          label="Pending review"
+          value={String(summary.pendingReview)}
+          sub="Awaiting confirmation"
+        />
+        <KpiCard
+          label="Open tasks"
+          value={String(summary.openTasks)}
+          sub="Still needs action"
+        />
       </div>
-    </div>
-  );
-}
 
-function RightRail({
-  hasWhatsApp,
-  betaPlan,
-  summary,
-  onAskChief,
-}: {
-  hasWhatsApp: boolean;
-  betaPlan?: string | null;
-  summary: Summary;
-  onAskChief: (q?: string) => void;
-}) {
-  return (
-    <div className="flex h-full min-h-[84vh] flex-col bg-black">
-      <div className="border-b border-white/10 px-5 py-5">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Chief</div>
-        <div className="mt-2 text-lg font-semibold text-white/92">Ask while you operate</div>
-        <div className="mt-2 text-sm text-white/60">
-          Chief should open without taking you away from the business.
+      {/* Pulse chart */}
+      <BusinessPulseChart
+        points={pulsePoints}
+        activeJobs={summary.activeJobs}
+        totalJobs={summary.totalJobs}
+        title="Business performance pulse"
+        subtitle="Revenue, expenses, and profit — bucketed by day across your selected range."
+        loading={pulseLoading}
+        range={pulseRange}
+        onRangeChange={setPulseRange}
+      />
+
+      {/* Records panel */}
+      <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Records</div>
+            <div className="mt-2 text-lg font-semibold text-white/92">Business records</div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/30 p-1">
+            <div className="flex flex-wrap gap-1">
+              {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setView(k)}
+                  className={[
+                    "rounded-xl px-3 py-1.5 text-xs font-medium transition",
+                    view === k
+                      ? "bg-white text-black"
+                      : "text-white/60 hover:bg-white/5 hover:text-white/85",
+                  ].join(" ")}
+                >
+                  {k === "expenses" ? "Expenses" : k === "revenue" ? "Revenue" : k === "time" ? "Time" : "Tasks"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mt-4">
-          <AskChiefMini onAsk={(q) => onAskChief(q)} />
+          <DashboardDataPanel view={view} selectedJobName={null} />
         </div>
-      </div>
-
-      <div className="border-b border-white/10 px-5 py-5">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Quick actions</div>
-        <div className="mt-4 flex flex-col gap-2">
-          {!hasWhatsApp ? (
-            <UtilityLink href="/app/connect-whatsapp" label="Connect WhatsApp" tone="primary" />
-          ) : null}
-
-          <UtilityLink href="/app/pending-review" label={`Pending Review (${summary.pendingReview})`} />
-          <UtilityLink href="/app/uploads" label="Upload receipts / files" />
-          <UtilityLink href="/app/activity/expenses" label="Open expense ledger" />
-          <UtilityLink href="/app/activity/revenue" label="Open revenue ledger" />
-          <UtilityLink href="/app/jobs/new" label="Start a new job" />
-          <UtilityLink href="/app/settings" label="Settings" />
-          <UtilityLink href="/app/settings/billing" label="Billing" />
-
-          {betaPlan === "pro" ? (
-            <UtilityLink href="/app/crew/inbox" label="Crew Inbox" />
-          ) : null}
-        </div>
-      </div>
-
-      <div className="border-b border-white/10 px-5 py-5">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">What matters</div>
-        <div className="mt-4 space-y-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-white/45">Active jobs</div>
-            <div className="mt-1 text-xl font-semibold text-white/95">{summary.activeJobs}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-white/45">Open tasks</div>
-            <div className="mt-1 text-xl font-semibold text-white/95">{summary.openTasks}</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="text-xs text-white/45">Pending review</div>
-            <div className="mt-1 text-xl font-semibold text-white/95">{summary.pendingReview}</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 px-5 py-5">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Trust-first note</div>
-          <div className="mt-2 text-sm leading-relaxed text-white/60">
-            ChiefOS should keep the graph, jobs, records, and reasoning visible together.
-            Fewer page jumps. More operational clarity.
-          </div>
-          <button
-            type="button"
-            onClick={() => onAskChief()}
-            className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
-          >
-            Open Chief
-          </button>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
 
 export default function DashboardPage() {
-  const { loading, hasWhatsApp, betaPlan } = useTenantGate({ requireWhatsApp: false });
-
-  const [workspaceName, setWorkspaceName] = useState<string>("Your system");
+  const { loading } = useTenantGate({ requireWhatsApp: false });
   const [view, setView] = useState<ViewKey>("expenses");
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
@@ -449,22 +366,8 @@ export default function DashboardPage() {
         const { data: u, error: uErr } = await supabase.auth.getUser();
         if (uErr) throw uErr;
 
-        const user = u?.user;
-        const userId = user?.id || "";
-
-        const metaFallback =
-          (user?.user_metadata?.business_name as string | undefined) ||
-          (user?.user_metadata?.company as string | undefined) ||
-          (user?.user_metadata?.full_name as string | undefined) ||
-          (user?.user_metadata?.name as string | undefined) ||
-          "";
-
-        const emailFallback = prettyFromEmail(user?.email || null);
-
-        if (!userId) {
-          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
-          return;
-        }
+        const userId = u?.user?.id || "";
+        if (!userId) return;
 
         const { data: pu, error: puErr } = await supabase
           .from("chiefos_portal_users")
@@ -472,33 +375,16 @@ export default function DashboardPage() {
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (puErr) {
-          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
-          return;
-        }
+        if (puErr) return;
 
         const tenantId = (pu as any)?.tenant_id as string | null;
-
-        if (!tenantId) {
-          if (alive) setWorkspaceName(pickBestName({ metaFallback, emailFallback }));
-          return;
-        }
+        if (!tenantId) return;
 
         const { data: tenant } = await supabase
           .from("chiefos_tenants")
           .select("name, owner_id")
           .eq("id", tenantId)
           .maybeSingle();
-
-        if (alive) {
-          setWorkspaceName(
-            pickBestName({
-              tenantName: (tenant as any)?.name || null,
-              metaFallback,
-              emailFallback,
-            })
-          );
-        }
 
         try {
           const { data: jobsData } = await supabase
@@ -595,42 +481,20 @@ export default function DashboardPage() {
     [pulseRows, pulseRange]
   );
 
-  function openChief(query?: string) {
-    window.dispatchEvent(
-      new CustomEvent("open-chief", { detail: { query: String(query || "").trim(), page: "/app/dashboard" } })
-    );
-  }
-
   if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
 
   return (
-    <main className="min-h-screen bg-black text-white">
-        <div className="mx-auto max-w-[1700px] px-0 py-0">
-          <div className="grid min-h-[calc(100vh-72px)] grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0">
-              <CenterWorkspace
-                selectedJob={null}
-                view={view}
-                setView={setView}
-                summary={summary}
-                pulsePoints={pulsePoints}
-                pulseRange={pulseRange}
-                setPulseRange={setPulseRange}
-                pulseLoading={pulseLoading}
-                onAskChief={openChief}
-              />
-            </div>
-
-            <div className="border-l border-white/10">
-              <RightRail
-                hasWhatsApp={hasWhatsApp}
-                betaPlan={betaPlan}
-                summary={summary}
-                onAskChief={openChief}
-              />
-            </div>
-          </div>
-        </div>
-    </main>
+    <div className="mx-auto max-w-6xl py-2">
+      <CenterWorkspace
+        view={view}
+        setView={setView}
+        summary={summary}
+        pulsePoints={pulsePoints}
+        pulseRows={pulseRows}
+        pulseRange={pulseRange}
+        setPulseRange={setPulseRange}
+        pulseLoading={pulseLoading}
+      />
+    </div>
   );
 }

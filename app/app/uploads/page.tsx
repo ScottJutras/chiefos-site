@@ -161,9 +161,9 @@ export default function UploadsPage() {
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-5xl px-4 py-5">
         <div>
-          <div className="text-xs uppercase tracking-[0.16em] text-white/45">Bulk Intake</div>
+          <div className="text-xs uppercase tracking-[0.16em] text-white/45">Log / Upload</div>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Upload receipts, voice, and PDFs
+            Log / Upload
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/65">
             Files upload into a draft review lane first. Nothing becomes truth until it is confirmed in Pending Review.
