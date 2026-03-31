@@ -487,7 +487,7 @@ function DocumentsTab({
     }
     if (custId) {
       await supabase.from("job_documents").update({ customer_id: custId }).eq("id", docId);
-      onCustomerUpdated({ id: custId, name: custName.trim(), phone: custPhone.trim() || null, email: custEmail.trim() || null, address: custAddress.trim() || null });
+      onCustomerUpdated({ id: custId, name: custName.trim(), phone: custPhone.trim() || null, email: custEmail.trim() || null, address: custAddress.trim() || null, notes: null });
       onDocUpdated({ customer_id: custId });
     }
     setSavingCust(false);
