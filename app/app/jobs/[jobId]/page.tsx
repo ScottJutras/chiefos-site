@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/lib/supabase";
@@ -1343,8 +1343,11 @@ function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Pa
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos"];
+
 export default function JobDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const jobId = Number(params.jobId);
   const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
 
@@ -1356,7 +1359,10 @@ export default function JobDetailPage() {
   const [documentFiles, setDocumentFiles] = useState<JobDocumentFile[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("expenses");
+  const initialTab = VALID_TABS.includes(searchParams.get("tab") as Tab)
+    ? (searchParams.get("tab") as Tab)
+    : "expenses";
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
