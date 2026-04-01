@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -22,6 +23,43 @@ function isActive(pathname: string, href: string) {
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function fetchPending() {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u?.user?.id;
+        if (!userId) return;
+
+        const { data: pu } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        const tenantId = (pu as any)?.tenant_id as string | null;
+        if (!tenantId) return;
+
+        const { count } = await supabase
+          .from("intake_items")
+          .select("*", { count: "exact", head: true })
+          .eq("tenant_id", tenantId)
+          .in("status", ["pending_review", "uploaded", "validated", "extracted"]);
+
+        if (alive) setPendingCount(count ?? 0);
+      } catch {
+        // fail-soft — badge just won't show
+      }
+    }
+
+    void fetchPending();
+
+    // Re-check whenever the user navigates away from the review page
+    return () => { alive = false; };
+  }, [pathname]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -46,18 +84,24 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
+          const showBadge = item.href === "/app/pending-review" && pendingCount > 0;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={[
-                "flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition",
                 active
                   ? "bg-white/8 text-white"
                   : "text-white/55 hover:bg-white/5 hover:text-white",
               ].join(" ")}
             >
               {item.label}
+              {showBadge && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white leading-none">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
             </Link>
           );
         })}

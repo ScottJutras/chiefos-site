@@ -1,0 +1,82 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+function MobileTabLink({
+  href,
+  label,
+  badge,
+}: {
+  href: string;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium text-white/78 transition hover:bg-white/8 hover:text-white"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-white/55" />
+      <span className="truncate">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white leading-none">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+export default function MobileNav() {
+  const pathname = usePathname();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function fetchPending() {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u?.user?.id;
+        if (!userId) return;
+
+        const { data: pu } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        const tenantId = (pu as any)?.tenant_id as string | null;
+        if (!tenantId) return;
+
+        const { count } = await supabase
+          .from("intake_items")
+          .select("*", { count: "exact", head: true })
+          .eq("tenant_id", tenantId)
+          .in("status", ["pending_review", "uploaded", "validated", "extracted"]);
+
+        if (alive) setPendingCount(count ?? 0);
+      } catch {
+        // fail-soft
+      }
+    }
+
+    void fetchPending();
+    return () => { alive = false; };
+  }, [pathname]);
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/92 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 backdrop-blur-xl md:hidden">
+      <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
+        <MobileTabLink href="/app/jobs"              label="Jobs" />
+        <MobileTabLink href="/app/activity/expenses" label="My Books" />
+        <MobileTabLink href="/app/pending-review"    label="Review" badge={pendingCount} />
+        <MobileTabLink href="/app/uploads"           label="Log" />
+        <MobileTabLink href="/app/overhead"          label="Overhead" />
+      </div>
+    </nav>
+  );
+}
