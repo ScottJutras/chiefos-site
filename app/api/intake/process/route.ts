@@ -7,13 +7,38 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type IntakeKind = "receipt_image" | "voice_note" | "pdf_document" | "unknown";
-type DraftType = "expense" | "time" | "task" | "revenue" | "overhead" | "unknown";
+type DraftType = "expense" | "time" | "task" | "revenue" | "overhead" | "lead" | "quote" | "change_order" | "invoice" | "unknown";
 
 type OverheadFields = {
   name: string | null;
   category: string;
   frequency: "monthly" | "weekly" | "annual";
   due_day: number | null;
+};
+
+type LeadFields = {
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  description: string | null;
+};
+
+type QuoteFields = {
+  job_name: string | null;
+  amount_cents: number | null;
+  description: string | null;
+};
+
+type ChangeOrderFields = {
+  job_name: string | null;
+  description: string | null;
+  amount_cents: number | null;
+};
+
+type InvoiceFields = {
+  job_name: string | null;
+  amount_cents: number | null;
+  description: string | null;
 };
 
 type CandidateFields = {
@@ -243,6 +268,90 @@ function detectOverheadIntent(text: string): { isOverhead: boolean; fields: Over
   }
 
   return { isOverhead: true, fields: { name, category, frequency, due_day } };
+}
+
+// ── Lead detection ──────────────────────────────────────────────────────────
+const LEAD_TRIGGER_WORDS = [
+  "new lead", "got a lead", "new client", "new customer",
+  "inquiry from", "enquiry from", "potential client", "potential customer",
+  "got a call from", "someone called about", "new job inquiry",
+  "new referral", "referred by", "wants a quote", "looking for a quote",
+  "interested in hiring", "new project from",
+];
+
+function detectLeadIntent(text: string): { isLead: boolean; fields: LeadFields } {
+  const lc = text.toLowerCase();
+  const nullFields: LeadFields = { contact_name: null, phone: null, email: null, description: null };
+  if (!LEAD_TRIGGER_WORDS.some((kw) => lc.includes(kw))) return { isLead: false, fields: nullFields };
+
+  const phoneMatch = text.match(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  const phone = phoneMatch ? phoneMatch[0].replace(/\s+/g, "") : null;
+  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const email = emailMatch ? emailMatch[0] : null;
+  let contact_name: string | null = null;
+  const nameMatch = text.match(/(?:from|with|by|called?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/);
+  if (nameMatch?.[1]) contact_name = nameMatch[1].trim();
+  return { isLead: true, fields: { contact_name, phone, email, description: text.trim().slice(0, 500) } };
+}
+
+// ── Quote detection ──────────────────────────────────────────────────────────
+const QUOTE_TRIGGER_WORDS = [
+  "quoted", "sent a quote", "gave a quote", "quote for",
+  "estimate for", "sent an estimate", "gave an estimate",
+  "proposal for", "sent a proposal", "pricing for",
+  "priced out", "gave a price", "submitted a quote",
+];
+
+function detectQuoteIntent(text: string): { isQuote: boolean; fields: QuoteFields } {
+  const lc = text.toLowerCase();
+  const nullFields: QuoteFields = { job_name: null, amount_cents: null, description: null };
+  if (!QUOTE_TRIGGER_WORDS.some((kw) => lc.includes(kw))) return { isQuote: false, fields: nullFields };
+
+  const amounts = findAmountCandidates(text);
+  const amount_cents = amounts.length > 0 ? [...amounts].sort((a, b) => b.cents - a.cents)[0].cents : null;
+  const jobMatch = text.match(/(?:for|on|at)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s]{2,40}?)(?:\s+job|\s+project|\s+client)?(?:\s+for|\s+at|\.|,|$)/);
+  const job_name = jobMatch?.[1]?.trim() || null;
+  return { isQuote: true, fields: { job_name, amount_cents, description: text.trim().slice(0, 400) } };
+}
+
+// ── Change order detection ────────────────────────────────────────────────────
+const CHANGE_ORDER_TRIGGER_WORDS = [
+  "change order", "co for", "scope change", "change in scope",
+  "extra work", "additional work", "add-on", "add on",
+  "scope addition", "out of scope", "added scope",
+  "client wants to add", "client asked for",
+];
+
+function detectChangeOrderIntent(text: string): { isChangeOrder: boolean; fields: ChangeOrderFields } {
+  const lc = text.toLowerCase();
+  const nullFields: ChangeOrderFields = { job_name: null, description: null, amount_cents: null };
+  if (!CHANGE_ORDER_TRIGGER_WORDS.some((kw) => lc.includes(kw))) return { isChangeOrder: false, fields: nullFields };
+
+  const amounts = findAmountCandidates(text);
+  const amount_cents = amounts.length > 0 ? [...amounts].sort((a, b) => b.cents - a.cents)[0].cents : null;
+  const jobMatch = text.match(/(?:on|for|at)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s]{2,40}?)(?:\s+job|\s+project|\s+site)?(?:\s+for|\s+at|\s+-|\.|,|$)/);
+  const job_name = jobMatch?.[1]?.trim() || null;
+  return { isChangeOrder: true, fields: { job_name, description: text.trim().slice(0, 400), amount_cents } };
+}
+
+// ── Invoice detection ────────────────────────────────────────────────────────
+const INVOICE_TRIGGER_WORDS = [
+  "sent invoice", "sent an invoice", "invoiced", "invoice for",
+  "billed the client", "billed client", "send invoice",
+  "invoice sent", "submitted invoice", "issued invoice",
+  "final invoice", "progress invoice", "partial invoice",
+];
+
+function detectInvoiceIntent(text: string): { isInvoice: boolean; fields: InvoiceFields } {
+  const lc = text.toLowerCase();
+  const nullFields: InvoiceFields = { job_name: null, amount_cents: null, description: null };
+  if (!INVOICE_TRIGGER_WORDS.some((kw) => lc.includes(kw))) return { isInvoice: false, fields: nullFields };
+
+  const amounts = findAmountCandidates(text);
+  const amount_cents = amounts.length > 0 ? [...amounts].sort((a, b) => b.cents - a.cents)[0].cents : null;
+  const jobMatch = text.match(/(?:for|to|on)\s+(?:the\s+)?([A-Z][A-Za-z0-9\s]{2,40}?)(?:\s+job|\s+project|\s+client)?(?:\s+for|\s+at|\.|,|$)/);
+  const job_name = jobMatch?.[1]?.trim() || null;
+  return { isInvoice: true, fields: { job_name, amount_cents, description: text.trim().slice(0, 400) } };
 }
 
 function draftFromMime(mime: string | null, filename: string | null): { draftType: DraftType; kind: IntakeKind } {
@@ -882,19 +991,32 @@ if (docFields) {
         item?.source_filename || null
       );
 
-      // Reclassify to "overhead" if text matches overhead intent (voice notes / unknown items)
+      // Reclassify voice notes / unknown items to a richer draft type based on content
       let finalDraftType: DraftType = inferred.draftType;
       let overheadFields: OverheadFields | null = null;
+      let leadFields: LeadFields | null = null;
+      let quoteFields: QuoteFields | null = null;
+      let changeOrderFields: ChangeOrderFields | null = null;
+      let invoiceFields: InvoiceFields | null = null;
+
       if (inferred.kind === "voice_note" || inferred.draftType === "unknown") {
-        const overheadDetection = detectOverheadIntent(normalizedEvidenceText);
-        if (overheadDetection.isOverhead) {
-          finalDraftType = "overhead";
-          overheadFields = overheadDetection.fields;
-        }
+        // Priority order: change_order > lead > invoice > quote > overhead (most specific first)
+        const coDetection = detectChangeOrderIntent(normalizedEvidenceText);
+        const leadDetection = !coDetection.isChangeOrder ? detectLeadIntent(normalizedEvidenceText) : { isLead: false, fields: { contact_name: null, phone: null, email: null, description: null } };
+        const invDetection = !coDetection.isChangeOrder && !leadDetection.isLead ? detectInvoiceIntent(normalizedEvidenceText) : { isInvoice: false, fields: { job_name: null, amount_cents: null, description: null } };
+        const quoteDetection = !coDetection.isChangeOrder && !leadDetection.isLead && !invDetection.isInvoice ? detectQuoteIntent(normalizedEvidenceText) : { isQuote: false, fields: { job_name: null, amount_cents: null, description: null } };
+        const overheadDetection = !coDetection.isChangeOrder && !leadDetection.isLead && !invDetection.isInvoice && !quoteDetection.isQuote ? detectOverheadIntent(normalizedEvidenceText) : { isOverhead: false, fields: { name: null, category: "other", frequency: "monthly" as const, due_day: null } };
+
+        if (coDetection.isChangeOrder) { finalDraftType = "change_order"; changeOrderFields = coDetection.fields; }
+        else if (leadDetection.isLead) { finalDraftType = "lead"; leadFields = leadDetection.fields; }
+        else if (invDetection.isInvoice) { finalDraftType = "invoice"; invoiceFields = invDetection.fields; }
+        else if (quoteDetection.isQuote) { finalDraftType = "quote"; quoteFields = quoteDetection.fields; }
+        else if (overheadDetection.isOverhead) { finalDraftType = "overhead"; overheadFields = overheadDetection.fields; }
       }
 
-      // Overhead items don't need a job — strip that flag
-      const finalValidationFlags = finalDraftType === "overhead"
+      // Lead and overhead items don't need a job — strip that flag
+      const noJobTypes: DraftType[] = ["overhead", "lead"];
+      const finalValidationFlags = noJobTypes.includes(finalDraftType)
         ? validation.validation_flags.filter((f) => f !== "job_unresolved")
         : validation.validation_flags;
 
@@ -921,6 +1043,10 @@ if (docFields) {
         validate: { ...validation, validation_flags: finalValidationFlags },
         enrich: enrichment,
         overhead_context: overheadFields || null,
+        lead_context: leadFields || null,
+        quote_context: quoteFields || null,
+        change_order_context: changeOrderFields || null,
+        invoice_context: invoiceFields || null,
       };
 
       const draftPayload = {

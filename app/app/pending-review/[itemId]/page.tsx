@@ -204,15 +204,39 @@ export default function PendingReviewItemPage() {
       setReviewState(j.reviewState || null);
       setJobNameOverride(String(j.draft?.job_name || j.item.job_name || ""));
 
-      // Pre-fill overhead form if this is an overhead item
-      if (j.draft?.draft_type === "overhead" || j.item.draft_type === "overhead") {
-        const ohCtx = (j.draft?.raw_model_output as any)?.overhead_context || {};
-        setOhName(String(ohCtx?.name || j.draft?.vendor || ""));
-        setOhCategory(String(ohCtx?.category || "other"));
-        setOhFrequency(String(ohCtx?.frequency || "monthly"));
+      const dt = j.draft?.draft_type || j.item.draft_type;
+      const rm = (j.draft?.raw_model_output as any) || {};
+
+      if (dt === "overhead") {
+        const ctx = rm.overhead_context || {};
+        setOhName(String(ctx?.name || j.draft?.vendor || ""));
+        setOhCategory(String(ctx?.category || "other"));
+        setOhFrequency(String(ctx?.frequency || "monthly"));
         setOhAmount(j.draft?.amount_cents != null ? String(j.draft.amount_cents / 100) : "");
-        setOhDueDay(ohCtx?.due_day != null ? String(ohCtx.due_day) : "");
+        setOhDueDay(ctx?.due_day != null ? String(ctx.due_day) : "");
         setOhNotes(String(j.draft?.description || ""));
+      } else if (dt === "lead") {
+        const ctx = rm.lead_context || {};
+        setLeadName(String(ctx?.contact_name || j.draft?.vendor || ""));
+        setLeadPhone(String(ctx?.phone || ""));
+        setLeadEmail(String(ctx?.email || ""));
+        setLeadJobName(String(j.draft?.job_name || j.item.job_name || ""));
+        setLeadDescription(String(ctx?.description || j.draft?.description || ""));
+      } else if (dt === "quote") {
+        const ctx = rm.quote_context || {};
+        setQuoteJobName(String(ctx?.job_name || j.draft?.job_name || j.item.job_name || ""));
+        setQuoteAmount(j.draft?.amount_cents != null ? String(j.draft.amount_cents / 100) : ctx?.amount_cents ? String(ctx.amount_cents / 100) : "");
+        setQuoteDescription(String(ctx?.description || j.draft?.description || ""));
+      } else if (dt === "change_order") {
+        const ctx = rm.change_order_context || {};
+        setCoJobName(String(ctx?.job_name || j.draft?.job_name || j.item.job_name || ""));
+        setCoDescription(String(ctx?.description || j.draft?.description || ""));
+        setCoAmount(j.draft?.amount_cents != null ? String(j.draft.amount_cents / 100) : ctx?.amount_cents ? String(ctx.amount_cents / 100) : "");
+      } else if (dt === "invoice") {
+        const ctx = rm.invoice_context || {};
+        setInvJobName(String(ctx?.job_name || j.draft?.job_name || j.item.job_name || ""));
+        setInvAmount(j.draft?.amount_cents != null ? String(j.draft.amount_cents / 100) : ctx?.amount_cents ? String(ctx.amount_cents / 100) : "");
+        setInvDescription(String(ctx?.description || j.draft?.description || ""));
       }
 
       const signed = await supabase.storage
@@ -250,6 +274,28 @@ export default function PendingReviewItemPage() {
   const [ohAmount, setOhAmount] = useState("");
   const [ohDueDay, setOhDueDay] = useState("");
   const [ohNotes, setOhNotes] = useState("");
+
+  // Lead confirm state
+  const [leadName, setLeadName] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadJobName, setLeadJobName] = useState("");
+  const [leadDescription, setLeadDescription] = useState("");
+
+  // Quote confirm state
+  const [quoteJobName, setQuoteJobName] = useState("");
+  const [quoteAmount, setQuoteAmount] = useState("");
+  const [quoteDescription, setQuoteDescription] = useState("");
+
+  // Change order confirm state
+  const [coJobName, setCoJobName] = useState("");
+  const [coDescription, setCoDescription] = useState("");
+  const [coAmount, setCoAmount] = useState("");
+
+  // Invoice confirm state
+  const [invJobName, setInvJobName] = useState("");
+  const [invAmount, setInvAmount] = useState("");
+  const [invDescription, setInvDescription] = useState("");
 
   async function doConfirm(payload: {
     amountCents: number;
@@ -323,6 +369,77 @@ export default function PendingReviewItemPage() {
     } finally {
       setMutating(false);
     }
+  }
+
+  async function doConfirmLead() {
+    if (!leadName.trim()) { setErr("Contact name is required."); return; }
+    try {
+      setMutating(true); setErr(null);
+      const token = await authToken();
+      if (!token) throw new Error("Missing session.");
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ draftType: "lead", contactName: leadName.trim(), phone: leadPhone.trim() || null, email: leadEmail.trim() || null, jobName: (leadJobName || leadName).trim(), description: leadDescription.trim() || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
+      await goNextOrQueue();
+    } catch (e: any) { setErr(e?.message || "Confirm failed."); } finally { setMutating(false); }
+  }
+
+  async function doConfirmQuote() {
+    if (!quoteJobName.trim()) { setErr("Job name is required."); return; }
+    try {
+      setMutating(true); setErr(null);
+      const token = await authToken();
+      if (!token) throw new Error("Missing session.");
+      const amountCents = quoteAmount ? Math.round(parseFloat(quoteAmount) * 100) : null;
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ draftType: "quote", jobName: quoteJobName.trim(), amountCents: amountCents || undefined, description: quoteDescription.trim() || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
+      await goNextOrQueue();
+    } catch (e: any) { setErr(e?.message || "Confirm failed."); } finally { setMutating(false); }
+  }
+
+  async function doConfirmChangeOrder() {
+    if (!coJobName.trim()) { setErr("Job name is required."); return; }
+    if (!coAmount || parseFloat(coAmount) <= 0) { setErr("A valid amount is required."); return; }
+    try {
+      setMutating(true); setErr(null);
+      const token = await authToken();
+      if (!token) throw new Error("Missing session.");
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ draftType: "change_order", jobName: coJobName.trim(), description: coDescription.trim() || null, amountCents: Math.round(parseFloat(coAmount) * 100) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
+      await goNextOrQueue();
+    } catch (e: any) { setErr(e?.message || "Confirm failed."); } finally { setMutating(false); }
+  }
+
+  async function doConfirmInvoice() {
+    if (!invJobName.trim()) { setErr("Job name is required."); return; }
+    if (!invAmount || parseFloat(invAmount) <= 0) { setErr("A valid amount is required."); return; }
+    try {
+      setMutating(true); setErr(null);
+      const token = await authToken();
+      if (!token) throw new Error("Missing session.");
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ draftType: "invoice", jobName: invJobName.trim(), amountCents: Math.round(parseFloat(invAmount) * 100), description: invDescription.trim() || null }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
+      await goNextOrQueue();
+    } catch (e: any) { setErr(e?.message || "Confirm failed."); } finally { setMutating(false); }
   }
 
   async function doSkip(payload?: { comment?: string }) {
@@ -682,7 +799,136 @@ export default function PendingReviewItemPage() {
           </section>
 
           <aside className="space-y-4">
-            {(draft?.draft_type === "overhead" || item.draft_type === "overhead") ? (
+            {/* ── Type-specific review forms ───────────────────────────────── */}
+            {(draft?.draft_type === "lead" || item.draft_type === "lead") ? (
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5 space-y-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-sky-400/70">New lead</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Contact name *</label>
+                    <input value={leadName} onChange={(e) => setLeadName(e.target.value)} placeholder="e.g. Mike Johnson"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Phone</label>
+                      <input value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} placeholder="416-555-0123"
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Email</label>
+                      <input type="email" value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)} placeholder="mike@example.com"
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Job / project name</label>
+                    <input value={leadJobName} onChange={(e) => setLeadJobName(e.target.value)} placeholder="e.g. Johnson Deck Build"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Description</label>
+                    <textarea value={leadDescription} onChange={(e) => setLeadDescription(e.target.value)} rows={2} placeholder="What do they need?"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={doConfirmLead} disabled={mutating}
+                    className="flex-1 rounded-xl bg-sky-400 px-4 py-2 text-sm font-semibold text-black hover:bg-sky-300 disabled:opacity-50 transition">
+                    {mutating ? "Saving…" : "Add Lead"}
+                  </button>
+                  <button type="button" onClick={() => doSkip()} disabled={mutating}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50 transition">Skip</button>
+                </div>
+              </div>
+            ) : (draft?.draft_type === "quote" || item.draft_type === "quote") ? (
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5 space-y-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-violet-400/70">Quote</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Job name *</label>
+                    <input value={quoteJobName} onChange={(e) => setQuoteJobName(e.target.value)} placeholder="Existing or new job name"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Quoted amount ($)</label>
+                    <input type="number" min="0" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} placeholder="45000.00"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Scope description</label>
+                    <textarea value={quoteDescription} onChange={(e) => setQuoteDescription(e.target.value)} rows={2} placeholder="What's included in the quote?"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={doConfirmQuote} disabled={mutating}
+                    className="flex-1 rounded-xl bg-violet-400 px-4 py-2 text-sm font-semibold text-black hover:bg-violet-300 disabled:opacity-50 transition">
+                    {mutating ? "Saving…" : "Log Quote"}
+                  </button>
+                  <button type="button" onClick={() => doSkip()} disabled={mutating}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50 transition">Skip</button>
+                </div>
+              </div>
+            ) : (draft?.draft_type === "change_order" || item.draft_type === "change_order") ? (
+              <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5 space-y-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-orange-400/70">Change order</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Job name *</label>
+                    <input value={coJobName} onChange={(e) => setCoJobName(e.target.value)} placeholder="Existing job name"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Description of change *</label>
+                    <textarea value={coDescription} onChange={(e) => setCoDescription(e.target.value)} rows={2} placeholder="What was added or changed?"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Amount ($) *</label>
+                    <input type="number" min="0" step="0.01" value={coAmount} onChange={(e) => setCoAmount(e.target.value)} placeholder="3500.00"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={doConfirmChangeOrder} disabled={mutating}
+                    className="flex-1 rounded-xl bg-orange-400 px-4 py-2 text-sm font-semibold text-black hover:bg-orange-300 disabled:opacity-50 transition">
+                    {mutating ? "Saving…" : "Log Change Order"}
+                  </button>
+                  <button type="button" onClick={() => doSkip()} disabled={mutating}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50 transition">Skip</button>
+                </div>
+              </div>
+            ) : (draft?.draft_type === "invoice" || item.draft_type === "invoice") ? (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 space-y-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-emerald-400/70">Invoice</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Job name *</label>
+                    <input value={invJobName} onChange={(e) => setInvJobName(e.target.value)} placeholder="Existing job name"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Invoice amount ($) *</label>
+                    <input type="number" min="0" step="0.01" value={invAmount} onChange={(e) => setInvAmount(e.target.value)} placeholder="12000.00"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Description</label>
+                    <textarea value={invDescription} onChange={(e) => setInvDescription(e.target.value)} rows={2} placeholder="What was invoiced?"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={doConfirmInvoice} disabled={mutating}
+                    className="flex-1 rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-300 disabled:opacity-50 transition">
+                    {mutating ? "Saving…" : "Log Invoice"}
+                  </button>
+                  <button type="button" onClick={() => doSkip()} disabled={mutating}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50 transition">Skip</button>
+                </div>
+              </div>
+            ) : (draft?.draft_type === "overhead" || item.draft_type === "overhead") ? (
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-4">
                 <div className="text-xs uppercase tracking-[0.14em] text-amber-400/70">Overhead item</div>
 
@@ -774,7 +1020,7 @@ export default function PendingReviewItemPage() {
               />
             )}
 
-            {draft?.draft_type !== "overhead" && item.draft_type !== "overhead" && (
+            {(draft?.draft_type === "expense" || (!draft?.draft_type && item.draft_type === "expense") || (!draft?.draft_type && !item.draft_type)) && (
               <JobSuggestionPicker
                 suggestions={jobSuggestions}
                 selectedJobName={jobNameOverride}
@@ -782,7 +1028,7 @@ export default function PendingReviewItemPage() {
               />
             )}
 
-            {draft?.draft_type !== "overhead" && item.draft_type !== "overhead" && <ExplainExpensePanel
+            {(draft?.draft_type === "expense" || (!draft?.draft_type && item.draft_type === "expense") || (!draft?.draft_type && !item.draft_type)) && <ExplainExpensePanel
               sourceFilename={item.source_filename}
               amountCents={draft?.amount_cents}
               currency={draft?.currency}

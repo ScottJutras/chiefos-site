@@ -201,7 +201,7 @@ export async function POST(
     };
 
     const draftType = String(body?.draftType || existingDraft?.draft_type || item?.draft_type || "expense");
-    const supportedTypes = ["expense", "overhead", "revenue"];
+    const supportedTypes = ["expense", "overhead", "revenue", "lead", "quote", "change_order", "invoice"];
     if (!supportedTypes.includes(draftType)) {
       return json(400, {
         ok: false,
@@ -319,6 +319,187 @@ export async function POST(
       await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { transaction_id: revTx.id, amount_cents: amountCents, currency, event_date: eventDate, job_name: resolvedJobName }, created_at: new Date().toISOString() });
 
       return json(200, { ok: true, intakeItemId: itemId, transactionId: revTx.id, status: "persisted" });
+    }
+
+    // ── Lead confirm ─────────────────────────────────────────────────────────
+    if (draftType === "lead") {
+      const leadCtx = (existingDraft?.raw_model_output as any)?.lead_context || {};
+      const contactName = toNullableText(body?.contactName ?? leadCtx?.contact_name) || "Unknown Contact";
+      const phone = toNullableText(body?.phone ?? leadCtx?.phone);
+      const email = toNullableText(body?.email ?? leadCtx?.email);
+      const description = toNullableText(body?.description ?? existingDraft?.description ?? leadCtx?.description);
+      const jobName = toNullableText(body?.jobName ?? leadCtx?.job_name) || contactName;
+
+      // Create customer record
+      const { data: customer, error: custErr } = await admin
+        .from("customers")
+        .insert({ tenant_id: ctx.tenantId, name: contactName, phone: phone || null, email: email || null, notes: description || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .select("id").single();
+
+      if (custErr || !customer?.id) {
+        return json(500, { ok: false, error: custErr?.message || "Failed to create customer record." });
+      }
+
+      // Create job in lead stage
+      const { data: newJob, error: jobErr } = await admin
+        .from("jobs")
+        .insert({ job_name: jobName, name: jobName, status: "lead", active: false, owner_id: ctx.ownerId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .select("id").single();
+
+      if (jobErr || !newJob?.id) {
+        return json(500, { ok: false, error: jobErr?.message || "Failed to create job for lead." });
+      }
+
+      // Create job_document in lead stage
+      await admin.from("job_documents").insert({ job_id: newJob.id, stage: "lead", lead_notes: description || null, lead_source: "whatsapp", customer_id: customer.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+
+      const leadDraftPayload = { draft_type: "lead", vendor: contactName, description: description || null, raw_model_output: existingDraft?.raw_model_output || {}, validation_flags: [], updated_at: new Date().toISOString() };
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(leadDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...leadDraftPayload, created_at: new Date().toISOString() });
+      }
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "lead", confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { job_id: newJob.id, customer_id: customer.id, contact_name: contactName, phone, email }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, jobId: newJob.id, customerId: customer.id, status: "persisted" });
+    }
+
+    // ── Quote confirm ────────────────────────────────────────────────────────
+    if (draftType === "quote") {
+      const quoteCtx = (existingDraft?.raw_model_output as any)?.quote_context || {};
+      const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents ?? quoteCtx?.amount_cents);
+      const description = toNullableText(body?.description ?? existingDraft?.description ?? quoteCtx?.description);
+      const providedJobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? quoteCtx?.job_name ?? item?.job_name);
+
+      if (!providedJobName) return json(400, { ok: false, error: "A job name is required for a quote." });
+
+      const likeToken = `%${escapeIlike(providedJobName)}%`;
+      const { data: jobRows } = await admin.from("jobs").select("id, job_name, name").eq("owner_id", ctx.ownerId).or(`job_name.ilike.${likeToken},name.ilike.${likeToken}`).limit(3);
+      let resolvedJobId: number | null = null;
+      let resolvedJobName: string | null = null;
+      if ((jobRows as any[])?.length > 0) {
+        const j = (jobRows as any[])[0];
+        resolvedJobId = Number(j.id);
+        resolvedJobName = String(j.job_name || j.name || providedJobName);
+      } else {
+        // Create new job if not found
+        const { data: newJob } = await admin.from("jobs").insert({ job_name: providedJobName, name: providedJobName, status: "quote", active: false, owner_id: ctx.ownerId, contract_value_cents: amountCents || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select("id").single();
+        if (newJob?.id) { resolvedJobId = Number(newJob.id); resolvedJobName = providedJobName; }
+      }
+
+      if (!resolvedJobId) return json(400, { ok: false, error: "Could not resolve or create a job for this quote." });
+
+      // Update job stage to quote and set contract value if provided
+      const jobUpdate: Record<string, any> = { status: "quote", updated_at: new Date().toISOString() };
+      if (amountCents) jobUpdate.contract_value_cents = amountCents;
+      await admin.from("jobs").update(jobUpdate).eq("owner_id", ctx.ownerId).eq("id", resolvedJobId);
+
+      // Upsert job_document at quote stage
+      const { data: existingDoc } = await admin.from("job_documents").select("id, stage").eq("job_id", resolvedJobId).maybeSingle();
+      if (existingDoc?.id) {
+        await admin.from("job_documents").update({ stage: "quote", updated_at: new Date().toISOString() }).eq("id", existingDoc.id);
+      } else {
+        await admin.from("job_documents").insert({ job_id: resolvedJobId, stage: "quote", lead_notes: description || null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      }
+
+      const quoteDraftPayload = { draft_type: "quote", amount_cents: amountCents, description: description || null, job_name: resolvedJobName, job_int_id: resolvedJobId, raw_model_output: existingDraft?.raw_model_output || {}, validation_flags: [], updated_at: new Date().toISOString() };
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(quoteDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...quoteDraftPayload, created_at: new Date().toISOString() });
+      }
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "quote", job_name: resolvedJobName, job_int_id: resolvedJobId, confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { job_id: resolvedJobId, job_name: resolvedJobName, amount_cents: amountCents }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, jobId: resolvedJobId, jobName: resolvedJobName, status: "persisted" });
+    }
+
+    // ── Change order confirm ──────────────────────────────────────────────────
+    if (draftType === "change_order") {
+      const coCtx = (existingDraft?.raw_model_output as any)?.change_order_context || {};
+      const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents ?? coCtx?.amount_cents);
+      const description = toNullableText(body?.description ?? existingDraft?.description ?? coCtx?.description);
+      const providedJobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? coCtx?.job_name ?? item?.job_name);
+
+      if (!amountCents || amountCents <= 0) return json(400, { ok: false, error: "A valid amount is required." });
+      if (!providedJobName) return json(400, { ok: false, error: "A job name is required for a change order." });
+
+      const likeToken = `%${escapeIlike(providedJobName)}%`;
+      const { data: jobRows } = await admin.from("jobs").select("id, job_name, name").eq("owner_id", ctx.ownerId).or(`job_name.ilike.${likeToken},name.ilike.${likeToken}`).limit(1);
+      const jobRow = (jobRows as any[])?.[0];
+      if (!jobRow) return json(400, { ok: false, error: "Job not found. Set the correct job name before confirming." });
+
+      const resolvedJobId = Number(jobRow.id);
+      const resolvedJobName = String(jobRow.job_name || jobRow.name || providedJobName);
+
+      // Get next change order number for this job
+      const { data: existingCOs } = await admin.from("change_orders").select("number").eq("job_id", resolvedJobId).order("number", { ascending: false }).limit(1);
+      const nextNumber = (existingCOs as any[])?.[0]?.number ? Number((existingCOs as any[])[0].number) + 1 : 1;
+
+      const { data: co, error: coErr } = await admin
+        .from("change_orders")
+        .insert({ job_id: resolvedJobId, tenant_id: ctx.tenantId, number: nextNumber, description: description || "Change order", amount_cents: amountCents, created_at: new Date().toISOString() })
+        .select("id").single();
+
+      if (coErr || !co?.id) return json(500, { ok: false, error: coErr?.message || "Failed to create change order." });
+
+      const coDraftPayload = { draft_type: "change_order", amount_cents: amountCents, description: description || null, job_name: resolvedJobName, job_int_id: resolvedJobId, raw_model_output: existingDraft?.raw_model_output || {}, validation_flags: [], updated_at: new Date().toISOString() };
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(coDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...coDraftPayload, created_at: new Date().toISOString() });
+      }
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "change_order", job_name: resolvedJobName, job_int_id: resolvedJobId, confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { change_order_id: co.id, number: nextNumber, job_id: resolvedJobId, job_name: resolvedJobName, amount_cents: amountCents }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, changeOrderId: co.id, changeOrderNumber: nextNumber, jobId: resolvedJobId, status: "persisted" });
+    }
+
+    // ── Invoice confirm ───────────────────────────────────────────────────────
+    if (draftType === "invoice") {
+      const invCtx = (existingDraft?.raw_model_output as any)?.invoice_context || {};
+      const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents ?? invCtx?.amount_cents);
+      const description = toNullableText(body?.description ?? existingDraft?.description ?? invCtx?.description);
+      const eventDate = toNullableDate(body?.eventDate ?? existingDraft?.event_date) || new Date().toISOString().slice(0, 10);
+      const currency = toNullableText(body?.currency ?? existingDraft?.currency) || "USD";
+      const providedJobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? invCtx?.job_name ?? item?.job_name);
+
+      if (!amountCents || amountCents <= 0) return json(400, { ok: false, error: "A valid amount is required." });
+      if (!providedJobName) return json(400, { ok: false, error: "A job name is required for an invoice." });
+
+      const likeToken = `%${escapeIlike(providedJobName)}%`;
+      const { data: jobRows } = await admin.from("jobs").select("id, job_name, name").eq("owner_id", ctx.ownerId).or(`job_name.ilike.${likeToken},name.ilike.${likeToken}`).limit(1);
+      const jobRow = (jobRows as any[])?.[0];
+      if (!jobRow) return json(400, { ok: false, error: "Job not found. Set the correct job name before confirming." });
+
+      const resolvedJobId = Number(jobRow.id);
+      const resolvedJobName = String(jobRow.job_name || jobRow.name || providedJobName);
+
+      // Record as revenue transaction
+      const { data: invTx, error: invErr } = await admin
+        .from("transactions")
+        .insert({ tenant_id: ctx.tenantId, owner_id: ctx.ownerId, kind: "revenue", amount_cents: amountCents, currency, date: eventDate, description: description || `Invoice — ${resolvedJobName}`, source: "invoice", source_msg_id: item.source_msg_id || item.id, job_name: resolvedJobName, job_id: resolvedJobId, created_at: new Date().toISOString() })
+        .select("id").single();
+
+      if (invErr || !invTx?.id) return json(500, { ok: false, error: invErr?.message || "Failed to record invoice." });
+
+      // Update job document stage to invoiced
+      const { data: existingDoc } = await admin.from("job_documents").select("id").eq("job_id", resolvedJobId).maybeSingle();
+      if (existingDoc?.id) {
+        await admin.from("job_documents").update({ stage: "invoiced", updated_at: new Date().toISOString() }).eq("id", existingDoc.id);
+      }
+
+      const invDraftPayload = { draft_type: "invoice", amount_cents: amountCents, currency, description: description || null, event_date: eventDate, job_name: resolvedJobName, job_int_id: resolvedJobId, raw_model_output: existingDraft?.raw_model_output || {}, validation_flags: [], updated_at: new Date().toISOString() };
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(invDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...invDraftPayload, created_at: new Date().toISOString() });
+      }
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "invoice", job_name: resolvedJobName, job_int_id: resolvedJobId, confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { transaction_id: invTx.id, job_id: resolvedJobId, job_name: resolvedJobName, amount_cents: amountCents }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, transactionId: invTx.id, jobId: resolvedJobId, status: "persisted" });
     }
 
     const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);
