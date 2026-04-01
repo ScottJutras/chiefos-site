@@ -8,6 +8,13 @@ import { useSearchParams } from "next/navigation";
 
 type TotalsRange = "mtd";
 
+type OverheadContext = {
+  monthly_burden_cents: number;
+  item_count: number;
+  items: Array<{ name: string; category: string; monthly_cents: number }>;
+  still_needed_cents: number | null;
+} | null;
+
 type PageContext = {
   page?: string | null;
   job_id?: number | string | null;
@@ -76,6 +83,7 @@ function ChiefClientInner() {
   const [busy, setBusy] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [pageContext, setPageContext] = useState<PageContext>(null);
+  const [overheadContext, setOverheadContext] = useState<OverheadContext>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   // Stable ref so postMessage handler always sees latest callAskChief
@@ -83,6 +91,53 @@ function ChiefClientInner() {
 
   const searchParams = useSearchParams();
   const didAutoRunRef = useRef(false);
+
+  // Fetch overhead context once on mount so Chief can answer overhead questions
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u?.user?.id;
+        if (!userId) return;
+        const { data: pu } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const tenantId = (pu as any)?.tenant_id as string | null;
+        if (!tenantId) return;
+        const [oRes, txRes] = await Promise.all([
+          supabase.from("overhead_items")
+            .select("name, category, item_type, amount_cents, frequency, amortization_months")
+            .eq("tenant_id", tenantId)
+            .eq("active", true),
+          supabase.from("transactions")
+            .select("amount_cents")
+            .eq("tenant_id", tenantId)
+            .eq("kind", "revenue")
+            .gte("date", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)),
+        ]);
+        const rows = (oRes.data as any[]) || [];
+        const items = rows.map((r: any) => {
+          let monthly_cents: number = r.amount_cents;
+          if (r.item_type === "amortized") monthly_cents = r.amortization_months ? Math.round(r.amount_cents / r.amortization_months) : 0;
+          else if (r.frequency === "weekly") monthly_cents = Math.round(r.amount_cents * 52 / 12);
+          else if (r.frequency === "annual") monthly_cents = Math.round(r.amount_cents / 12);
+          return { name: r.name, category: r.category, monthly_cents };
+        });
+        const monthly_burden_cents = items.reduce((s, i) => s + i.monthly_cents, 0);
+        const mtd_revenue = ((txRes.data as any[]) || []).reduce((s: number, r: any) => s + (r.amount_cents || 0), 0);
+        setOverheadContext({
+          monthly_burden_cents,
+          item_count: items.length,
+          items,
+          still_needed_cents: monthly_burden_cents > 0 ? Math.max(0, monthly_burden_cents - mtd_revenue) : null,
+        });
+      } catch {
+        // fail-soft
+      }
+    })();
+  }, []);
 
   // Listen for postMessage from parent ChiefDock (context updates + quick prompts)
   useEffect(() => {
@@ -144,12 +199,18 @@ function ChiefClientInner() {
       '  "Which jobs are losing money right now?"',
       '  "How am I doing on [job name]?" — if you have a job open, just ask "How am I doing on this job?"',
       "",
+      "Overhead & obligations",
+      '  "How much do I need to make this month to cover my overhead?"',
+      '  "What are my biggest fixed costs?"',
+      '  "Am I on track to cover my bills this month?"',
+      '  "What\'s my true profit after overhead?"',
+      "",
       "Crew & operations",
       '  "How many hours did the team log this week?"',
       '  "What\'s still in Pending Review?"',
       '  "Which tasks are overdue?"',
       "",
-      "The more you log through WhatsApp — expenses, revenue, time — the more precise my answers get. What would you like to know first?",
+      "The more you log through WhatsApp — expenses, revenue, time, overhead — the more precise my answers get. What would you like to know first?",
     ].join("\n");
   }
 
@@ -268,6 +329,7 @@ function ChiefClientInner() {
         prompt: trimmed,
         range: normalizeRange(range),
         page_context: pageContext || null,
+        overhead_context: overheadContext || null,
         history: history.length > 0 ? history : undefined,
       };
 

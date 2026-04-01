@@ -201,11 +201,124 @@ export async function POST(
     };
 
     const draftType = String(body?.draftType || existingDraft?.draft_type || item?.draft_type || "expense");
-    if (draftType !== "expense") {
+    const supportedTypes = ["expense", "overhead", "revenue"];
+    if (!supportedTypes.includes(draftType)) {
       return json(400, {
         ok: false,
-        error: "Phase 2 confirm currently supports expense drafts only.",
+        error: `Draft type "${draftType}" is not yet supported for confirm.`,
       });
+    }
+
+    // ── Overhead confirm ────────────────────────────────────────────────────────
+    if (draftType === "overhead") {
+      const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);
+      if (amountCents == null || amountCents <= 0) {
+        return json(400, { ok: false, error: "A valid amount is required." });
+      }
+
+      const overheadCtx = (existingDraft?.raw_model_output as any)?.overhead_context || {};
+      const name = toNullableText(body?.name ?? body?.vendor ?? existingDraft?.vendor ?? overheadCtx?.name) || "Fixed Overhead";
+      const category = toNullableText(body?.category ?? overheadCtx?.category) || "other";
+      const frequency = toNullableText(body?.frequency ?? overheadCtx?.frequency) || "monthly";
+      const rawDueDay = body?.dueDay != null ? Number(body.dueDay) : (overheadCtx?.due_day ?? null);
+      const dueDay = rawDueDay != null && rawDueDay >= 1 && rawDueDay <= 28 ? rawDueDay : null;
+      const notes = toNullableText(body?.notes ?? existingDraft?.description);
+
+      const { data: overheadItem, error: overheadErr } = await admin
+        .from("overhead_items")
+        .insert({
+          tenant_id: ctx.tenantId,
+          name,
+          category,
+          item_type: "recurring",
+          amount_cents: amountCents,
+          frequency,
+          due_day: dueDay,
+          notes: notes || null,
+          active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (overheadErr || !overheadItem?.id) {
+        return json(500, { ok: false, error: overheadErr?.message || "Failed to create overhead item." });
+      }
+
+      // Update draft
+      const overheadDraftPayload = {
+        draft_type: "overhead",
+        amount_cents: amountCents,
+        vendor: name,
+        description: notes || null,
+        raw_model_output: existingDraft?.raw_model_output || {},
+        validation_flags: [],
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(overheadDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...overheadDraftPayload, created_at: new Date().toISOString() });
+      }
+
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "overhead", confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { overhead_item_id: overheadItem.id, name, category, frequency, amount_cents: amountCents, due_day: dueDay }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, overheadItemId: overheadItem.id, status: "persisted" });
+    }
+
+    // ── Revenue confirm ─────────────────────────────────────────────────────────
+    if (draftType === "revenue") {
+      const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);
+      if (amountCents == null || amountCents <= 0) {
+        return json(400, { ok: false, error: "A valid amount is required." });
+      }
+      const eventDate = toNullableDate(body?.eventDate ?? existingDraft?.event_date);
+      if (!eventDate) {
+        return json(400, { ok: false, error: "A valid date is required." });
+      }
+      const vendor = toNullableText(body?.vendor ?? existingDraft?.vendor);
+      const description = toNullableText(body?.description ?? existingDraft?.description) || (vendor ? `Revenue from ${vendor}` : "Revenue");
+      const currency = toNullableText(body?.currency ?? existingDraft?.currency) || "USD";
+      const providedJobName = toNullableText(body?.jobName ?? existingDraft?.job_name ?? item?.job_name);
+
+      let resolvedJobName: string | null = null;
+      let resolvedJobId: number | null = null;
+
+      if (providedJobName) {
+        const likeToken = `%${escapeIlike(providedJobName)}%`;
+        const { data: jobRows } = await admin.from("jobs").select("id, job_name, name").eq("owner_id", ctx.ownerId).or(`job_name.ilike.${likeToken},name.ilike.${likeToken}`).limit(3);
+        const job = (jobRows as any[])?.[0];
+        if (job) {
+          resolvedJobId = Number(job.id);
+          resolvedJobName = String(job.job_name || job.name || providedJobName);
+        } else {
+          resolvedJobName = providedJobName;
+        }
+      }
+
+      const { data: revTx, error: revErr } = await admin.from("transactions").insert({ tenant_id: ctx.tenantId, owner_id: ctx.ownerId, kind: "revenue", amount_cents: amountCents, currency, date: eventDate, description, source: vendor || "upload", source_msg_id: item.source_msg_id || item.id, created_at: new Date().toISOString(), job_name: resolvedJobName, job_id: resolvedJobId }).select("id").single();
+
+      if (revErr || !revTx?.id) {
+        return json(500, { ok: false, error: revErr?.message || "Failed to create revenue record." });
+      }
+
+      const revDraftPayload = { draft_type: "revenue", amount_cents: amountCents, currency, vendor, description, event_date: eventDate, job_name: resolvedJobName, job_int_id: resolvedJobId, raw_model_output: existingDraft?.raw_model_output || {}, validation_flags: [], updated_at: new Date().toISOString() };
+
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(revDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...revDraftPayload, created_at: new Date().toISOString() });
+      }
+
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "revenue", job_name: resolvedJobName, job_int_id: resolvedJobId, confidence_score: item.confidence_score, updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { transaction_id: revTx.id, amount_cents: amountCents, currency, event_date: eventDate, job_name: resolvedJobName }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, transactionId: revTx.id, status: "persisted" });
     }
 
     const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);

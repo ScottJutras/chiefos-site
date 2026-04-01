@@ -7,7 +7,14 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type IntakeKind = "receipt_image" | "voice_note" | "pdf_document" | "unknown";
-type DraftType = "expense" | "time" | "task" | "revenue" | "unknown";
+type DraftType = "expense" | "time" | "task" | "revenue" | "overhead" | "unknown";
+
+type OverheadFields = {
+  name: string | null;
+  category: string;
+  frequency: "monthly" | "weekly" | "annual";
+  due_day: number | null;
+};
 
 type CandidateFields = {
   amount_cents: number | null;
@@ -157,6 +164,85 @@ async function getPortalContext(req: Request): Promise<PortalContext> {
     ownerId: String(tenant.owner_id),
     role: String(pu.role || ""),
   };
+}
+
+const OVERHEAD_TRIGGER_WORDS = [
+  "rent", "lease", "mortgage", "loan",
+  "insurance", "subscription", "retainer",
+  "utility", "utilities", "hydro", "electricity",
+  "phone bill", "internet bill", "software license", "software licence",
+  "salary", "wages", "payroll",
+  "overhead", "fixed cost", "recurring bill", "recurring payment",
+  "monthly cost", "monthly fee", "monthly payment", "monthly bill",
+  "per month", "a month", "/month",
+  "weekly cost", "weekly bill", "per week", "a week",
+  "annual fee", "annual cost", "per year", "a year",
+];
+
+const OVERHEAD_CATEGORY_MAP: Record<string, string[]> = {
+  facility: ["rent", "mortgage", "office", "shop", "warehouse", "storage", "building", "studio", "workspace"],
+  vehicle: ["truck", "van", "car", "vehicle", "fleet", "automobile", "auto lease", "vehicle lease"],
+  equipment: ["equipment", "tool", "machine", "loader", "compressor", "generator", "excavator", "lift"],
+  insurance: ["insurance", "liability", "coverage", "policy", "premium", "indemnity"],
+  payroll: ["salary", "wages", "payroll", "retainer", "staff cost"],
+};
+
+function detectOverheadIntent(text: string): { isOverhead: boolean; fields: OverheadFields } {
+  const lc = text.toLowerCase();
+  const nullFields: OverheadFields = { name: null, category: "other", frequency: "monthly", due_day: null };
+
+  if (!OVERHEAD_TRIGGER_WORDS.some((kw) => lc.includes(kw))) {
+    return { isOverhead: false, fields: nullFields };
+  }
+
+  // Frequency
+  let frequency: "monthly" | "weekly" | "annual" = "monthly";
+  if (/\b(per week|a week|\/week|weekly)\b/.test(lc)) frequency = "weekly";
+  else if (/\b(per year|a year|\/year|annual|annually|yearly)\b/.test(lc)) frequency = "annual";
+
+  // Due day: "due on the 1st", "1st of each month", "on the 15th"
+  let due_day: number | null = null;
+  const dueDayPatterns = [
+    /due\s+(?:on\s+)?(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?/,
+    /(\d{1,2})(?:st|nd|rd|th)\s+of\s+(?:each|every|the)?\s*month/,
+    /on\s+the\s+(\d{1,2})(?:st|nd|rd|th)?\s+(?:of each|of every|each|every)?/,
+  ];
+  for (const re of dueDayPatterns) {
+    const m = lc.match(re);
+    if (m?.[1]) {
+      const d = parseInt(m[1], 10);
+      if (d >= 1 && d <= 28) { due_day = d; break; }
+    }
+  }
+
+  // Category
+  let category = "other";
+  for (const [cat, keywords] of Object.entries(OVERHEAD_CATEGORY_MAP)) {
+    if (keywords.some((kw) => lc.includes(kw))) {
+      category = cat;
+      break;
+    }
+  }
+
+  // Name — extract the most descriptive phrase
+  let name: string | null = null;
+  const namePatterns = [
+    /([a-z][a-z\s]{1,35}(?:rent|lease|mortgage|insurance|loan|subscription|utility|phone|internet|software|salary|wages|payroll))/i,
+    /(?:my|the)\s+([a-z][a-z\s]{1,35}?)\s+(?:rent|lease|mortgage|insurance|loan|subscription|cost|payment|bill|fee)\b/i,
+    /(?:pay|paying|owe|costs?|expense)\s+(?:for\s+)?(?:my\s+|the\s+)?([a-z][a-z\s]{2,35}?)\s+(?:is|was|at|of|=|\$|\d)/i,
+  ];
+  for (const re of namePatterns) {
+    const m = text.match(re);
+    if (m?.[1]) {
+      const candidate = m[1].trim().replace(/\s+/g, " ").slice(0, 60);
+      if (candidate.length >= 3) {
+        name = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+        break;
+      }
+    }
+  }
+
+  return { isOverhead: true, fields: { name, category, frequency, due_day } };
 }
 
 function draftFromMime(mime: string | null, filename: string | null): { draftType: DraftType; kind: IntakeKind } {
@@ -796,11 +882,27 @@ if (docFields) {
         item?.source_filename || null
       );
 
+      // Reclassify to "overhead" if text matches overhead intent (voice notes / unknown items)
+      let finalDraftType: DraftType = inferred.draftType;
+      let overheadFields: OverheadFields | null = null;
+      if (inferred.kind === "voice_note" || inferred.draftType === "unknown") {
+        const overheadDetection = detectOverheadIntent(normalizedEvidenceText);
+        if (overheadDetection.isOverhead) {
+          finalDraftType = "overhead";
+          overheadFields = overheadDetection.fields;
+        }
+      }
+
+      // Overhead items don't need a job — strip that flag
+      const finalValidationFlags = finalDraftType === "overhead"
+        ? validation.validation_flags.filter((f) => f !== "job_unresolved")
+        : validation.validation_flags;
+
       const rawModelOutput = {
         pipeline_version: "phase1-layered-parsing-v2",
         normalize: {
           kind: inferred.kind,
-          draft_type: inferred.draftType,
+          draft_type: finalDraftType,
           mime_type: item?.mime_type || null,
           source_filename: item?.source_filename || null,
           storage_bucket: item?.storage_bucket || null,
@@ -816,15 +918,16 @@ if (docFields) {
           text_preview: extraction.text ? extraction.text.slice(0, 1200) : "",
           candidate_fields: extraction.candidate_fields,
         },
-        validate: validation,
+        validate: { ...validation, validation_flags: finalValidationFlags },
         enrich: enrichment,
+        overhead_context: overheadFields || null,
       };
 
       const draftPayload = {
         intake_item_id: item.id,
         tenant_id: tenantId,
         owner_id: ownerId,
-        draft_type: inferred.draftType,
+        draft_type: finalDraftType,
         amount_cents: extraction.candidate_fields.amount_cents,
         currency: extraction.candidate_fields.currency,
         vendor: extraction.candidate_fields.vendor,
@@ -833,7 +936,7 @@ if (docFields) {
         job_int_id: item?.job_int_id ?? null,
         job_name: extraction.candidate_fields.job_name || item?.job_name || null,
         raw_model_output: rawModelOutput,
-        validation_flags: validation.validation_flags,
+        validation_flags: finalValidationFlags,
         updated_at: new Date().toISOString(),
       };
 
@@ -873,7 +976,7 @@ if (docFields) {
       }
 
       const nextItemUpdate: Record<string, any> = {
-        draft_type: inferred.draftType,
+        draft_type: finalDraftType,
         kind: inferred.kind,
         status: "pending_review",
         confidence_score: validation.confidence_score,

@@ -204,6 +204,17 @@ export default function PendingReviewItemPage() {
       setReviewState(j.reviewState || null);
       setJobNameOverride(String(j.draft?.job_name || j.item.job_name || ""));
 
+      // Pre-fill overhead form if this is an overhead item
+      if (j.draft?.draft_type === "overhead" || j.item.draft_type === "overhead") {
+        const ohCtx = (j.draft?.raw_model_output as any)?.overhead_context || {};
+        setOhName(String(ohCtx?.name || j.draft?.vendor || ""));
+        setOhCategory(String(ohCtx?.category || "other"));
+        setOhFrequency(String(ohCtx?.frequency || "monthly"));
+        setOhAmount(j.draft?.amount_cents != null ? String(j.draft.amount_cents / 100) : "");
+        setOhDueDay(ohCtx?.due_day != null ? String(ohCtx.due_day) : "");
+        setOhNotes(String(j.draft?.description || ""));
+      }
+
       const signed = await supabase.storage
         .from(j.item.storage_bucket)
         .createSignedUrl(j.item.storage_path, 60 * 15);
@@ -231,6 +242,14 @@ export default function PendingReviewItemPage() {
     }
     router.replace("/app/pending-review");
   }
+
+  // Overhead-specific confirm state
+  const [ohName, setOhName] = useState("");
+  const [ohCategory, setOhCategory] = useState("other");
+  const [ohFrequency, setOhFrequency] = useState("monthly");
+  const [ohAmount, setOhAmount] = useState("");
+  const [ohDueDay, setOhDueDay] = useState("");
+  const [ohNotes, setOhNotes] = useState("");
 
   async function doConfirm(payload: {
     amountCents: number;
@@ -266,6 +285,38 @@ export default function PendingReviewItemPage() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
 
+      await goNextOrQueue();
+    } catch (e: any) {
+      setErr(e?.message || "Confirm failed.");
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function doConfirmOverhead() {
+    const amountCents = Math.round(parseFloat(ohAmount) * 100);
+    if (!ohName.trim()) { setErr("Name is required."); return; }
+    if (!amountCents || amountCents <= 0) { setErr("A valid amount is required."); return; }
+    try {
+      setMutating(true);
+      setErr(null);
+      const token = await authToken();
+      if (!token) throw new Error("Missing session.");
+      const r = await fetch(`/api/intake/items/${encodeURIComponent(itemId)}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftType: "overhead",
+          name: ohName.trim(),
+          category: ohCategory,
+          frequency: ohFrequency,
+          amountCents,
+          dueDay: ohDueDay ? parseInt(ohDueDay, 10) : null,
+          notes: ohNotes.trim() || null,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Confirm failed.");
       await goNextOrQueue();
     } catch (e: any) {
       setErr(e?.message || "Confirm failed.");
@@ -631,38 +682,107 @@ export default function PendingReviewItemPage() {
           </section>
 
           <aside className="space-y-4">
-            <ReviewConveyor
-              itemId={item.id}
-              itemKind={item.kind}
-              sourceFilename={item.source_filename}
-              validationFlags={validationFlags}
-              initialDraft={{
-                amountCents: draft?.amount_cents != null ? String(draft.amount_cents) : "",
-                vendor: draft?.vendor || "",
-                description: draft?.description || "",
-                eventDate: draft?.event_date || "",
-                jobName: jobNameOverride || draft?.job_name || item.job_name || "",
-                currency: draft?.currency || "USD",
-                // Use stored category if available; otherwise run rule-based classifier
-                expenseCategory:
-                  draft?.expense_category ||
-                  classifyExpense(draft?.vendor, draft?.description).category ||
-                  "",
-                isPersonal: draft?.is_personal ?? false,
-              }}
-              onConfirm={doConfirm}
-              onSkip={doSkip}
-              onDuplicate={doDuplicate}
-              busy={mutating}
-            />
+            {(draft?.draft_type === "overhead" || item.draft_type === "overhead") ? (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-4">
+                <div className="text-xs uppercase tracking-[0.14em] text-amber-400/70">Overhead item</div>
 
-            <JobSuggestionPicker
-              suggestions={jobSuggestions}
-              selectedJobName={jobNameOverride}
-              onSelect={setJobNameOverride}
-            />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Name *</label>
+                    <input value={ohName} onChange={(e) => setOhName(e.target.value)} placeholder="e.g. Shop Rent, Ford F-150 Lease"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                  </div>
 
-            <ExplainExpensePanel
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Category</label>
+                      <select value={ohCategory} onChange={(e) => setOhCategory(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15">
+                        <option value="facility">Facility</option>
+                        <option value="vehicle">Vehicle</option>
+                        <option value="equipment">Equipment</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="payroll">Payroll / Admin</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Frequency</label>
+                      <select value={ohFrequency} onChange={(e) => setOhFrequency(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/15">
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="annual">Annual</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Amount ($) *</label>
+                      <input type="number" min="0" step="0.01" value={ohAmount} onChange={(e) => setOhAmount(e.target.value)} placeholder="2000.00"
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-xs text-white/50">Due day (1–28)</label>
+                      <input type="number" min="1" max="28" value={ohDueDay} onChange={(e) => setOhDueDay(e.target.value)} placeholder="1"
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block mb-1 text-xs text-white/50">Notes (optional)</label>
+                    <textarea value={ohNotes} onChange={(e) => setOhNotes(e.target.value)} rows={2} placeholder="Any additional context…"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={doConfirmOverhead} disabled={mutating}
+                    className="flex-1 rounded-xl bg-amber-400 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-300 disabled:opacity-50 transition">
+                    {mutating ? "Saving…" : "Add to Overhead"}
+                  </button>
+                  <button type="button" onClick={() => doSkip()} disabled={mutating}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50 transition">
+                    Skip
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ReviewConveyor
+                itemId={item.id}
+                itemKind={item.kind}
+                sourceFilename={item.source_filename}
+                validationFlags={validationFlags}
+                initialDraft={{
+                  amountCents: draft?.amount_cents != null ? String(draft.amount_cents) : "",
+                  vendor: draft?.vendor || "",
+                  description: draft?.description || "",
+                  eventDate: draft?.event_date || "",
+                  jobName: jobNameOverride || draft?.job_name || item.job_name || "",
+                  currency: draft?.currency || "USD",
+                  expenseCategory:
+                    draft?.expense_category ||
+                    classifyExpense(draft?.vendor, draft?.description).category ||
+                    "",
+                  isPersonal: draft?.is_personal ?? false,
+                }}
+                onConfirm={doConfirm}
+                onSkip={doSkip}
+                onDuplicate={doDuplicate}
+                busy={mutating}
+              />
+            )}
+
+            {draft?.draft_type !== "overhead" && item.draft_type !== "overhead" && (
+              <JobSuggestionPicker
+                suggestions={jobSuggestions}
+                selectedJobName={jobNameOverride}
+                onSelect={setJobNameOverride}
+              />
+            )}
+
+            {draft?.draft_type !== "overhead" && item.draft_type !== "overhead" && <ExplainExpensePanel
               sourceFilename={item.source_filename}
               amountCents={draft?.amount_cents}
               currency={draft?.currency}
@@ -678,7 +798,7 @@ export default function PendingReviewItemPage() {
               }
               confidenceScore={item.confidence_score}
               validationFlags={validationFlags}
-            />
+            />}
 
             {parse ? (
               <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
