@@ -408,6 +408,10 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
                       className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">
                       Save for Later
                     </button>
+                    <button type="button" onClick={reset} disabled={busy}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">
+                      Cancel
+                    </button>
                   </div>
                 </>
               )}
