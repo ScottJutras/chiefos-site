@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
@@ -89,6 +89,131 @@ type ReceiptItemForm = {
   vendor: string; amount: string; date: string;
   description: string; job_name: string; job_id: number; draft_type: string;
 };
+
+// ─── Zoomable image ───────────────────────────────────────────────────────────
+
+function ZoomableImage({ src }: { src: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const lastPinch = useRef<number | null>(null);
+
+  const clampOffset = useCallback((x: number, y: number, s: number) => {
+    const el = containerRef.current;
+    if (!el) return { x, y };
+    const maxX = (el.clientWidth * (s - 1)) / 2;
+    const maxY = (el.clientHeight * (s - 1)) / 2;
+    return { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
+  }, []);
+
+  const doZoom = useCallback((delta: number) => {
+    setScale((prev) => {
+      const next = Math.max(1, Math.min(5, prev + delta));
+      if (next === prev) return prev;
+      if (next === 1) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
+  // Mouse wheel
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      doZoom(e.deltaY < 0 ? 0.3 : -0.3);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [doZoom]);
+
+  // Mouse drag
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (scale <= 1) return;
+    drag.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current) return;
+    const nx = drag.current.ox + (e.clientX - drag.current.startX);
+    const ny = drag.current.oy + (e.clientY - drag.current.startY);
+    setOffset(clampOffset(nx, ny, scale));
+  };
+  const onMouseUp = () => { drag.current = null; };
+
+  // Touch pinch + drag
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastPinch.current = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1 && scale > 1) {
+      drag.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, ox: offset.x, oy: offset.y };
+    }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (e.touches.length === 2 && lastPinch.current !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      doZoom((dist - lastPinch.current) * 0.02);
+      lastPinch.current = dist;
+    } else if (e.touches.length === 1 && drag.current) {
+      const nx = drag.current.ox + (e.touches[0].clientX - drag.current.startX);
+      const ny = drag.current.oy + (e.touches[0].clientY - drag.current.startY);
+      setOffset(clampOffset(nx, ny, scale));
+    }
+  };
+  const onTouchEnd = () => { drag.current = null; lastPinch.current = null; };
+
+  // Double-click / double-tap to reset
+  const onDoubleClick = () => { setScale(1); setOffset({ x: 0, y: 0 }); };
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/30"
+      style={{ height: "288px", cursor: scale > 1 ? "grab" : "zoom-in", touchAction: "none" }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onDoubleClick={onDoubleClick}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Receipt preview"
+        draggable={false}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          transform: `scale(${scale}) translate(${offset.x / scale}px, ${offset.y / scale}px)`,
+          transformOrigin: "center center",
+          transition: drag.current ? "none" : "transform 0.1s ease",
+          userSelect: "none",
+        }}
+      />
+      {scale > 1 && (
+        <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white/60 pointer-events-none">
+          {Math.round(scale * 100)}% · double-tap to reset
+        </div>
+      )}
+      {scale === 1 && (
+        <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white/60 pointer-events-none">
+          scroll or pinch to zoom
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () => void; onSaveLater: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
@@ -238,7 +363,7 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
 
               {/* Image preview */}
               {!isConfirmed && previewUrl && (
-                <img src={previewUrl} alt="Receipt preview" className="w-full max-h-72 rounded-xl border border-white/10 bg-black/30 object-contain" />
+                <ZoomableImage src={previewUrl} />
               )}
 
               {/* OCR notice when nothing was extracted */}

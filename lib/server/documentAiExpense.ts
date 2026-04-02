@@ -1,4 +1,5 @@
 import { DocumentProcessorServiceClient } from "@google-cloud/documentai";
+import OpenAI from "openai";
 
 let clientSingleton: DocumentProcessorServiceClient | null = null;
 
@@ -92,4 +93,65 @@ export async function processExpenseReceipt(args: {
     },
     raw: result || null,
   };
+}
+
+export async function extractReceiptWithVision(
+  bytes: Buffer,
+  mimeType: string
+): Promise<{ text: string; fields: { supplier: string | null; receiptDate: string | null; total: string | null; currency: string | null } }> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
+
+  const client = new OpenAI({ apiKey });
+
+  const base64 = bytes.toString("base64");
+  const dataUrl = `data:${mimeType || "image/jpeg"};base64,${base64}`;
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o",
+    max_tokens: 500,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image_url",
+            image_url: { url: dataUrl, detail: "high" },
+          },
+          {
+            type: "text",
+            text: `Extract the following from this receipt image and respond ONLY with valid JSON, no markdown:
+{
+  "supplier": "<vendor/store name or null>",
+  "receiptDate": "<date in YYYY-MM-DD format or null>",
+  "total": "<total amount as decimal string e.g. 12.50 or null>",
+  "currency": "<3-letter currency code e.g. CAD, USD or null>",
+  "rawText": "<full receipt text, newline-separated>"
+}`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const content = response.choices[0]?.message?.content?.trim() || "";
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      text: parsed.rawText || "",
+      fields: {
+        supplier: parsed.supplier || null,
+        receiptDate: parsed.receiptDate || null,
+        total: parsed.total != null ? String(parsed.total) : null,
+        currency: parsed.currency || null,
+      },
+    };
+  } catch {
+    // If JSON parse fails, return the raw content as text
+    return {
+      text: content,
+      fields: { supplier: null, receiptDate: null, total: null, currency: null },
+    };
+  }
 }

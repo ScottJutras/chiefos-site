@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { processExpenseReceipt } from "@/lib/server/documentAiExpense";
+import { processExpenseReceipt, extractReceiptWithVision } from "@/lib/server/documentAiExpense";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -759,23 +759,38 @@ async function hydrateEvidenceText(
       };
     }
 
+    let imageBytes: Buffer | null = null;
     try {
-      const bytes = await downloadStorageBytes(
+      imageBytes = await downloadStorageBytes(
         admin,
         String(item?.storage_bucket || ""),
         String(item?.storage_path || "")
       );
+    } catch (dlErr: any) {
+      return {
+        bestText: "",
+        ocr_text: item?.ocr_text || null,
+        transcript_text: item?.transcript_text || null,
+        hydratedFromStorage: false,
+        hydrationNote: dlErr?.message || "Failed to download receipt image.",
+        documentAiFields: null,
+      };
+    }
 
+    // Try Document AI first, fall back to GPT-4o vision
+    let docAiOk = false;
+    try {
       const out = await processExpenseReceipt({
         projectId: mustEnv("GOOGLE_DOCUMENT_AI_PROJECT_ID"),
         processorId: mustEnv("GOOGLE_DOCUMENT_AI_RECEIPT_PROCESSOR_ID"),
         location: process.env.GOOGLE_DOCUMENT_AI_LOCATION || "us",
-        bytes,
+        bytes: imageBytes,
         mimeType: item?.mime_type || "image/jpeg",
       });
 
       const text = normalizeWhitespace(out?.text || "");
       const fields = out?.fields || null;
+      docAiOk = true;
 
       console.info("[INTAKE_RECEIPT_OCR_OK]", {
         itemId: String(item?.id || ""),
@@ -795,12 +810,44 @@ async function hydrateEvidenceText(
         documentAiFields: fields,
       };
     } catch (e: any) {
-      console.error("[INTAKE_RECEIPT_OCR_FAIL]", {
+      if (docAiOk) throw e; // unexpected re-throw
+      console.warn("[INTAKE_RECEIPT_OCR_FAIL_TRYING_VISION]", {
         itemId: String(item?.id || ""),
-        bucket: String(item?.storage_bucket || ""),
-        path: String(item?.storage_path || ""),
-        ownerId: String(ownerId || ""),
-        message: e?.message || "Receipt image OCR failed.",
+        message: e?.message || "Document AI OCR failed, trying GPT-4o vision.",
+      });
+    }
+
+    // GPT-4o vision fallback
+    try {
+      const visionOut = await extractReceiptWithVision(
+        imageBytes,
+        item?.mime_type || "image/jpeg"
+      );
+
+      const text = normalizeWhitespace(visionOut?.text || "");
+      const fields = visionOut?.fields || null;
+
+      console.info("[INTAKE_RECEIPT_VISION_OK]", {
+        itemId: String(item?.id || ""),
+        hasText: Boolean(text),
+        textLen: String(text || "").length,
+        fields,
+      });
+
+      return {
+        bestText: text,
+        ocr_text: text || null,
+        transcript_text: item?.transcript_text || null,
+        hydratedFromStorage: Boolean(text),
+        hydrationNote: text
+          ? "Hydrated OCR text from receipt image using GPT-4o vision."
+          : "GPT-4o vision ran, but no reliable text was extracted.",
+        documentAiFields: fields,
+      };
+    } catch (ve: any) {
+      console.error("[INTAKE_RECEIPT_VISION_FAIL]", {
+        itemId: String(item?.id || ""),
+        message: ve?.message || "GPT-4o vision extraction failed.",
       });
 
       return {
@@ -808,7 +855,7 @@ async function hydrateEvidenceText(
         ocr_text: item?.ocr_text || null,
         transcript_text: item?.transcript_text || null,
         hydratedFromStorage: false,
-        hydrationNote: e?.message || "Receipt image OCR failed.",
+        hydrationNote: ve?.message || "All OCR methods failed.",
         documentAiFields: null,
       };
     }
