@@ -5,6 +5,7 @@ import { processExpenseReceipt, extractReceiptWithVision } from "@/lib/server/do
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const maxDuration = 45;
 
 type IntakeKind = "receipt_image" | "voice_note" | "pdf_document" | "unknown";
 type DraftType = "expense" | "time" | "task" | "revenue" | "overhead" | "lead" | "quote" | "change_order" | "invoice" | "unknown";

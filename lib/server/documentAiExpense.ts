@@ -109,7 +109,7 @@ export async function extractReceiptWithVision(
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
-    max_tokens: 500,
+    max_tokens: 1500,
     messages: [
       {
         role: "user",
