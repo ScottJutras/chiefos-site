@@ -5,6 +5,32 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
+// ─── Tax helpers ──────────────────────────────────────────────────────────────
+
+const TAX_CODE_RATES: Record<string, number> = {
+  HST_ON: 0.13, HST_NS: 0.15, HST_NB: 0.15, HST_NL: 0.15, HST_PE: 0.15,
+  GST_PST_BC: 0.12, GST_PST_SK: 0.11, GST_PST_MB: 0.12, GST_PST_QC: 0.14975,
+  GST_ONLY: 0.05, NO_SALES_TAX: 0,
+};
+
+const US_STATE_RATES: Record<string, number> = {
+  AL: 0.04, AK: 0.00, AZ: 0.056, AR: 0.065, CA: 0.0725, CO: 0.029,
+  CT: 0.0635, DE: 0.00, FL: 0.06, GA: 0.04, HI: 0.04, ID: 0.06,
+  IL: 0.0625, IN: 0.07, IA: 0.06, KS: 0.065, KY: 0.06, LA: 0.0445,
+  ME: 0.055, MD: 0.06, MA: 0.0625, MI: 0.06, MN: 0.0688, MS: 0.07,
+  MO: 0.0423, MT: 0.00, NE: 0.055, NV: 0.0685, NH: 0.00, NJ: 0.0663,
+  NM: 0.0488, NY: 0.04, NC: 0.0475, ND: 0.05, OH: 0.0575, OK: 0.045,
+  OR: 0.00, PA: 0.06, RI: 0.07, SC: 0.06, SD: 0.042, TN: 0.07,
+  TX: 0.0625, UT: 0.061, VT: 0.06, VA: 0.053, WA: 0.065, WV: 0.06,
+  WI: 0.05, WY: 0.04, DC: 0.06,
+};
+
+function taxRateFromCode(taxCode: string | null, province?: string | null): number {
+  if (!taxCode) return 0;
+  if (taxCode === "US_SALES_TAX") return US_STATE_RATES[province ?? ""] ?? 0;
+  return TAX_CODE_RATES[taxCode] ?? 0;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ItemType = "recurring" | "amortized";
@@ -25,18 +51,20 @@ type OverheadItem = {
   end_date: string | null;
   notes: string | null;
   active: boolean;
+  tax_amount_cents: number | null;
   created_at: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function monthlyEquivalent(item: Pick<OverheadItem, "item_type" | "amount_cents" | "frequency" | "amortization_months">): number {
+function monthlyEquivalent(item: Pick<OverheadItem, "item_type" | "amount_cents" | "frequency" | "amortization_months" | "tax_amount_cents">): number {
   if (item.item_type === "amortized") {
     return item.amortization_months ? Math.round(item.amount_cents / item.amortization_months) : 0;
   }
-  if (item.frequency === "weekly") return Math.round((item.amount_cents * 52) / 12);
-  if (item.frequency === "annual") return Math.round(item.amount_cents / 12);
-  return item.amount_cents;
+  const tax = item.tax_amount_cents ?? 0;
+  if (item.frequency === "weekly") return Math.round(((item.amount_cents + tax) * 52) / 12);
+  if (item.frequency === "annual") return Math.round((item.amount_cents + tax) / 12);
+  return item.amount_cents + tax;
 }
 
 function fmtMoney(cents: number) {
@@ -71,6 +99,7 @@ type FormState = {
   category: Category;
   item_type: ItemType;
   amount: string;
+  tax_amount: string;
   frequency: Frequency;
   due_day: string;
   amortization_months: string;
@@ -84,6 +113,7 @@ function blankForm(): FormState {
     category: "other",
     item_type: "recurring",
     amount: "",
+    tax_amount: "",
     frequency: "monthly",
     due_day: "",
     amortization_months: "",
@@ -98,6 +128,7 @@ function itemToForm(item: OverheadItem): FormState {
     category: item.category,
     item_type: item.item_type,
     amount: item.amount_cents > 0 ? String(item.amount_cents / 100) : "",
+    tax_amount: item.tax_amount_cents != null ? String(item.tax_amount_cents / 100) : "",
     frequency: item.frequency,
     due_day: item.due_day != null ? String(item.due_day) : "",
     amortization_months: item.amortization_months != null ? String(item.amortization_months) : "",
@@ -114,16 +145,31 @@ function ItemForm({
   onCancel,
   tenantId,
   editId,
+  taxRate,
 }: {
   initial?: FormState;
   onSave: (item: OverheadItem) => void;
   onCancel: () => void;
   tenantId: string;
   editId?: string;
+  taxRate: number;
 }) {
   const [form, setForm] = useState<FormState>(initial ?? blankForm());
+  const [taxManual, setTaxManual] = useState(() => !!(initial?.tax_amount));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Auto-calculate tax when amount changes (unless user has manually set it)
+  useEffect(() => {
+    if (taxManual || taxRate === 0) return;
+    const amt = parseFloat(form.amount);
+    if (!isNaN(amt) && amt > 0) {
+      const computed = (amt * taxRate).toFixed(2);
+      setForm((f) => ({ ...f, tax_amount: computed }));
+    } else {
+      setForm((f) => ({ ...f, tax_amount: "" }));
+    }
+  }, [form.amount, taxRate, taxManual]);
 
   const inputCls = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25";
   const isRecurring = form.item_type === "recurring";
@@ -145,12 +191,17 @@ function ItemForm({
 
     setSaving(true); setErr(null);
 
+    const taxCents = isRecurring && form.tax_amount.trim()
+      ? Math.round(parseFloat(form.tax_amount) * 100)
+      : null;
+
     const payload = {
       tenant_id: tenantId,
       name: form.name.trim(),
       category: form.category,
       item_type: form.item_type,
       amount_cents: amountCents,
+      tax_amount_cents: (taxCents != null && !isNaN(taxCents) && taxCents >= 0) ? taxCents : null,
       frequency: form.frequency,
       due_day: isRecurring && form.due_day.trim() ? parseInt(form.due_day, 10) : null,
       amortization_months: !isRecurring && form.amortization_months.trim()
@@ -228,25 +279,48 @@ function ItemForm({
 
       {/* Amount + conditional fields */}
       {isRecurring ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-[11px] text-white/50">Amount ($) *</label>
-            <input type="number" min="0.01" step="0.01" placeholder="e.g. 2000" value={form.amount}
-              onChange={(e) => set("amount", e.target.value)} className={inputCls} />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[11px] text-white/50">Amount ($) *</label>
+              <input type="number" min="0.01" step="0.01" placeholder="e.g. 2000" value={form.amount}
+                onChange={(e) => set("amount", e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-[11px] text-white/50">
+                  Tax ({taxRate > 0 ? `${(taxRate * 100).toFixed(taxRate % 0.01 !== 0 ? 3 : 0)}%` : "—"})
+                </label>
+                {taxManual && (
+                  <button type="button" onClick={() => setTaxManual(false)}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition">
+                    Reset to auto
+                  </button>
+                )}
+              </div>
+              <input
+                type="number" min="0" step="0.01" placeholder={taxRate > 0 ? "Auto-calculated" : "Enter tax amount"}
+                value={form.tax_amount}
+                onChange={(e) => { set("tax_amount", e.target.value); setTaxManual(true); }}
+                className={inputCls}
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-[11px] text-white/50">Frequency</label>
-            <select value={form.frequency} onChange={(e) => set("frequency", e.target.value as Frequency)}
-              className={inputCls}>
-              <option value="monthly">Monthly</option>
-              <option value="weekly">Weekly</option>
-              <option value="annual">Annual</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] text-white/50">Due day (1–28)</label>
-            <input type="number" min="1" max="28" placeholder="e.g. 1" value={form.due_day}
-              onChange={(e) => set("due_day", e.target.value)} className={inputCls} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[11px] text-white/50">Frequency</label>
+              <select value={form.frequency} onChange={(e) => set("frequency", e.target.value as Frequency)}
+                className={inputCls}>
+                <option value="monthly">Monthly</option>
+                <option value="weekly">Weekly</option>
+                <option value="annual">Annual</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] text-white/50">Due day (1–28)</label>
+              <input type="number" min="1" max="28" placeholder="e.g. 1" value={form.due_day}
+                onChange={(e) => set("due_day", e.target.value)} className={inputCls} />
+            </div>
           </div>
         </div>
       ) : (
@@ -284,10 +358,16 @@ function ItemForm({
             {fmtMoney(monthlyEquivalent({
               item_type: form.item_type,
               amount_cents: Math.round(parseFloat(form.amount) * 100),
+              tax_amount_cents: isRecurring && form.tax_amount.trim() ? Math.round(parseFloat(form.tax_amount) * 100) : null,
               frequency: form.frequency,
               amortization_months: form.amortization_months.trim() ? parseInt(form.amortization_months, 10) : null,
             }))}/mo
           </span>
+          {isRecurring && form.tax_amount.trim() && parseFloat(form.tax_amount) > 0 && (
+            <span className="ml-2 text-[11px] text-white/35">
+              incl. {fmtMoney(Math.round(parseFloat(form.tax_amount) * 100))} tax
+            </span>
+          )}
         </div>
       )}
 
@@ -317,13 +397,14 @@ export default function OverheadPage() {
   const [mtdRevenue, setMtdRevenue] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<OverheadItem | null>(null);
+  const [taxRate, setTaxRate] = useState(0);
 
   useEffect(() => {
     if (!tenantId) return;
     let alive = true;
 
     (async () => {
-      const [itemsRes, revRes] = await Promise.all([
+      const [itemsRes, revRes, tenantRes] = await Promise.all([
         supabase.from("overhead_items").select("*").eq("tenant_id", tenantId).order("created_at"),
         (async () => {
           const now = new Date();
@@ -334,12 +415,16 @@ export default function OverheadPage() {
             .eq("kind", "revenue")
             .gte("date", monthStart);
         })(),
+        supabase.from("chiefos_tenants").select("tax_code, province").eq("id", tenantId).single(),
       ]);
 
       if (!alive) return;
       setItems((itemsRes.data as OverheadItem[]) || []);
       const rev = ((revRes.data as any[]) || []).reduce((s, r) => s + Number(r.amount_cents || 0), 0);
       setMtdRevenue(rev);
+      if (tenantRes.data) {
+        setTaxRate(taxRateFromCode(tenantRes.data.tax_code, tenantRes.data.province));
+      }
       setLoading(false);
     })();
 
@@ -449,6 +534,7 @@ export default function OverheadPage() {
       {showForm && tenantId && (
         <ItemForm
           tenantId={tenantId}
+          taxRate={taxRate}
           onSave={onSaved}
           onCancel={() => setShowForm(false)}
         />
@@ -517,6 +603,7 @@ export default function OverheadPage() {
                           initial={itemToForm(item)}
                           editId={item.id}
                           tenantId={tenantId}
+                          taxRate={taxRate}
                           onSave={onSaved}
                           onCancel={() => setEditItem(null)}
                         />
@@ -543,6 +630,9 @@ export default function OverheadPage() {
                               <div className="text-sm font-semibold text-white/80">{fmtMoney(monthly)}/mo</div>
                               {item.item_type === "amortized" && (
                                 <div className="text-[10px] text-white/35">of {fmtMoney(item.amount_cents)} total</div>
+                              )}
+                              {item.item_type === "recurring" && item.tax_amount_cents != null && item.tax_amount_cents > 0 && (
+                                <div className="text-[10px] text-white/35">incl. {fmtMoney(item.tax_amount_cents)} tax</div>
                               )}
                             </div>
                             <button type="button" onClick={() => { setEditItem(item); setShowForm(false); }}
