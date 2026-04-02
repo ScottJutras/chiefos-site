@@ -9,8 +9,7 @@ const navItems = [
   { href: "/app/jobs",                label: "Jobs" },
   { href: "/app/activity/expenses",   label: "My Books" },
   { href: "/app/overhead",            label: "Overhead" },
-  { href: "/app/pending-review",      label: "Review" },
-  { href: "/app/uploads",             label: "Log / Upload" },
+  { href: "/app/uploads",             label: "Log & Review" },
   { href: "/app/documents",           label: "Documents" },
   { href: "/app/dashboard",           label: "Dashboard" },
   { href: "/app/settings",            label: "Settings" },
@@ -112,7 +111,8 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
-          const showBadge = (item.href === "/app/pending-review" && pendingCount > 0)
+          const combinedBadge = pendingCount + overdueOverheadCount;
+          const showBadge = (item.href === "/app/uploads" && combinedBadge > 0)
                         || (item.href === "/app/overhead" && overdueOverheadCount > 0);
           return (
             <Link
@@ -130,7 +130,7 @@ export default function Sidebar() {
                 <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white leading-none">
                   {item.href === "/app/overhead"
                     ? (overdueOverheadCount > 99 ? "99+" : overdueOverheadCount)
-                    : (pendingCount > 99 ? "99+" : pendingCount)}
+                    : (combinedBadge > 99 ? "99+" : combinedBadge)}
                 </span>
               )}
             </Link>

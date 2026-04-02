@@ -32,12 +32,13 @@ function MobileTabLink({
 
 export default function MobileNav() {
   const pathname = usePathname();
-  const [pendingCount, setPendingCount] = useState(0);
+  const [combinedBadge, setCombinedBadge] = useState(0);
+  const [overdueOverheadCount, setOverdueOverheadCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
 
-    async function fetchPending() {
+    async function fetchCounts() {
       try {
         const { data: u } = await supabase.auth.getUser();
         const userId = u?.user?.id;
@@ -52,19 +53,45 @@ export default function MobileNav() {
         const tenantId = (pu as any)?.tenant_id as string | null;
         if (!tenantId) return;
 
-        const { count } = await supabase
-          .from("intake_items")
-          .select("*", { count: "exact", head: true })
-          .eq("tenant_id", tenantId)
-          .in("status", ["pending_review", "uploaded", "validated", "extracted"]);
+        const now          = new Date();
+        const todayDay     = now.getDate();
+        const currentYear  = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
 
-        if (alive) setPendingCount(count ?? 0);
+        const [{ count: intakeCount }, { data: dueItems }, { data: payments }] = await Promise.all([
+          supabase
+            .from("intake_items")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .in("status", ["pending_review", "uploaded", "validated", "extracted"]),
+          supabase
+            .from("overhead_items")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("active", true)
+            .eq("item_type", "recurring")
+            .lte("due_day", todayDay),
+          supabase
+            .from("overhead_payments")
+            .select("item_id")
+            .eq("tenant_id", tenantId)
+            .eq("period_year", currentYear)
+            .eq("period_month", currentMonth),
+        ]);
+
+        const paidIds = new Set((payments || []).map((p: any) => p.item_id));
+        const overdue = (dueItems || []).filter((i: any) => !paidIds.has(i.id)).length;
+
+        if (alive) {
+          setCombinedBadge((intakeCount ?? 0) + overdue);
+          setOverdueOverheadCount(overdue);
+        }
       } catch {
         // fail-soft
       }
     }
 
-    void fetchPending();
+    void fetchCounts();
     return () => { alive = false; };
   }, [pathname]);
 
@@ -73,9 +100,9 @@ export default function MobileNav() {
       <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
         <MobileTabLink href="/app/jobs"              label="Jobs" />
         <MobileTabLink href="/app/activity/expenses" label="My Books" />
-        <MobileTabLink href="/app/pending-review"    label="Review" badge={pendingCount} />
-        <MobileTabLink href="/app/uploads"           label="Log" />
-        <MobileTabLink href="/app/overhead"          label="Overhead" />
+        <MobileTabLink href="/app/uploads"           label="Log & Review" badge={combinedBadge} />
+        <MobileTabLink href="/app/overhead"          label="Overhead" badge={overdueOverheadCount} />
+        <MobileTabLink href="/app/dashboard"         label="Dashboard" />
       </div>
     </nav>
   );
