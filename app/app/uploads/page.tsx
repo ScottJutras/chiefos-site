@@ -90,12 +90,14 @@ type ReceiptItemForm = {
   description: string; job_name: string; job_id: number; draft_type: string;
 };
 
-function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
+function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () => void; onSaveLater: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [phase, setPhase] = useState<"idle" | "uploading" | "processing" | "fetching" | "review" | "confirming" | "confirmed" | "error">("idle");
   const [items, setItems] = useState<IntakeItem[]>([]);
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [forceIds, setForceIds] = useState<Set<string>>(new Set());
   const [forms, setForms] = useState<Record<string, ReceiptItemForm>>({});
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [err, setErr] = useState<string | null>(null);
   const busy = ["uploading", "processing", "fetching", "confirming"].includes(phase);
 
@@ -138,9 +140,14 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
           draft_type: item.draft_type || "expense",
         };
       }
+      // Capture local image previews before clearing file list
+      const newPreviews: Record<string, string> = {};
+      files.forEach((f) => { if (f.type.startsWith("image/")) newPreviews[f.name] = URL.createObjectURL(f); });
+      setPreviews(newPreviews);
       setItems(fetchedItems);
       setForms(initialForms);
       setConfirmedIds(new Set());
+      setForceIds(new Set());
       setFiles([]);
       setPhase("review");
     } catch (e: any) {
@@ -153,7 +160,7 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
     setForms((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [key]: value } }));
   }
 
-  async function confirmItem(item: IntakeItem) {
+  async function confirmItem(item: IntakeItem, force = false) {
     const f = forms[item.id];
     if (!f) return;
     const amountCents = Math.round(parseFloat(f.amount || "0") * 100);
@@ -172,10 +179,14 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
           description: f.description || null,
           jobName: f.job_name || null,
           jobId: f.job_id || null,
+          force,
         }),
       });
       const j = await r.json();
-      if (!j.ok) throw new Error(j.error || "Confirm failed.");
+      if (!j.ok) {
+        if (j.code === "BLOCKING_FLAGS") setForceIds((prev) => new Set([...prev, item.id]));
+        throw new Error(j.error || "Confirm failed.");
+      }
       const newConfirmed = new Set([...confirmedIds, item.id]);
       setConfirmedIds(newConfirmed);
       const allDone = items.every((i) => newConfirmed.has(i.id));
@@ -186,12 +197,19 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
     }
   }
 
+  function reset() {
+    // Revoke any object URLs to avoid memory leaks
+    Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+    setPhase("idle"); setItems([]); setForms({});
+    setConfirmedIds(new Set()); setForceIds(new Set()); setPreviews({});
+  }
+
   if (phase === "confirmed") {
     return (
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
         <div className="font-semibold text-emerald-300">All receipts logged ✓</div>
         <div className="mt-3">
-          <button type="button" onClick={() => { setPhase("idle"); setItems([]); setForms({}); setConfirmedIds(new Set()); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Upload more</button>
+          <button type="button" onClick={reset} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Upload more</button>
         </div>
       </div>
     );
@@ -204,7 +222,10 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
         {items.map((item) => {
           const f = forms[item.id] || {} as ReceiptItemForm;
           const isConfirmed = confirmedIds.has(item.id);
+          const canForce = forceIds.has(item.id);
           const flags = Array.isArray(item.draft_validation_flags) ? item.draft_validation_flags.filter(Boolean) : [];
+          const previewUrl = previews[item.source_filename || ""] || null;
+          const noDataExtracted = !f.vendor && !f.amount && !f.date;
           return (
             <div key={item.id} className={["rounded-2xl border p-4 space-y-3 transition", isConfirmed ? "border-emerald-500/20 bg-emerald-500/5 opacity-60" : "border-white/10 bg-black/30"].join(" ")}>
               <div className="flex items-center justify-between gap-2">
@@ -214,6 +235,19 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
                 </div>
                 {isConfirmed && <span className="shrink-0 text-xs font-semibold text-emerald-400">Logged ✓</span>}
               </div>
+
+              {/* Image preview */}
+              {!isConfirmed && previewUrl && (
+                <img src={previewUrl} alt="Receipt preview" className="w-full max-h-72 rounded-xl border border-white/10 bg-black/30 object-contain" />
+              )}
+
+              {/* OCR notice when nothing was extracted */}
+              {!isConfirmed && noDataExtracted && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/50">
+                  Chief couldn't extract data automatically — fill in the details below.
+                </div>
+              )}
+
               {!isConfirmed && (
                 <>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -221,9 +255,9 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
                     <div><label className={lbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={inp} value={f.amount} onChange={(e) => updateForm(item.id, "amount", e.target.value)} placeholder="0.00" /></div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div><label className={lbl}>Date</label><input type="date" className={inp} value={f.date} onChange={(e) => updateForm(item.id, "date", e.target.value)} /></div>
+                    <div><label className={lbl}>Date</label><input type="date" className={inp} value={f.date || today()} onChange={(e) => updateForm(item.id, "date", e.target.value)} /></div>
                     <div><label className={lbl}>Type</label>
-                      <select className={inp} value={f.draft_type} onChange={(e) => updateForm(item.id, "draft_type", e.target.value)}>
+                      <select className={inp} value={f.draft_type || "expense"} onChange={(e) => updateForm(item.id, "draft_type", e.target.value)}>
                         <option value="expense">Expense</option>
                         <option value="revenue">Revenue</option>
                       </select>
@@ -233,11 +267,22 @@ function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
                     <JobSelect value={f.job_id ? String(f.job_id) : ""} jobs={jobs} onChange={(name, id) => { updateForm(item.id, "job_name", name); updateForm(item.id, "job_id", id ?? 0); }} />
                   </div>
                   <div><label className={lbl}>Notes (optional)</label><input className={inp} value={f.description} onChange={(e) => updateForm(item.id, "description", e.target.value)} placeholder="Description or notes" /></div>
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={() => confirmItem(item)} disabled={busy} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
-                      {phase === "confirming" ? "Logging…" : "Confirm & Log"}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {canForce ? (
+                      <button type="button" onClick={() => confirmItem(item, true)} disabled={busy}
+                        className="rounded-xl bg-amber-500/20 border border-amber-500/30 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/30 disabled:opacity-40 transition">
+                        {phase === "confirming" ? "Logging…" : "Confirm anyway"}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => confirmItem(item)} disabled={busy}
+                        className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
+                        {phase === "confirming" ? "Logging…" : "Confirm & Log"}
+                      </button>
+                    )}
+                    <button type="button" onClick={onSaveLater} disabled={busy}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">
+                      Save for Later
                     </button>
-                    <button type="button" onClick={onDone} disabled={busy} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">Save for Later</button>
                   </div>
                 </>
               )}
@@ -494,7 +539,7 @@ function ReminderForm({ onDone }: { onDone: () => void }) {
 
 // ─── Review tab content ───────────────────────────────────────────────────────
 
-function ReviewContent({ tenantId }: { tenantId: string }) {
+function ReviewContent({ tenantId, refreshKey }: { tenantId: string; refreshKey: number }) {
   const [loading, setLoading]     = useState(true);
   const [rows, setRows]           = useState<IntakeItem[]>([]);
   const [reminders, setReminders] = useState<OverheadReminder[]>([]);
@@ -577,7 +622,7 @@ function ReviewContent({ tenantId }: { tenantId: string }) {
     finally { setBusyId(null); }
   }
 
-  useEffect(() => { void load(); }, [tenantId]);
+  useEffect(() => { void load(); }, [tenantId, refreshKey]);
 
   // Group by batch
   const grouped = useMemo(() => {
@@ -693,9 +738,11 @@ function LogReviewPageInner() {
   const [activeCard, setActiveCard] = useState<CardType | null>(null);
   const [jobs, setJobs]         = useState<Job[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [reviewKey, setReviewKey] = useState(0);
 
   function switchTab(t: Tab) {
     setTab(t);
+    if (t === "review") setReviewKey((k) => k + 1);
     router.replace(`/app/uploads?tab=${t}`, { scroll: false });
   }
 
@@ -720,6 +767,11 @@ function LogReviewPageInner() {
   function onLogDone() {
     switchTab("review");
     setActiveCard(null);
+  }
+
+  // For "Save for Later" on receipt — switch to review but keep the receipt card open
+  function onSaveLater() {
+    switchTab("review");
   }
 
   if (gate.loading) return <div className="p-8 text-sm text-white/60">Loading…</div>;
@@ -752,55 +804,53 @@ function LogReviewPageInner() {
           ))}
         </div>
 
-        {/* Log tab */}
-        {tab === "log" && (
-          <div className="space-y-5">
-            {/* Action cards */}
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-              {CARDS.map((card) => (
-                <button key={card.type} type="button" onClick={() => selectCard(card.type)}
-                  className={["rounded-2xl border p-4 flex flex-col items-center gap-2 transition text-center",
-                    activeCard === card.type
-                      ? "border-white/40 bg-white/10 text-white"
-                      : `${card.color} bg-white/[0.03] text-white/65 hover:text-white hover:bg-white/[0.06]`,
-                  ].join(" ")}>
-                  <span className="text-2xl">{card.icon}</span>
-                  <span className="text-[11px] font-medium leading-tight">{card.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Active form */}
-            {activeCard && (
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-white/85">
-                    {CARDS.find((c) => c.type === activeCard)?.icon}{" "}
-                    {CARDS.find((c) => c.type === activeCard)?.label}
-                  </div>
-                  <button type="button" onClick={() => setActiveCard(null)} className="text-white/30 hover:text-white/60 transition text-sm px-1">✕</button>
-                </div>
-                {activeCard === "receipt"  && <ReceiptForm  jobs={jobs} onDone={onLogDone} />}
-                {activeCard === "expense"  && <ExpenseForm  jobs={jobs} onDone={onLogDone} />}
-                {activeCard === "revenue"  && <RevenueForm  jobs={jobs} onDone={onLogDone} />}
-                {activeCard === "hours"    && <HoursForm    jobs={jobs} onDone={onLogDone} />}
-                {activeCard === "task"     && <TaskForm     jobs={jobs} onDone={onLogDone} />}
-                {activeCard === "reminder" && <ReminderForm             onDone={onLogDone} />}
-              </div>
-            )}
-
-            {!activeCard && (
-              <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/35">
-                Select what you want to log above.
-              </div>
-            )}
+        {/* Log tab — always rendered, hidden via CSS when not active so form state persists */}
+        <div className={tab === "log" ? "space-y-5" : "hidden"}>
+          {/* Action cards */}
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            {CARDS.map((card) => (
+              <button key={card.type} type="button" onClick={() => selectCard(card.type)}
+                className={["rounded-2xl border p-4 flex flex-col items-center gap-2 transition text-center",
+                  activeCard === card.type
+                    ? "border-white/40 bg-white/10 text-white"
+                    : `${card.color} bg-white/[0.03] text-white/65 hover:text-white hover:bg-white/[0.06]`,
+                ].join(" ")}>
+                <span className="text-2xl">{card.icon}</span>
+                <span className="text-[11px] font-medium leading-tight">{card.label}</span>
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* Review tab */}
-        {tab === "review" && gate.tenantId && (
-          <ReviewContent tenantId={gate.tenantId} />
-        )}
+          {/* Active form */}
+          {activeCard && (
+            <div className="rounded-[24px] border border-white/10 bg-black/40 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-white/85">
+                  {CARDS.find((c) => c.type === activeCard)?.icon}{" "}
+                  {CARDS.find((c) => c.type === activeCard)?.label}
+                </div>
+                <button type="button" onClick={() => setActiveCard(null)} className="text-white/30 hover:text-white/60 transition text-sm px-1">✕</button>
+              </div>
+              {activeCard === "receipt"  && <ReceiptForm  jobs={jobs} onDone={onLogDone} onSaveLater={onSaveLater} />}
+              {activeCard === "expense"  && <ExpenseForm  jobs={jobs} onDone={onLogDone} />}
+              {activeCard === "revenue"  && <RevenueForm  jobs={jobs} onDone={onLogDone} />}
+              {activeCard === "hours"    && <HoursForm    jobs={jobs} onDone={onLogDone} />}
+              {activeCard === "task"     && <TaskForm     jobs={jobs} onDone={onLogDone} />}
+              {activeCard === "reminder" && <ReminderForm             onDone={onLogDone} />}
+            </div>
+          )}
+
+          {!activeCard && (
+            <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/35">
+              Select what you want to log above.
+            </div>
+          )}
+        </div>
+
+        {/* Review tab — always rendered, hidden via CSS when not active so it doesn't reload on switch */}
+        <div className={tab === "review" ? "" : "hidden"}>
+          {gate.tenantId && <ReviewContent tenantId={gate.tenantId} refreshKey={reviewKey} />}
+        </div>
       </div>
     </main>
   );

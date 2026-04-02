@@ -188,10 +188,13 @@ export async function POST(
     }
 
     const existingFlags = normalizeFlags(existingDraft?.validation_flags);
-    if (hasBlockingFlags(existingFlags)) {
+    const force = body?.force === true;
+    if (!force && hasBlockingFlags(existingFlags)) {
       return json(409, {
         ok: false,
-        error: "This item has blocking review flags and cannot be confirmed until resolved.",
+        error: "This item may be a duplicate. Review your existing records, then confirm anyway if it's new.",
+        code: "BLOCKING_FLAGS",
+        flags: existingFlags,
       });
     }
 
