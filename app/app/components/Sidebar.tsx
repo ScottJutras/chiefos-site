@@ -9,7 +9,7 @@ const navItems = [
   { href: "/app/jobs",                label: "Jobs" },
   { href: "/app/activity/expenses",   label: "My Books" },
   { href: "/app/overhead",            label: "Overhead" },
-  { href: "/app/uploads",             label: "Log & Review" },
+  { href: "/app/uploads",             label: "Inbox" },
   { href: "/app/documents",           label: "Documents" },
   { href: "/app/dashboard",           label: "Dashboard" },
   { href: "/app/settings",            label: "Settings" },

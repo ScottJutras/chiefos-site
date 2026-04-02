@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
@@ -75,7 +75,7 @@ type JobDocumentFile = {
   created_at: string;
 };
 
-type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos";
+type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos" | "log";
 
 type TxRow = {
   id: number;
@@ -1341,9 +1341,693 @@ function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Pa
   );
 }
 
+// ─── Job Log Tab ──────────────────────────────────────────────────────────────
+
+const logInp = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/30";
+const logLbl = "mb-1 block text-[11px] text-white/50";
+const logToday = () => new Date().toISOString().slice(0, 10);
+
+type LogCardType = "receipt" | "expense" | "revenue" | "hours" | "task" | "reminder";
+type LogLineItem = { description: string; sku: string | null; quantity: number | null; unitPrice: string | null; amount: string };
+type LogLineItemForm = { description: string; amountCents: string };
+type LogReceiptItemForm = { vendor: string; amount: string; date: string; description: string; draft_type: string; subtotalCents: string; taxCents: string; taxLabel: string };
+type LogIntakeItem = { id: string; batch_id: string; kind: string; status: string; source_filename: string | null; draft_type: string | null; confidence_score: number | null; created_at: string; draft_amount_cents?: number | null; draft_currency?: string | null; draft_vendor?: string | null; draft_description?: string | null; draft_event_date?: string | null; draft_job_name?: string | null; draft_validation_flags?: string[]; fast_confirm_ready?: boolean; draft_subtotal_cents?: number | null; draft_tax_cents?: number | null; draft_tax_label?: string | null; draft_line_items?: LogLineItem[] | null };
+
+const LOG_CARDS: { type: LogCardType; label: string; icon: string }[] = [
+  { type: "receipt",  label: "Receipt / File", icon: "📷" },
+  { type: "expense",  label: "Expense",        icon: "💸" },
+  { type: "revenue",  label: "Revenue",        icon: "💰" },
+  { type: "hours",    label: "Labour Hours",   icon: "⏱" },
+  { type: "task",     label: "Task",           icon: "✅" },
+  { type: "reminder", label: "Reminder",       icon: "🔔" },
+];
+
+function LogZoomableImage({ src }: { src: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const drag = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const lastPinch = useRef<number | null>(null);
+
+  const clampOffset = useCallback((x: number, y: number, s: number) => {
+    const el = containerRef.current;
+    if (!el) return { x, y };
+    const maxX = (el.clientWidth * (s - 1)) / 2;
+    const maxY = (el.clientHeight * (s - 1)) / 2;
+    return { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
+  }, []);
+
+  const doZoom = useCallback((delta: number) => {
+    setScale((prev) => {
+      const next = Math.max(1, Math.min(5, prev + delta));
+      if (next === prev) return prev;
+      if (next === 1) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); doZoom(e.deltaY < 0 ? 0.3 : -0.3); };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [doZoom]);
+
+  const onMouseDown = (e: React.MouseEvent) => { if (scale <= 1) return; drag.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y }; };
+  const onMouseMove = (e: React.MouseEvent) => { if (!drag.current) return; setOffset(clampOffset(drag.current.ox + (e.clientX - drag.current.startX), drag.current.oy + (e.clientY - drag.current.startY), scale)); };
+  const onMouseUp = () => { drag.current = null; };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; lastPinch.current = Math.sqrt(dx * dx + dy * dy); }
+    else if (e.touches.length === 1 && scale > 1) { drag.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, ox: offset.x, oy: offset.y }; }
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (e.touches.length === 2 && lastPinch.current !== null) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const dist = Math.sqrt(dx * dx + dy * dy); doZoom((dist - lastPinch.current) * 0.02); lastPinch.current = dist; }
+    else if (e.touches.length === 1 && drag.current) { setOffset(clampOffset(drag.current.ox + (e.touches[0].clientX - drag.current.startX), drag.current.oy + (e.touches[0].clientY - drag.current.startY), scale)); }
+  };
+  const onTouchEnd = () => { drag.current = null; lastPinch.current = null; };
+
+  return (
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black/30" style={{ height: "288px", cursor: scale > 1 ? "grab" : "zoom-in", touchAction: "none" }}
+      onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+      onDoubleClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="Receipt preview" draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", transform: `scale(${scale}) translate(${offset.x / scale}px, ${offset.y / scale}px)`, transformOrigin: "center center", transition: drag.current ? "none" : "transform 0.1s ease", userSelect: "none" }} />
+      <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white/60 pointer-events-none">
+        {scale > 1 ? `${Math.round(scale * 100)}% · double-tap to reset` : "scroll or pinch to zoom"}
+      </div>
+    </div>
+  );
+}
+
+function JobReceiptForm({ job, onDone, onCancel }: { job: JobRow; onDone: () => void; onCancel: () => void }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "processing" | "fetching" | "review" | "confirming" | "confirmed" | "error">("idle");
+  const [items, setItems] = useState<LogIntakeItem[]>([]);
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [forceIds, setForceIds] = useState<Set<string>>(new Set());
+  const [forms, setForms] = useState<Record<string, LogReceiptItemForm>>({});
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [splitModes, setSplitModes] = useState<Record<string, boolean>>({});
+  const [lineItemForms, setLineItemForms] = useState<Record<string, LogLineItemForm[]>>({});
+  const [err, setErr] = useState<string | null>(null);
+  const busy = ["uploading", "processing", "fetching", "confirming"].includes(phase);
+
+  async function authToken() {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || "";
+  }
+
+  async function upload() {
+    try {
+      setPhase("uploading"); setErr(null);
+      const token = await authToken();
+      if (!token || !files.length) throw new Error("No files selected.");
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      const upRes = await fetch("/api/intake/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const upJson = await upRes.json().catch(() => ({}));
+      if (!upRes.ok || !upJson?.ok) throw new Error(upJson?.error || "Upload failed.");
+
+      setPhase("processing");
+      const prRes = await fetch("/api/intake/process", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ batchId: upJson.batchId }) });
+      const prJson = await prRes.json().catch(() => ({}));
+      if (!prRes.ok || !prJson?.ok) throw new Error(prJson?.error || "Processing failed.");
+
+      setPhase("fetching");
+      const iRes = await fetch(`/api/intake/items?batchId=${encodeURIComponent(upJson.batchId)}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const iJson = await iRes.json().catch(() => ({}));
+      const fetchedItems: LogIntakeItem[] = Array.isArray(iJson.rows) ? iJson.rows : [];
+
+      const jobName = job.job_name || job.name || "";
+      const initialForms: Record<string, LogReceiptItemForm> = {};
+      for (const item of fetchedItems) {
+        initialForms[item.id] = {
+          vendor: item.draft_vendor || "",
+          amount: item.draft_amount_cents != null ? (item.draft_amount_cents / 100).toFixed(2) : "",
+          date: item.draft_event_date || logToday(),
+          description: item.draft_description || "",
+          draft_type: item.draft_type || "expense",
+          subtotalCents: item.draft_subtotal_cents != null ? (item.draft_subtotal_cents / 100).toFixed(2) : "",
+          taxCents: item.draft_tax_cents != null ? (item.draft_tax_cents / 100).toFixed(2) : "",
+          taxLabel: item.draft_tax_label || "",
+        };
+      }
+      const newPreviews: Record<string, string> = {};
+      files.forEach((f) => { if (f.type.startsWith("image/")) newPreviews[f.name] = URL.createObjectURL(f); });
+      setPreviews(newPreviews);
+      setItems(fetchedItems);
+      setForms(initialForms);
+      setConfirmedIds(new Set());
+      setForceIds(new Set());
+      setFiles([]);
+
+      const initialLineItemForms: Record<string, LogLineItemForm[]> = {};
+      for (const item of fetchedItems) {
+        const rawLines: LogLineItem[] = Array.isArray(item.draft_line_items) ? item.draft_line_items : [];
+        if (rawLines.length > 0) {
+          initialLineItemForms[item.id] = rawLines.map((li) => ({ description: li.description || "", amountCents: li.amount ? parseFloat(li.amount).toFixed(2) : "" }));
+        }
+      }
+      setLineItemForms(initialLineItemForms);
+      setSplitModes({});
+      setPhase("review");
+    } catch (e: any) {
+      setErr(e?.message || "Upload failed.");
+      setPhase("error");
+    }
+  }
+
+  function updateForm(itemId: string, key: keyof LogReceiptItemForm, value: string) {
+    setForms((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [key]: value } }));
+  }
+
+  async function confirmItem(item: LogIntakeItem, force = false) {
+    const f = forms[item.id];
+    if (!f) return;
+    const jobName = job.job_name || job.name || "";
+    const jobId = job.id;
+    const isSplit = splitModes[item.id] && (lineItemForms[item.id]?.length ?? 0) > 0;
+
+    if (isSplit) {
+      const liRows = lineItemForms[item.id] || [];
+      const hasAmounts = liRows.every((li) => parseFloat(li.amountCents || "0") > 0);
+      if (!hasAmounts) { setErr("Each line item needs a valid amount."); return; }
+      setPhase("confirming"); setErr(null);
+      try {
+        const token = await authToken();
+        const r = await fetch(`/api/intake/items/${item.id}/confirm`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ draftType: "expense", vendor: f.vendor || null, eventDate: f.date || null, currency: "CAD", force,
+            lineItems: liRows.map((li) => ({ description: li.description, amountCents: Math.round(parseFloat(li.amountCents || "0") * 100), jobName, jobId })) }),
+        });
+        const j = await r.json();
+        if (!j.ok) { if (j.code === "BLOCKING_FLAGS") setForceIds((prev) => new Set([...prev, item.id])); throw new Error(j.error || "Confirm failed."); }
+        const newConfirmed = new Set([...confirmedIds, item.id]);
+        setConfirmedIds(newConfirmed);
+        if (items.every((i) => newConfirmed.has(i.id))) { setPhase("confirmed"); } else { setPhase("review"); }
+      } catch (e: any) { setErr(e?.message || "Confirm failed."); setPhase("review"); }
+      return;
+    }
+
+    const amountCents = Math.round(parseFloat(f.amount || "0") * 100);
+    if (!amountCents || amountCents <= 0) { setErr("Enter a valid amount."); return; }
+    setPhase("confirming"); setErr(null);
+    try {
+      const token = await authToken();
+      const r = await fetch(`/api/intake/items/${item.id}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ draftType: f.draft_type || "expense", amountCents, vendor: f.vendor || null, eventDate: f.date || null, description: f.description || null, jobName, jobId, taxAmountCents: f.taxCents ? Math.round(parseFloat(f.taxCents) * 100) : null, subtotalAmountCents: f.subtotalCents ? Math.round(parseFloat(f.subtotalCents) * 100) : null, taxLabel: f.taxLabel || null, force }),
+      });
+      const j = await r.json();
+      if (!j.ok) { if (j.code === "BLOCKING_FLAGS") setForceIds((prev) => new Set([...prev, item.id])); throw new Error(j.error || "Confirm failed."); }
+      const newConfirmed = new Set([...confirmedIds, item.id]);
+      setConfirmedIds(newConfirmed);
+      if (items.every((i) => newConfirmed.has(i.id))) { setPhase("confirmed"); } else { setPhase("review"); }
+    } catch (e: any) { setErr(e?.message || "Confirm failed."); setPhase("review"); }
+  }
+
+  function reset() {
+    Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
+    setPhase("idle"); setItems([]); setForms({});
+    setConfirmedIds(new Set()); setForceIds(new Set()); setPreviews({});
+    setLineItemForms({}); setSplitModes({});
+  }
+
+  if (phase === "confirmed") {
+    return (
+      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+        <div className="font-semibold text-emerald-300">All receipts logged ✓</div>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={reset} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Upload more</button>
+          <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View Expenses →</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "review" || (phase === "confirming" && items.length > 0)) {
+    return (
+      <div className="space-y-4">
+        {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+        {items.map((item) => {
+          const f = forms[item.id] || {} as LogReceiptItemForm;
+          const isConfirmed = confirmedIds.has(item.id);
+          const canForce = forceIds.has(item.id);
+          const flags = Array.isArray(item.draft_validation_flags) ? item.draft_validation_flags.filter(Boolean) : [];
+          const previewUrl = previews[item.source_filename || ""] || null;
+          const noDataExtracted = !f.vendor && !f.amount && !f.date;
+          return (
+            <div key={item.id} className={["rounded-2xl border p-4 space-y-3 transition", isConfirmed ? "border-emerald-500/20 bg-emerald-500/5 opacity-60" : "border-white/10 bg-black/30"].join(" ")}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs text-white/50 truncate">{item.source_filename || "Receipt"}</div>
+                  {flags.length > 0 && <div className="mt-0.5 text-[10px] text-amber-300">{flags.join(" · ")}</div>}
+                </div>
+                {isConfirmed && <span className="shrink-0 text-xs font-semibold text-emerald-400">Logged ✓</span>}
+              </div>
+
+              {!isConfirmed && previewUrl && <LogZoomableImage src={previewUrl} />}
+
+              {!isConfirmed && noDataExtracted && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/50">
+                  Chief couldn't extract data automatically — fill in the details below.
+                </div>
+              )}
+
+              {!isConfirmed && (
+                <>
+                  {(f.subtotalCents || f.taxCents) && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2 text-xs text-white/60">
+                      {f.subtotalCents && <span>Subtotal <span className="text-white/80">${f.subtotalCents}</span></span>}
+                      {f.subtotalCents && f.taxCents && <span className="text-white/30">+</span>}
+                      {f.taxCents && <span>{f.taxLabel || "Tax"} <span className="text-white/80">${f.taxCents}</span></span>}
+                      {(f.subtotalCents || f.taxCents) && <span className="text-white/30">=</span>}
+                      <span>Total <span className="text-white font-medium">${f.amount}</span></span>
+                    </div>
+                  )}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div><label className={logLbl}>Vendor / Payee</label><input className={logInp} value={f.vendor} onChange={(e) => updateForm(item.id, "vendor", e.target.value)} placeholder="e.g. Home Depot" /></div>
+                    <div><label className={logLbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={logInp} value={f.amount} onChange={(e) => updateForm(item.id, "amount", e.target.value)} placeholder="0.00" /></div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div><label className={logLbl}>Date</label><input type="date" className={logInp} value={f.date || logToday()} onChange={(e) => updateForm(item.id, "date", e.target.value)} /></div>
+                    <div><label className={logLbl}>Type</label>
+                      <select className={logInp} value={f.draft_type || "expense"} onChange={(e) => updateForm(item.id, "draft_type", e.target.value)}>
+                        <option value="expense">Expense</option>
+                        <option value="revenue">Revenue</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {(f.taxCents || f.subtotalCents) && (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div><label className={logLbl}>Subtotal ($)</label><input type="number" min="0" step="0.01" className={logInp} value={f.subtotalCents} onChange={(e) => updateForm(item.id, "subtotalCents", e.target.value)} placeholder="0.00" /></div>
+                      <div><label className={logLbl}>Tax ($)</label><input type="number" min="0" step="0.01" className={logInp} value={f.taxCents} onChange={(e) => updateForm(item.id, "taxCents", e.target.value)} placeholder="0.00" /></div>
+                      <div><label className={logLbl}>Tax Label</label><input className={logInp} value={f.taxLabel} onChange={(e) => updateForm(item.id, "taxLabel", e.target.value)} placeholder="GST/HST" /></div>
+                    </div>
+                  )}
+
+                  {(lineItemForms[item.id]?.length ?? 0) > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-white/70">{lineItemForms[item.id].length} line items detected</span>
+                        <button type="button" onClick={() => setSplitModes((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                          className={["rounded-lg border px-3 py-1 text-xs font-medium transition", splitModes[item.id] ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"].join(" ")}>
+                          {splitModes[item.id] ? "Splitting by line ✓" : "Log as one expense"}
+                        </button>
+                      </div>
+                      {splitModes[item.id] ? (
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-white/40">Each line item logs as a separate expense under this job.</p>
+                          {lineItemForms[item.id].map((li, idx) => (
+                            <div key={idx} className="rounded-xl border border-white/8 bg-black/20 p-3 space-y-2">
+                              <div className="grid gap-2 sm:grid-cols-3">
+                                <div className="sm:col-span-2">
+                                  <label className={logLbl}>Description</label>
+                                  <input className={logInp} value={li.description} onChange={(e) => setLineItemForms((prev) => { const rows = [...(prev[item.id] || [])]; rows[idx] = { ...rows[idx], description: e.target.value }; return { ...prev, [item.id]: rows }; })} />
+                                </div>
+                                <div>
+                                  <label className={logLbl}>Amount ($)</label>
+                                  <input type="number" min="0.01" step="0.01" className={logInp} value={li.amountCents} onChange={(e) => setLineItemForms((prev) => { const rows = [...(prev[item.id] || [])]; rows[idx] = { ...rows[idx], amountCents: e.target.value }; return { ...prev, [item.id]: rows }; })} />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-white/5">
+                          {lineItemForms[item.id].map((li, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-1.5 text-xs">
+                              <span className="text-white/70 truncate pr-2">{li.description || "Item"}</span>
+                              <span className="shrink-0 text-white/50">${li.amountCents || "—"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div><label className={logLbl}>Notes (optional)</label><input className={logInp} value={f.description} onChange={(e) => updateForm(item.id, "description", e.target.value)} placeholder="Description or notes" /></div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {canForce ? (
+                      <button type="button" onClick={() => confirmItem(item, true)} disabled={busy}
+                        className="rounded-xl bg-amber-500/20 border border-amber-500/30 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/30 disabled:opacity-40 transition">
+                        {phase === "confirming" ? "Logging…" : "Confirm anyway"}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => confirmItem(item)} disabled={busy}
+                        className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
+                        {phase === "confirming" ? "Logging…" : splitModes[item.id] ? `Log ${lineItemForms[item.id]?.length ?? 0} items` : "Confirm & Log"}
+                      </button>
+                    )}
+                    <button type="button" onClick={reset} disabled={busy}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-5">
+        <input type="file" multiple accept="image/*,audio/*,.pdf" disabled={busy}
+          onChange={(e) => setFiles(Array.from(e.target.files || []))}
+          className="block w-full text-sm text-white/80 file:mr-4 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-black hover:file:bg-white/90 disabled:opacity-50"
+        />
+        <div className="mt-2 text-xs text-white/35">Images, audio, PDFs — Chief extracts the data for you to confirm.</div>
+      </div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      {phase === "processing" && <div className="text-xs text-white/50">Extracting data from your receipt…</div>}
+      {phase === "fetching" && <div className="text-xs text-white/50">Loading extracted data…</div>}
+      <div className="flex gap-2">
+        <button type="button" onClick={upload} disabled={busy || !files.length}
+          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
+          {phase === "uploading" ? "Uploading…" : phase === "processing" ? "Processing…" : phase === "fetching" ? "Loading…" : `Upload ${files.length ? `${files.length} file(s)` : ""}`}
+        </button>
+        <button type="button" onClick={onCancel} disabled={busy}
+          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function JobLogTab({ job, onDone }: { job: JobRow; onDone: (tab: Tab) => void }) {
+  const [activeCard, setActiveCard] = useState<LogCardType | null>(null);
+
+  function selectCard(type: LogCardType) {
+    setActiveCard(activeCard === type ? null : type);
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Job badge */}
+      <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3">
+        <span className="text-xs text-white/40">Logging to job:</span>
+        <span className="text-sm font-semibold text-white/85">{job.job_name || job.name || `Job #${job.job_no}`}</span>
+      </div>
+
+      {/* Card grid */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {LOG_CARDS.map((card) => (
+          <button key={card.type} type="button" onClick={() => selectCard(card.type)}
+            className={["rounded-2xl border p-4 flex flex-col items-center gap-2 transition text-center",
+              activeCard === card.type
+                ? "border-white/40 bg-white/10 text-white"
+                : "border-white/15 hover:border-white/30 bg-white/[0.03] text-white/65 hover:text-white hover:bg-white/[0.06]",
+            ].join(" ")}>
+            <span className="text-2xl">{card.icon}</span>
+            <span className="text-[11px] font-medium leading-tight">{card.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Active form */}
+      {activeCard && (
+        <div className="rounded-[24px] border border-white/10 bg-black/40 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-white/85">
+              {LOG_CARDS.find((c) => c.type === activeCard)?.icon}{" "}
+              {LOG_CARDS.find((c) => c.type === activeCard)?.label}
+            </div>
+            <button type="button" onClick={() => setActiveCard(null)} className="text-white/30 hover:text-white/60 transition text-sm px-1">✕</button>
+          </div>
+
+          {activeCard === "receipt" && (
+            <JobReceiptForm job={job} onDone={() => { setActiveCard(null); onDone("expenses"); }} onCancel={() => setActiveCard(null)} />
+          )}
+
+          {activeCard === "expense" && (
+            <JobExpenseForm job={job} onDone={() => { setActiveCard(null); onDone("expenses"); }} />
+          )}
+
+          {activeCard === "revenue" && (
+            <JobRevenueForm job={job} onDone={() => { setActiveCard(null); onDone("revenue"); }} />
+          )}
+
+          {activeCard === "hours" && (
+            <JobHoursForm job={job} onDone={() => { setActiveCard(null); onDone("timeclock"); }} />
+          )}
+
+          {activeCard === "task" && (
+            <JobTaskForm job={job} onDone={() => { setActiveCard(null); onDone("tasks"); }} />
+          )}
+
+          {activeCard === "reminder" && (
+            <JobReminderForm onDone={() => { setActiveCard(null); onDone("reminders"); }} />
+          )}
+        </div>
+      )}
+
+      {!activeCard && (
+        <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.02] p-8 text-center text-sm text-white/35">
+          Select what you want to log above.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JobExpenseForm({ job, onDone }: { job: JobRow; onDone: () => void }) {
+  const jobName = job.job_name || job.name || "";
+  const [f, setF] = useState({ payee: "", amount: "", date: logToday(), category: "", description: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    setSaving(true); setErr(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      const r = await fetch("/api/log", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "expense", ...f, job_name: jobName, job_id: job.id, job_no: job.job_no }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setDone(true);
+    } catch (e: any) { setErr(e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (done) return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+      <div className="font-semibold text-emerald-300">Expense logged ✓</div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => { setDone(false); setF({ payee: "", amount: "", date: logToday(), category: "", description: "" }); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Log another</button>
+        <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View Expenses →</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={logLbl}>Payee / Vendor</label><input className={logInp} placeholder="e.g. Home Depot" value={f.payee} onChange={(e) => setF({ ...f, payee: e.target.value })} /></div>
+        <div><label className={logLbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={logInp} placeholder="0.00" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={logLbl}>Date</label><input type="date" className={logInp} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+        <div><label className={logLbl}>Category</label>
+          <select className={logInp} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+            <option value="">— Select —</option>
+            <option value="materials">Materials</option>
+            <option value="subcontract">Subcontract</option>
+            <option value="fuel">Fuel</option>
+            <option value="tools">Tools / Equipment</option>
+            <option value="permits">Permits / Fees</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div><label className={logLbl}>Notes (optional)</label><input className={logInp} placeholder="Description or notes" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      <button type="button" onClick={submit} disabled={saving || !f.amount} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">{saving ? "Saving…" : "Log expense"}</button>
+    </div>
+  );
+}
+
+function JobRevenueForm({ job, onDone }: { job: JobRow; onDone: () => void }) {
+  const jobName = job.job_name || job.name || "";
+  const [f, setF] = useState({ amount: "", date: logToday(), description: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    setSaving(true); setErr(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      const r = await fetch("/api/log", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "revenue", ...f, job_name: jobName, job_id: job.id, job_no: job.job_no }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setDone(true);
+    } catch (e: any) { setErr(e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (done) return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+      <div className="font-semibold text-emerald-300">Revenue logged ✓</div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => { setDone(false); setF({ amount: "", date: logToday(), description: "" }); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Log another</button>
+        <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View Revenue →</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={logLbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={logInp} placeholder="0.00" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
+        <div><label className={logLbl}>Date</label><input type="date" className={logInp} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+      </div>
+      <div><label className={logLbl}>Description (optional)</label><input className={logInp} placeholder="e.g. Deposit received" value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      <button type="button" onClick={submit} disabled={saving || !f.amount} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">{saving ? "Saving…" : "Log revenue"}</button>
+    </div>
+  );
+}
+
+function JobHoursForm({ job, onDone }: { job: JobRow; onDone: () => void }) {
+  const jobName = job.job_name || job.name || "";
+  const [f, setF] = useState({ employee_name: "", hours: "", date: logToday() });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    setSaving(true); setErr(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      const r = await fetch("/api/log", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "hours", ...f, job_name: jobName, job_id: job.id, job_no: job.job_no }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setDone(true);
+    } catch (e: any) { setErr(e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (done) return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+      <div className="font-semibold text-emerald-300">Hours logged ✓</div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => { setDone(false); setF({ employee_name: "", hours: "", date: logToday() }); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Log more</button>
+        <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View Time Clock →</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><label className={logLbl}>Employee name</label><input className={logInp} placeholder="Leave blank for yourself" value={f.employee_name} onChange={(e) => setF({ ...f, employee_name: e.target.value })} /></div>
+        <div><label className={logLbl}>Hours worked *</label><input type="number" min="0.25" step="0.25" className={logInp} placeholder="e.g. 7.5" value={f.hours} onChange={(e) => setF({ ...f, hours: e.target.value })} /></div>
+      </div>
+      <div><label className={logLbl}>Date</label><input type="date" className={logInp} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      <button type="button" onClick={submit} disabled={saving || !f.hours} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">{saving ? "Saving…" : "Log hours"}</button>
+    </div>
+  );
+}
+
+function JobTaskForm({ job, onDone }: { job: JobRow; onDone: () => void }) {
+  const jobName = job.job_name || job.name || "";
+  const [f, setF] = useState({ title: "", notes: "", due_at: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    setSaving(true); setErr(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      const r = await fetch("/api/log", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "task", ...f, job_name: jobName, job_id: job.id, job_no: job.job_no }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setDone(true);
+    } catch (e: any) { setErr(e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (done) return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+      <div className="font-semibold text-emerald-300">Task created ✓</div>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => { setDone(false); setF({ title: "", notes: "", due_at: "" }); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Add another</button>
+        <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View Tasks →</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div><label className={logLbl}>Title *</label><input className={logInp} placeholder="What needs to be done?" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+      <div><label className={logLbl}>Due date (optional)</label><input type="datetime-local" className={logInp} value={f.due_at} onChange={(e) => setF({ ...f, due_at: e.target.value })} /></div>
+      <div><label className={logLbl}>Notes (optional)</label><input className={logInp} placeholder="Additional details" value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      <button type="button" onClick={submit} disabled={saving || !f.title} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">{saving ? "Saving…" : "Create task"}</button>
+    </div>
+  );
+}
+
+function JobReminderForm({ onDone }: { onDone: () => void }) {
+  const [f, setF] = useState({ title: "", remind_at: "" });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    setSaving(true); setErr(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      const r = await fetch("/api/log", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ type: "reminder", ...f }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setDone(true);
+    } catch (e: any) { setErr(e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (done) return (
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
+      <div className="font-semibold text-emerald-300">Reminder set ✓</div>
+      <div className="mt-3">
+        <button type="button" onClick={() => { setDone(false); setF({ title: "", remind_at: "" }); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Set another</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div><label className={logLbl}>What to remind you about *</label><input className={logInp} placeholder="e.g. Follow up with client" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+      <div><label className={logLbl}>When *</label><input type="datetime-local" className={logInp} value={f.remind_at} onChange={(e) => setF({ ...f, remind_at: e.target.value })} /></div>
+      {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+      <button type="button" onClick={submit} disabled={saving || !f.title || !f.remind_at} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">{saving ? "Saving…" : "Set reminder"}</button>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos"];
+const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos", "log"];
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -1416,6 +2100,7 @@ export default function JobDetailPage() {
     { key: "reminders", label: "Reminders" },
     { key: "documents", label: "Documents" },
     { key: "photos", label: "Photos" },
+    { key: "log", label: "Log" },
   ];
 
   return (
@@ -1496,6 +2181,9 @@ export default function JobDetailPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
               <div className="text-sm text-white/50">Photo gallery coming soon. Job-site photos sent via WhatsApp will appear here.</div>
             </div>
+          )}
+          {tab === "log" && job && (
+            <JobLogTab job={job} onDone={setTab} />
           )}
         </div>
       </div>

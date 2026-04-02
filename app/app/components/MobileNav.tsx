@@ -100,7 +100,7 @@ export default function MobileNav() {
       <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
         <MobileTabLink href="/app/jobs"              label="Jobs" />
         <MobileTabLink href="/app/activity/expenses" label="My Books" />
-        <MobileTabLink href="/app/uploads"           label="Log & Review" badge={combinedBadge} />
+        <MobileTabLink href="/app/uploads"           label="Inbox" badge={combinedBadge} />
         <MobileTabLink href="/app/overhead"          label="Overhead" badge={overdueOverheadCount} />
         <MobileTabLink href="/app/dashboard"         label="Dashboard" />
       </div>
