@@ -956,6 +956,7 @@ export async function POST(req: Request) {
           .select("id")
           .eq("tenant_id", tenantId)
           .eq("source_hash", item.source_hash)
+          .in("status", ["confirmed", "persisted"])
           .neq("id", item.id)
           .limit(1)
           .maybeSingle();
