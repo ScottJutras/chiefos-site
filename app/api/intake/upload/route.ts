@@ -284,6 +284,7 @@ export async function POST(req: Request) {
           .select("id")
           .eq("tenant_id", ctx.tenantId)
           .eq("source_hash", sourceHash)
+          .in("status", ["confirmed", "persisted"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
