@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
@@ -567,7 +567,7 @@ function ReviewContent({ tenantId }: { tenantId: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function LogReviewPage() {
+function LogReviewPageInner() {
   const gate         = useTenantGate({ requireWhatsApp: false });
   const searchParams = useSearchParams();
   const router       = useRouter();
@@ -687,5 +687,13 @@ export default function LogReviewPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function LogReviewPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-white/60">Loading…</div>}>
+      <LogReviewPageInner />
+    </Suspense>
   );
 }
