@@ -35,6 +35,18 @@ type IntakeListResponse = {
   };
 };
 
+type OverheadReminder = {
+  id: string;
+  item_id: string;
+  item_name: string;
+  period_year: number;
+  period_month: number;
+  amount_cents: number;
+  tax_amount_cents: number | null;
+  status: string;
+  created_at: string;
+};
+
 function fmtDate(ts?: string | null) {
   if (!ts) return "";
   const d = new Date(ts);
@@ -109,6 +121,8 @@ export default function PendingReviewPage() {
   const [rows, setRows] = useState<IntakeItem[]>([]);
   const [meta, setMeta] = useState<IntakeListResponse["meta"] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<OverheadReminder[]>([]);
+  const [busyReminderId, setBusyReminderId] = useState<string | null>(null);
 
   async function authHeader() {
     const { data } = await supabase.auth.getSession();
@@ -126,27 +140,56 @@ export default function PendingReviewPage() {
       url.searchParams.set("status", "pending_review");
       if (q.trim()) url.searchParams.set("q", q.trim());
 
-      const r = await fetch(url.toString(), {
-        method: "GET",
-        headers,
-        cache: "no-store",
-      });
+      const [intakeRes, remindersRes] = await Promise.all([
+        fetch(url.toString(), { method: "GET", headers, cache: "no-store" }),
+        (async () => {
+          const { supabase: sb } = await import("@/lib/supabase");
+          const { data: u } = await sb.auth.getUser();
+          if (!u?.user) return [];
+          const { data: pu } = await sb.from("chiefos_portal_users").select("tenant_id").eq("user_id", u.user.id).maybeSingle();
+          if (!pu?.tenant_id) return [];
+          const now = new Date();
+          const { data } = await sb.from("overhead_reminders")
+            .select("*")
+            .eq("tenant_id", pu.tenant_id)
+            .eq("status", "pending")
+            .eq("period_year", now.getFullYear())
+            .eq("period_month", now.getMonth() + 1)
+            .order("created_at");
+          return (data || []) as OverheadReminder[];
+        })(),
+      ]);
 
-      const j = (await r.json().catch(() => ({}))) as Partial<IntakeListResponse> & {
-        ok?: boolean;
-        error?: string;
-      };
-
-      if (!r.ok || !j?.ok) throw new Error(j?.error || "Failed to load pending review.");
+      const j = (await intakeRes.json().catch(() => ({}))) as Partial<IntakeListResponse> & { ok?: boolean; error?: string };
+      if (!intakeRes.ok || !j?.ok) throw new Error(j?.error || "Failed to load pending review.");
 
       setRows(Array.isArray(j.rows) ? j.rows : []);
       setMeta(j.meta || null);
+      setReminders(await remindersRes);
     } catch (e: any) {
       setRows([]);
       setMeta(null);
       setErr(e?.message || "Failed to load pending review.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function confirmReminder(reminderId: string, action: "confirm" | "skip") {
+    setBusyReminderId(reminderId);
+    try {
+      const headers = { ...(await authHeader()), "Content-Type": "application/json" };
+      const r = await fetch("/api/overhead/confirm-reminder", {
+        method: "POST", headers,
+        body: JSON.stringify({ reminder_id: reminderId, action }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j?.error || "Failed");
+      setReminders((prev) => prev.filter((rem) => rem.id !== reminderId));
+    } catch (e: any) {
+      setErr(e?.message || "Failed to update reminder.");
+    } finally {
+      setBusyReminderId(null);
     }
   }
 
@@ -301,11 +344,53 @@ export default function PendingReviewPage() {
           </div>
         ) : null}
 
-        {grouped.length === 0 ? (
+        {/* Overhead payment confirmations */}
+        {reminders.length > 0 && (
+          <section className="mt-6 rounded-[24px] border border-amber-500/20 bg-amber-500/5 p-5">
+            <div className="mb-3 text-[11px] uppercase tracking-[0.16em] text-amber-400/70">Overhead payments — confirm or skip</div>
+            <div className="space-y-2">
+              {reminders.map((rem) => {
+                const total = rem.amount_cents + (rem.tax_amount_cents || 0);
+                const busy  = busyReminderId === rem.id;
+                const monthName = new Date(rem.period_year, rem.period_month - 1).toLocaleString(undefined, { month: "long", year: "numeric" });
+                return (
+                  <div key={rem.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/30 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-white/85">{rem.item_name}</div>
+                      <div className="text-xs text-white/45">
+                        {monthName} · ${(total / 100).toFixed(2)}{rem.tax_amount_cents ? " incl. tax" : ""}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => confirmReminder(rem.id, "confirm")}
+                        className="rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/30 transition disabled:opacity-40"
+                      >
+                        {busy ? "…" : "Yes, paid ✓"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => confirmReminder(rem.id, "skip")}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50 hover:bg-white/10 transition disabled:opacity-40"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {grouped.length === 0 && reminders.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-black/20 p-8 text-sm text-white/60">
             Nothing in pending review yet.
           </div>
-        ) : (
+        ) : grouped.length === 0 ? null : (
           <div className="mt-6 space-y-5">
             {grouped.map(([batchId, items]) => {
               const bestItem = pickBestBatchItem(items);

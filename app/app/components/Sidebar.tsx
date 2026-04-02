@@ -24,11 +24,12 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [pendingCount, setPendingCount] = useState(0);
+  const [overdueOverheadCount, setOverdueOverheadCount] = useState(0);
 
   useEffect(() => {
     let alive = true;
 
-    async function fetchPending() {
+    async function fetchCounts() {
       try {
         const { data: u } = await supabase.auth.getUser();
         const userId = u?.user?.id;
@@ -43,21 +44,48 @@ export default function Sidebar() {
         const tenantId = (pu as any)?.tenant_id as string | null;
         if (!tenantId) return;
 
-        const { count } = await supabase
+        // Review badge: pending intake items
+        const { count: intakeCount } = await supabase
           .from("intake_items")
           .select("*", { count: "exact", head: true })
           .eq("tenant_id", tenantId)
           .in("status", ["pending_review", "uploaded", "validated", "extracted"]);
 
-        if (alive) setPendingCount(count ?? 0);
+        // Overhead badge: recurring items due this month with no payment confirmed
+        const now          = new Date();
+        const todayDay     = now.getDate();
+        const currentYear  = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
+        const [{ data: dueItems }, { data: payments }] = await Promise.all([
+          supabase
+            .from("overhead_items")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("active", true)
+            .eq("item_type", "recurring")
+            .lte("due_day", todayDay),
+          supabase
+            .from("overhead_payments")
+            .select("item_id")
+            .eq("tenant_id", tenantId)
+            .eq("period_year", currentYear)
+            .eq("period_month", currentMonth),
+        ]);
+
+        const paidIds = new Set((payments || []).map((p: any) => p.item_id));
+        const overdueCount = (dueItems || []).filter((i: any) => !paidIds.has(i.id)).length;
+
+        if (alive) {
+          setPendingCount(intakeCount ?? 0);
+          setOverdueOverheadCount(overdueCount);
+        }
       } catch {
-        // fail-soft — badge just won't show
+        // fail-soft — badges just won't show
       }
     }
 
-    void fetchPending();
-
-    // Re-check whenever the user navigates away from the review page
+    void fetchCounts();
     return () => { alive = false; };
   }, [pathname]);
 
@@ -84,7 +112,8 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const active = isActive(pathname, item.href);
-          const showBadge = item.href === "/app/pending-review" && pendingCount > 0;
+          const showBadge = (item.href === "/app/pending-review" && pendingCount > 0)
+                        || (item.href === "/app/overhead" && overdueOverheadCount > 0);
           return (
             <Link
               key={item.href}
@@ -99,7 +128,9 @@ export default function Sidebar() {
               {item.label}
               {showBadge && (
                 <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white leading-none">
-                  {pendingCount > 99 ? "99+" : pendingCount}
+                  {item.href === "/app/overhead"
+                    ? (overdueOverheadCount > 99 ? "99+" : overdueOverheadCount)
+                    : (pendingCount > 99 ? "99+" : pendingCount)}
                 </span>
               )}
             </Link>

@@ -398,16 +398,21 @@ export default function OverheadPage() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<OverheadItem | null>(null);
   const [taxRate, setTaxRate] = useState(0);
+  const [paidItemIds, setPaidItemIds] = useState<Set<string>>(new Set());
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
     let alive = true;
 
     (async () => {
-      const [itemsRes, revRes, tenantRes] = await Promise.all([
+      const now = new Date();
+      const currentYear  = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+
+      const [itemsRes, revRes, tenantRes, paymentsRes] = await Promise.all([
         supabase.from("overhead_items").select("*").eq("tenant_id", tenantId).order("created_at"),
         (async () => {
-          const now = new Date();
           const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
           return supabase.from("transactions")
             .select("amount_cents")
@@ -416,6 +421,11 @@ export default function OverheadPage() {
             .gte("date", monthStart);
         })(),
         supabase.from("chiefos_tenants").select("tax_code, province").eq("id", tenantId).single(),
+        supabase.from("overhead_payments")
+          .select("item_id")
+          .eq("tenant_id", tenantId)
+          .eq("period_year", currentYear)
+          .eq("period_month", currentMonth),
       ]);
 
       if (!alive) return;
@@ -425,6 +435,8 @@ export default function OverheadPage() {
       if (tenantRes.data) {
         setTaxRate(taxRateFromCode(tenantRes.data.tax_code, tenantRes.data.province));
       }
+      const paid = new Set<string>((paymentsRes.data as any[] || []).map((p) => p.item_id));
+      setPaidItemIds(paid);
       setLoading(false);
     })();
 
@@ -465,6 +477,26 @@ export default function OverheadPage() {
   }, [activeItems]);
 
   const inactiveItems = useMemo(() => items.filter((i) => !i.active), [items]);
+
+  async function markPaid(itemId: string) {
+    setMarkingPaid(itemId);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token || "";
+      const res = await fetch("/api/overhead/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ item_id: itemId }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "Failed");
+      setPaidItemIds((prev) => new Set([...prev, itemId]));
+    } catch (e: any) {
+      console.error("[markPaid]", e?.message);
+    } finally {
+      setMarkingPaid(null);
+    }
+  }
 
   async function deactivate(id: string) {
     await supabase.from("overhead_items").update({ active: false, updated_at: new Date().toISOString() }).eq("id", id);
@@ -546,10 +578,13 @@ export default function OverheadPage() {
           <div className="mb-4 text-[11px] uppercase tracking-[0.16em] text-white/40">Due this month</div>
           <div className="space-y-2">
             {dueItems.map((item) => {
-              const status = dueStatus(item.due_day!, todayDay);
+              const paid    = paidItemIds.has(item.id);
+              const status  = dueStatus(item.due_day!, todayDay);
               const monthly = monthlyEquivalent(item);
               return (
-                <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                <div key={item.id} className={["flex items-center justify-between gap-3 rounded-xl border px-4 py-3",
+                  paid ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-black/20",
+                ].join(" ")}>
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-white/85 truncate">{item.name}</div>
                     <div className="text-[11px] text-white/40">
@@ -558,14 +593,30 @@ export default function OverheadPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm font-semibold text-white/80">{fmtMoney(monthly)}</span>
-                    <span className={[
-                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                      status === "overdue" ? "bg-red-500/15 border border-red-500/30 text-red-400"
-                        : status === "soon" ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
-                        : "bg-white/8 border border-white/10 text-white/40",
-                    ].join(" ")}>
-                      {status === "overdue" ? "Overdue" : status === "soon" ? "Due soon" : "Upcoming"}
-                    </span>
+                    {paid ? (
+                      <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                        Paid ✓
+                      </span>
+                    ) : (
+                      <>
+                        <span className={[
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          status === "overdue" ? "bg-red-500/15 border border-red-500/30 text-red-400"
+                            : status === "soon" ? "bg-amber-500/15 border border-amber-500/30 text-amber-400"
+                            : "bg-white/8 border border-white/10 text-white/40",
+                        ].join(" ")}>
+                          {status === "overdue" ? "Overdue" : status === "soon" ? "Due soon" : "Upcoming"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => markPaid(item.id)}
+                          disabled={markingPaid === item.id}
+                          className="rounded-lg bg-white/10 border border-white/15 px-2.5 py-1 text-[11px] font-medium text-white/70 hover:bg-white/15 transition disabled:opacity-40"
+                        >
+                          {markingPaid === item.id ? "Saving…" : "Mark paid"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -635,6 +686,22 @@ export default function OverheadPage() {
                                 <div className="text-[10px] text-white/35">incl. {fmtMoney(item.tax_amount_cents)} tax</div>
                               )}
                             </div>
+                            {item.item_type === "recurring" && item.due_day != null && (
+                              paidItemIds.has(item.id) ? (
+                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                                  Paid ✓
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => markPaid(item.id)}
+                                  disabled={markingPaid === item.id}
+                                  className="rounded-lg bg-white/8 border border-white/15 px-2 py-0.5 text-[11px] text-white/50 hover:text-white/80 hover:bg-white/12 transition disabled:opacity-40"
+                                >
+                                  {markingPaid === item.id ? "…" : "Mark paid"}
+                                </button>
+                              )
+                            )}
                             <button type="button" onClick={() => { setEditItem(item); setShowForm(false); }}
                               className="text-xs text-white/35 hover:text-white/70 transition px-1">Edit</button>
                             <button type="button" onClick={() => deactivate(item.id)}
