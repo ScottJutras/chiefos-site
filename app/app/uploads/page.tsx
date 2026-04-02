@@ -85,24 +85,34 @@ function JobSelect({ value, onChange, jobs }: { value: string; onChange: (v: str
 
 // ─── Log forms ────────────────────────────────────────────────────────────────
 
-function ReceiptForm({ onDone }: { onDone: () => void }) {
-  const gate = useTenantGate({ requireWhatsApp: false });
+type ReceiptItemForm = {
+  vendor: string; amount: string; date: string;
+  description: string; job_name: string; job_id: number; draft_type: string;
+};
+
+function ReceiptForm({ jobs, onDone }: { jobs: Job[]; onDone: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
-  const [phase, setPhase] = useState<"idle" | "uploading" | "processing" | "done" | "error">("idle");
-  const [result, setResult] = useState<any>(null);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "processing" | "fetching" | "review" | "confirming" | "confirmed" | "error">("idle");
+  const [items, setItems] = useState<IntakeItem[]>([]);
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [forms, setForms] = useState<Record<string, ReceiptItemForm>>({});
   const [err, setErr] = useState<string | null>(null);
-  const busy = phase === "uploading" || phase === "processing";
+  const busy = ["uploading", "processing", "fetching", "confirming"].includes(phase);
+
+  async function authToken() {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || "";
+  }
 
   async function upload() {
     try {
       setPhase("uploading"); setErr(null);
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token || "";
+      const token = await authToken();
       if (!token || !files.length) throw new Error("No files selected.");
 
-      const form = new FormData();
-      files.forEach((f) => form.append("files", f));
-      const upRes = await fetch("/api/intake/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      const upRes = await fetch("/api/intake/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
       const upJson = await upRes.json().catch(() => ({}));
       if (!upRes.ok || !upJson?.ok) throw new Error(upJson?.error || "Upload failed.");
 
@@ -111,26 +121,129 @@ function ReceiptForm({ onDone }: { onDone: () => void }) {
       const prJson = await prRes.json().catch(() => ({}));
       if (!prRes.ok || !prJson?.ok) throw new Error(prJson?.error || "Processing failed.");
 
-      setResult({ ...upJson, ...prJson });
-      setPhase("done");
+      setPhase("fetching");
+      const iRes = await fetch(`/api/intake/items?batchId=${encodeURIComponent(upJson.batchId)}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const iJson = await iRes.json().catch(() => ({}));
+      const fetchedItems: IntakeItem[] = Array.isArray(iJson.rows) ? iJson.rows : [];
+
+      const initialForms: Record<string, ReceiptItemForm> = {};
+      for (const item of fetchedItems) {
+        initialForms[item.id] = {
+          vendor: item.draft_vendor || "",
+          amount: item.draft_amount_cents != null ? (item.draft_amount_cents / 100).toFixed(2) : "",
+          date: item.draft_event_date || today(),
+          description: item.draft_description || "",
+          job_name: item.draft_job_name || "",
+          job_id: 0,
+          draft_type: item.draft_type || "expense",
+        };
+      }
+      setItems(fetchedItems);
+      setForms(initialForms);
+      setConfirmedIds(new Set());
       setFiles([]);
+      setPhase("review");
     } catch (e: any) {
       setErr(e?.message || "Upload failed.");
       setPhase("error");
     }
   }
 
-  if (phase === "done" && result) {
+  function updateForm(itemId: string, key: keyof ReceiptItemForm, value: string | number) {
+    setForms((prev) => ({ ...prev, [itemId]: { ...prev[itemId], [key]: value } }));
+  }
+
+  async function confirmItem(item: IntakeItem) {
+    const f = forms[item.id];
+    if (!f) return;
+    const amountCents = Math.round(parseFloat(f.amount || "0") * 100);
+    if (!amountCents || amountCents <= 0) { setErr("Enter a valid amount."); return; }
+    setPhase("confirming"); setErr(null);
+    try {
+      const token = await authToken();
+      const r = await fetch(`/api/intake/items/${item.id}/confirm`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draftType: f.draft_type || "expense",
+          amountCents,
+          vendor: f.vendor || null,
+          eventDate: f.date || null,
+          description: f.description || null,
+          jobName: f.job_name || null,
+          jobId: f.job_id || null,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || "Confirm failed.");
+      const newConfirmed = new Set([...confirmedIds, item.id]);
+      setConfirmedIds(newConfirmed);
+      const allDone = items.every((i) => newConfirmed.has(i.id));
+      setPhase(allDone ? "confirmed" : "review");
+    } catch (e: any) {
+      setErr(e?.message || "Confirm failed.");
+      setPhase("review");
+    }
+  }
+
+  if (phase === "confirmed") {
     return (
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm">
-        <div className="font-semibold text-emerald-300">Upload complete</div>
-        <div className="mt-1 text-white/60">
-          {result.uploadedCount} file(s) → {result.pendingCount} pending review
+        <div className="font-semibold text-emerald-300">All receipts logged ✓</div>
+        <div className="mt-3">
+          <button type="button" onClick={() => { setPhase("idle"); setItems([]); setForms({}); setConfirmedIds(new Set()); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Upload more</button>
         </div>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => { setPhase("idle"); setResult(null); }} className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15 transition">Upload more</button>
-          <button type="button" onClick={onDone} className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90 transition">View in Review →</button>
-        </div>
+      </div>
+    );
+  }
+
+  if (phase === "review" || (phase === "confirming" && items.length > 0)) {
+    return (
+      <div className="space-y-4">
+        {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
+        {items.map((item) => {
+          const f = forms[item.id] || {} as ReceiptItemForm;
+          const isConfirmed = confirmedIds.has(item.id);
+          const flags = Array.isArray(item.draft_validation_flags) ? item.draft_validation_flags.filter(Boolean) : [];
+          return (
+            <div key={item.id} className={["rounded-2xl border p-4 space-y-3 transition", isConfirmed ? "border-emerald-500/20 bg-emerald-500/5 opacity-60" : "border-white/10 bg-black/30"].join(" ")}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs text-white/50 truncate">{item.source_filename || "Receipt"}</div>
+                  {flags.length > 0 && <div className="mt-0.5 text-[10px] text-amber-300">{flags.join(" · ")}</div>}
+                </div>
+                {isConfirmed && <span className="shrink-0 text-xs font-semibold text-emerald-400">Logged ✓</span>}
+              </div>
+              {!isConfirmed && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div><label className={lbl}>Vendor / Payee</label><input className={inp} value={f.vendor} onChange={(e) => updateForm(item.id, "vendor", e.target.value)} placeholder="e.g. Home Depot" /></div>
+                    <div><label className={lbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={inp} value={f.amount} onChange={(e) => updateForm(item.id, "amount", e.target.value)} placeholder="0.00" /></div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div><label className={lbl}>Date</label><input type="date" className={inp} value={f.date} onChange={(e) => updateForm(item.id, "date", e.target.value)} /></div>
+                    <div><label className={lbl}>Type</label>
+                      <select className={inp} value={f.draft_type} onChange={(e) => updateForm(item.id, "draft_type", e.target.value)}>
+                        <option value="expense">Expense</option>
+                        <option value="revenue">Revenue</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div><label className={lbl}>Job (optional)</label>
+                    <JobSelect value={f.job_id ? String(f.job_id) : ""} jobs={jobs} onChange={(name, id) => { updateForm(item.id, "job_name", name); updateForm(item.id, "job_id", id ?? 0); }} />
+                  </div>
+                  <div><label className={lbl}>Notes (optional)</label><input className={inp} value={f.description} onChange={(e) => updateForm(item.id, "description", e.target.value)} placeholder="Description or notes" /></div>
+                  <div className="flex gap-2 pt-1">
+                    <button type="button" onClick={() => confirmItem(item)} disabled={busy} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
+                      {phase === "confirming" ? "Logging…" : "Confirm & Log"}
+                    </button>
+                    <button type="button" onClick={onDone} disabled={busy} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60 hover:bg-white/10 disabled:opacity-40 transition">Save for Later</button>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -142,13 +255,14 @@ function ReceiptForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setFiles(Array.from(e.target.files || []))}
           className="block w-full text-sm text-white/80 file:mr-4 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-black hover:file:bg-white/90 disabled:opacity-50"
         />
-        <div className="mt-2 text-xs text-white/35">Images, audio, PDFs — Chief will extract and build a review draft.</div>
+        <div className="mt-2 text-xs text-white/35">Images, audio, PDFs — Chief extracts the data for you to confirm.</div>
       </div>
       {err && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">{err}</div>}
-      {phase === "processing" && <div className="text-xs text-white/50">Building review drafts…</div>}
+      {phase === "processing" && <div className="text-xs text-white/50">Extracting data from your receipt…</div>}
+      {phase === "fetching" && <div className="text-xs text-white/50">Loading extracted data…</div>}
       <button type="button" onClick={upload} disabled={busy || !files.length}
         className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
-        {phase === "uploading" ? "Uploading…" : phase === "processing" ? "Processing…" : `Upload ${files.length ? `${files.length} file(s)` : ""}`}
+        {phase === "uploading" ? "Uploading…" : phase === "processing" ? "Processing…" : phase === "fetching" ? "Loading…" : `Upload ${files.length ? `${files.length} file(s)` : ""}`}
       </button>
     </div>
   );
@@ -400,7 +514,8 @@ function ReviewContent({ tenantId }: { tenantId: string }) {
     try {
       const headers = await authHeader();
       const url = new URL("/api/intake/items", window.location.origin);
-      url.searchParams.set("status", "pending_review");
+      // Show all non-final statuses so items appear immediately after upload+process
+      url.searchParams.set("status", "all");
       const [intakeRes, { data: remData }] = await Promise.all([
         fetch(url.toString(), { headers, cache: "no-store" }),
         (async () => {
@@ -416,7 +531,8 @@ function ReviewContent({ tenantId }: { tenantId: string }) {
       ]);
       const j = await intakeRes.json().catch(() => ({}));
       if (!intakeRes.ok || !j?.ok) throw new Error(j?.error || "Failed to load review queue.");
-      setRows(Array.isArray(j.rows) ? j.rows : []);
+      const finalStatuses = new Set(["persisted", "confirmed", "deleted", "duplicate", "skipped"]);
+      setRows((Array.isArray(j.rows) ? j.rows : []).filter((r: IntakeItem) => !finalStatuses.has(r.status)));
       setReminders((remData || []) as OverheadReminder[]);
     } catch (e: any) {
       setErr(e?.message || "Failed to load review queue.");
@@ -664,7 +780,7 @@ function LogReviewPageInner() {
                   </div>
                   <button type="button" onClick={() => setActiveCard(null)} className="text-white/30 hover:text-white/60 transition text-sm px-1">✕</button>
                 </div>
-                {activeCard === "receipt"  && <ReceiptForm onDone={onLogDone} />}
+                {activeCard === "receipt"  && <ReceiptForm  jobs={jobs} onDone={onLogDone} />}
                 {activeCard === "expense"  && <ExpenseForm  jobs={jobs} onDone={onLogDone} />}
                 {activeCard === "revenue"  && <RevenueForm  jobs={jobs} onDone={onLogDone} />}
                 {activeCard === "hours"    && <HoursForm    jobs={jobs} onDone={onLogDone} />}
