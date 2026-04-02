@@ -355,13 +355,13 @@ function ItemForm({
         <div className="rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5 text-sm">
           <span className="text-white/45">Monthly equivalent: </span>
           <span className="font-semibold text-white/85">
-            {fmtMoney(monthlyEquivalent({
+            ${(monthlyEquivalent({
               item_type: form.item_type,
               amount_cents: Math.round(parseFloat(form.amount) * 100),
               tax_amount_cents: isRecurring && form.tax_amount.trim() ? Math.round(parseFloat(form.tax_amount) * 100) : null,
               frequency: form.frequency,
               amortization_months: form.amortization_months.trim() ? parseInt(form.amortization_months, 10) : null,
-            }))}/mo
+            }) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mo
           </span>
           {isRecurring && form.tax_amount.trim() && parseFloat(form.tax_amount) > 0 && (
             <span className="ml-2 text-[11px] text-white/35">
