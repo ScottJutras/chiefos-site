@@ -995,6 +995,8 @@ const extraction = extractCandidateFields(
 );
 
 // Merge stronger structured OCR fields when available
+let lineItemsFromDoc: any[] | null = null;
+let taxLabelFromDoc: string | null = null;
 const docFields = hydrated.documentAiFields || null;
 if (docFields) {
   const supplier = String(docFields.supplier || "").trim() || null;
@@ -1025,6 +1027,17 @@ if (docFields) {
   if (!extraction.candidate_fields.description && supplier) {
     extraction.candidate_fields.description = `Expense from ${supplier}`;
   }
+
+  const subtotalRaw = String((docFields as any).subtotal || "").trim() || null;
+  const taxRaw = String((docFields as any).tax || "").trim() || null;
+  taxLabelFromDoc = String((docFields as any).taxLabel || "").trim() || null;
+  lineItemsFromDoc = Array.isArray((docFields as any).lineItems) ? (docFields as any).lineItems : null;
+
+  const subtotalCentsFromDoc = subtotalRaw ? parseMoneyToCents(subtotalRaw) : null;
+  const taxCentsFromDoc = taxRaw ? parseMoneyToCents(taxRaw) : null;
+
+  if (subtotalCentsFromDoc != null) extraction.candidate_fields.subtotal_cents = subtotalCentsFromDoc;
+  if (taxCentsFromDoc != null) extraction.candidate_fields.tax_cents = taxCentsFromDoc;
 }
 
       const validation = validateExtraction(
@@ -1096,6 +1109,8 @@ if (docFields) {
         quote_context: quoteFields || null,
         change_order_context: changeOrderFields || null,
         invoice_context: invoiceFields || null,
+        line_items: lineItemsFromDoc || null,
+        tax_label: taxLabelFromDoc || null,
       };
 
       const draftPayload = {

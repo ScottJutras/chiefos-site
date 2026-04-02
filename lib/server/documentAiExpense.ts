@@ -98,7 +98,7 @@ export async function processExpenseReceipt(args: {
 export async function extractReceiptWithVision(
   bytes: Buffer,
   mimeType: string
-): Promise<{ text: string; fields: { supplier: string | null; receiptDate: string | null; total: string | null; currency: string | null } }> {
+): Promise<{ text: string; fields: { supplier: string | null; receiptDate: string | null; total: string | null; currency: string | null; subtotal: string | null; tax: string | null; taxLabel: string | null; lineItems: Array<{description: string; sku: string | null; quantity: number | null; unitPrice: string | null; amount: string}> | null } }> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
 
@@ -109,7 +109,7 @@ export async function extractReceiptWithVision(
 
   const response = await client.chat.completions.create({
     model: "gpt-4o",
-    max_tokens: 1500,
+    max_tokens: 2000,
     messages: [
       {
         role: "user",
@@ -120,12 +120,24 @@ export async function extractReceiptWithVision(
           },
           {
             type: "text",
-            text: `Extract the following from this receipt image and respond ONLY with valid JSON, no markdown:
+            text: `Extract the following from this receipt or invoice image and respond ONLY with valid JSON, no markdown:
 {
   "supplier": "<vendor/store name or null>",
   "receiptDate": "<date in YYYY-MM-DD format or null>",
-  "total": "<total amount as decimal string e.g. 12.50 or null>",
+  "subtotal": "<subtotal before tax as decimal string e.g. 51.90 or null>",
+  "tax": "<tax amount as decimal string e.g. 6.75 or null>",
+  "taxLabel": "<tax label e.g. GST, HST, GST/HST, PST, VAT or null>",
+  "total": "<total amount including tax as decimal string e.g. 58.65 or null>",
   "currency": "<3-letter currency code e.g. CAD, USD or null>",
+  "lineItems": [
+    {
+      "description": "<item description>",
+      "sku": "<SKU or product code or null>",
+      "quantity": <number or null>,
+      "unitPrice": "<unit price as decimal string or null>",
+      "amount": "<line total as decimal string>"
+    }
+  ],
   "rawText": "<full receipt text, newline-separated>"
 }`,
           },
@@ -148,13 +160,17 @@ export async function extractReceiptWithVision(
         receiptDate: parsed.receiptDate || null,
         total: parsed.total != null ? String(parsed.total) : null,
         currency: parsed.currency || null,
+        subtotal: parsed.subtotal != null ? String(parsed.subtotal) : null,
+        tax: parsed.tax != null ? String(parsed.tax) : null,
+        taxLabel: parsed.taxLabel || null,
+        lineItems: Array.isArray(parsed.lineItems) && parsed.lineItems.length > 0 ? parsed.lineItems : null,
       },
     };
   } catch {
     // If JSON parse fails, return the raw content as text
     return {
       text: content,
-      fields: { supplier: null, receiptDate: null, total: null, currency: null },
+      fields: { supplier: null, receiptDate: null, total: null, currency: null, subtotal: null, tax: null, taxLabel: null, lineItems: null },
     };
   }
 }

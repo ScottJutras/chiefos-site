@@ -210,6 +210,10 @@ export async function GET(req: Request) {
         draft_event_date: draft?.event_date ?? null,
         draft_job_name: draft?.job_name ?? null,
         draft_validation_flags: draftFlags,
+        draft_subtotal_cents: (draft?.raw_model_output as any)?.extract?.candidate_fields?.subtotal_cents ?? null,
+        draft_tax_cents: (draft?.raw_model_output as any)?.extract?.candidate_fields?.tax_cents ?? null,
+        draft_tax_label: (draft?.raw_model_output as any)?.tax_label ?? null,
+        draft_line_items: (draft?.raw_model_output as any)?.line_items ?? null,
       };
 
       return {

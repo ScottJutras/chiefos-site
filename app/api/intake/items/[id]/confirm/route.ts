@@ -505,6 +505,70 @@ export async function POST(
       return json(200, { ok: true, intakeItemId: itemId, transactionId: invTx.id, jobId: resolvedJobId, status: "persisted" });
     }
 
+    // ── Line item split confirm ──────────────────────────────────────────────────
+    if (Array.isArray(body?.lineItems) && (body.lineItems as any[]).length > 0) {
+      const lineItems = body.lineItems as Array<{
+        description: string;
+        amountCents: number;
+        jobName: string | null;
+        jobId: number | null;
+      }>;
+      const liVendor = toNullableText(body?.vendor ?? existingDraft?.vendor);
+      const liDate = toNullableDate(body?.eventDate ?? existingDraft?.event_date) || new Date().toISOString().slice(0, 10);
+      const liCurrency = toNullableText(body?.currency ?? existingDraft?.currency) || "CAD";
+      const txIds: number[] = [];
+
+      for (const li of lineItems) {
+        const liAmt = toAmountCents(li.amountCents);
+        if (!liAmt || liAmt <= 0) continue;
+        const liJobName = toNullableText(li.jobName);
+        const liJobId = li.jobId ? Number(li.jobId) : null;
+        const { data: liTx, error: liTxErr } = await admin
+          .from("transactions")
+          .insert({
+            tenant_id: ctx.tenantId,
+            owner_id: ctx.ownerId,
+            kind: "expense",
+            amount_cents: liAmt,
+            currency: liCurrency,
+            date: liDate,
+            description: toNullableText(li.description) || buildExpenseDescription({ vendor: liVendor }),
+            source: liVendor || "upload",
+            source_msg_id: item.source_msg_id || item.id,
+            job_name: liJobName,
+            job_id: liJobId,
+            created_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (liTxErr || !liTx?.id) {
+          return json(500, { ok: false, error: liTxErr?.message || "Failed to create line item expense." });
+        }
+        txIds.push(Number(liTx.id));
+      }
+
+      const liDraftPayload = {
+        draft_type: "expense",
+        amount_cents: lineItems.reduce((s, li) => s + (Number(li.amountCents) || 0), 0),
+        currency: liCurrency,
+        vendor: liVendor,
+        description: `Split: ${lineItems.length} line items`,
+        event_date: liDate,
+        raw_model_output: existingDraft?.raw_model_output || {},
+        validation_flags: [],
+        updated_at: new Date().toISOString(),
+      };
+      if (existingDraft?.id) {
+        await admin.from("intake_item_drafts").update(liDraftPayload).eq("tenant_id", ctx.tenantId).eq("id", existingDraft.id);
+      } else {
+        await admin.from("intake_item_drafts").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, ...liDraftPayload, created_at: new Date().toISOString() });
+      }
+      await admin.from("intake_items").update({ status: "persisted", draft_type: "expense", updated_at: new Date().toISOString() }).eq("tenant_id", ctx.tenantId).eq("id", itemId);
+      await admin.from("intake_item_reviews").insert({ intake_item_id: itemId, tenant_id: ctx.tenantId, owner_id: ctx.ownerId, reviewed_by_auth_user_id: ctx.authUserId, action: "confirm", before_payload: beforePayload, after_payload: { transaction_ids: txIds, line_item_count: lineItems.length }, created_at: new Date().toISOString() });
+
+      return json(200, { ok: true, intakeItemId: itemId, transactionIds: txIds, status: "persisted" });
+    }
+
     const amountCents = toAmountCents(body?.amountCents ?? existingDraft?.amount_cents);
     if (amountCents == null || amountCents <= 0) {
       return json(400, { ok: false, error: "A valid amount is required." });
@@ -516,6 +580,9 @@ export async function POST(
     const expenseCategory = toNullableText(body?.expenseCategory ?? existingDraft?.expense_category);
     const isPersonal = body?.isPersonal === true || body?.isPersonal === "true" || false;
     const payeeName = toNullableText(body?.payeeName ?? existingDraft?.payee_name);
+    const taxAmountCents = toAmountCents(body?.taxAmountCents ?? null);
+    const subtotalAmountCents = toAmountCents(body?.subtotalAmountCents ?? null);
+    const taxLabel = toNullableText(body?.taxLabel ?? null);
 
     if (!eventDate) {
       return json(400, { ok: false, error: "A valid date is required." });
@@ -616,6 +683,9 @@ export async function POST(
       expense_category: expenseCategory || null,
       is_personal: isPersonal,
       payee_name: payeeName || null,
+      tax_amount: taxAmountCents != null ? taxAmountCents / 100 : null,
+      subtotal_amount: subtotalAmountCents != null ? subtotalAmountCents / 100 : null,
+      tax_label: taxLabel || null,
     };
 
     // Keep the current schema assumption used in your project.

@@ -21,6 +21,10 @@ type IntakeItem = {
   draft_vendor?: string | null; draft_description?: string | null;
   draft_event_date?: string | null; draft_job_name?: string | null;
   draft_validation_flags?: string[]; fast_confirm_ready?: boolean;
+  draft_subtotal_cents?: number | null;
+  draft_tax_cents?: number | null;
+  draft_tax_label?: string | null;
+  draft_line_items?: LineItem[] | null;
 };
 
 type OverheadReminder = {
@@ -85,9 +89,27 @@ function JobSelect({ value, onChange, jobs }: { value: string; onChange: (v: str
 
 // ─── Log forms ────────────────────────────────────────────────────────────────
 
+type LineItem = {
+  description: string;
+  sku: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
+  amount: string;
+};
+
+type LineItemForm = {
+  description: string;
+  amountCents: string;
+  job_name: string;
+  job_id: number;
+};
+
 type ReceiptItemForm = {
   vendor: string; amount: string; date: string;
   description: string; job_name: string; job_id: number; draft_type: string;
+  subtotalCents: string;
+  taxCents: string;
+  taxLabel: string;
 };
 
 // ─── Zoomable image ───────────────────────────────────────────────────────────
@@ -223,6 +245,8 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
   const [forceIds, setForceIds] = useState<Set<string>>(new Set());
   const [forms, setForms] = useState<Record<string, ReceiptItemForm>>({});
   const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [splitModes, setSplitModes] = useState<Record<string, boolean>>({});
+  const [lineItemForms, setLineItemForms] = useState<Record<string, LineItemForm[]>>({});
   const [err, setErr] = useState<string | null>(null);
   const busy = ["uploading", "processing", "fetching", "confirming"].includes(phase);
 
@@ -263,6 +287,9 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
           job_name: item.draft_job_name || "",
           job_id: 0,
           draft_type: item.draft_type || "expense",
+          subtotalCents: item.draft_subtotal_cents != null ? (item.draft_subtotal_cents / 100).toFixed(2) : "",
+          taxCents: item.draft_tax_cents != null ? (item.draft_tax_cents / 100).toFixed(2) : "",
+          taxLabel: item.draft_tax_label || "",
         };
       }
       // Capture local image previews before clearing file list
@@ -274,6 +301,23 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
       setConfirmedIds(new Set());
       setForceIds(new Set());
       setFiles([]);
+
+      // Initialize line item forms from extracted line items
+      const initialLineItemForms: Record<string, LineItemForm[]> = {};
+      for (const item of fetchedItems) {
+        const rawLines: LineItem[] = Array.isArray(item.draft_line_items) ? item.draft_line_items : [];
+        if (rawLines.length > 0) {
+          initialLineItemForms[item.id] = rawLines.map((li) => ({
+            description: li.description || "",
+            amountCents: li.amount ? parseFloat(li.amount).toFixed(2) : "",
+            job_name: "",
+            job_id: 0,
+          }));
+        }
+      }
+      setLineItemForms(initialLineItemForms);
+      setSplitModes({});
+
       setPhase("review");
     } catch (e: any) {
       setErr(e?.message || "Upload failed.");
@@ -288,11 +332,55 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
   async function confirmItem(item: IntakeItem, force = false) {
     const f = forms[item.id];
     if (!f) return;
+    const isSplit = splitModes[item.id] && (lineItemForms[item.id]?.length ?? 0) > 0;
+
+    if (isSplit) {
+      const liRows = lineItemForms[item.id] || [];
+      const hasAmounts = liRows.every((li) => parseFloat(li.amountCents || "0") > 0);
+      if (!hasAmounts) { setErr("Each line item needs a valid amount."); return; }
+      setPhase("confirming"); setErr(null);
+      try {
+        const token = await authToken();
+        const r = await fetch(`/api/intake/items/${item.id}/confirm`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            draftType: "expense",
+            vendor: f.vendor || null,
+            eventDate: f.date || null,
+            currency: "CAD",
+            force,
+            lineItems: liRows.map((li) => ({
+              description: li.description,
+              amountCents: Math.round(parseFloat(li.amountCents || "0") * 100),
+              jobName: li.job_name || null,
+              jobId: li.job_id || null,
+            })),
+          }),
+        });
+        const j = await r.json();
+        if (!j.ok) {
+          if (j.code === "BLOCKING_FLAGS") setForceIds((prev) => new Set([...prev, item.id]));
+          throw new Error(j.error || "Confirm failed.");
+        }
+        const newConfirmed = new Set([...confirmedIds, item.id]);
+        setConfirmedIds(newConfirmed);
+        const allDone = items.every((i) => newConfirmed.has(i.id));
+        setPhase(allDone ? "confirmed" : "review");
+      } catch (e: any) {
+        setErr(e?.message || "Confirm failed.");
+        setPhase("review");
+      }
+      return;
+    }
+
     const amountCents = Math.round(parseFloat(f.amount || "0") * 100);
     if (!amountCents || amountCents <= 0) { setErr("Enter a valid amount."); return; }
     setPhase("confirming"); setErr(null);
     try {
       const token = await authToken();
+      const taxAmountCents = f.taxCents ? Math.round(parseFloat(f.taxCents) * 100) : null;
+      const subtotalAmountCents = f.subtotalCents ? Math.round(parseFloat(f.subtotalCents) * 100) : null;
       const r = await fetch(`/api/intake/items/${item.id}/confirm`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -304,6 +392,9 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
           description: f.description || null,
           jobName: f.job_name || null,
           jobId: f.job_id || null,
+          taxAmountCents: taxAmountCents || null,
+          subtotalAmountCents: subtotalAmountCents || null,
+          taxLabel: f.taxLabel || null,
           force,
         }),
       });
@@ -327,6 +418,7 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
     Object.values(previews).forEach((url) => URL.revokeObjectURL(url));
     setPhase("idle"); setItems([]); setForms({});
     setConfirmedIds(new Set()); setForceIds(new Set()); setPreviews({});
+    setLineItemForms({}); setSplitModes({});
   }
 
   if (phase === "confirmed") {
@@ -375,6 +467,17 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
 
               {!isConfirmed && (
                 <>
+                  {/* Tax breakdown display */}
+                  {(f.subtotalCents || f.taxCents) && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2 text-xs text-white/60">
+                      {f.subtotalCents && <span>Subtotal <span className="text-white/80">${f.subtotalCents}</span></span>}
+                      {f.subtotalCents && f.taxCents && <span className="text-white/30">+</span>}
+                      {f.taxCents && <span>{f.taxLabel || "Tax"} <span className="text-white/80">${f.taxCents}</span></span>}
+                      {(f.subtotalCents || f.taxCents) && <span className="text-white/30">=</span>}
+                      <span>Total <span className="text-white font-medium">${f.amount}</span></span>
+                    </div>
+                  )}
+
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><label className={lbl}>Vendor / Payee</label><input className={inp} value={f.vendor} onChange={(e) => updateForm(item.id, "vendor", e.target.value)} placeholder="e.g. Home Depot" /></div>
                     <div><label className={lbl}>Amount ($) *</label><input type="number" min="0.01" step="0.01" className={inp} value={f.amount} onChange={(e) => updateForm(item.id, "amount", e.target.value)} placeholder="0.00" /></div>
@@ -388,6 +491,87 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
                       </select>
                     </div>
                   </div>
+
+                  {/* Tax fields — shown if extracted */}
+                  {(f.taxCents || f.subtotalCents) && (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div><label className={lbl}>Subtotal ($)</label><input type="number" min="0" step="0.01" className={inp} value={f.subtotalCents} onChange={(e) => updateForm(item.id, "subtotalCents", e.target.value)} placeholder="0.00" /></div>
+                      <div><label className={lbl}>Tax ($)</label><input type="number" min="0" step="0.01" className={inp} value={f.taxCents} onChange={(e) => updateForm(item.id, "taxCents", e.target.value)} placeholder="0.00" /></div>
+                      <div><label className={lbl}>Tax Label</label><input className={inp} value={f.taxLabel} onChange={(e) => updateForm(item.id, "taxLabel", e.target.value)} placeholder="GST/HST" /></div>
+                    </div>
+                  )}
+
+                  {/* Line items section */}
+                  {(lineItemForms[item.id]?.length ?? 0) > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-white/70">{lineItemForms[item.id].length} line items detected</span>
+                        <button
+                          type="button"
+                          onClick={() => setSplitModes((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+                          className={["rounded-lg border px-3 py-1 text-xs font-medium transition", splitModes[item.id] ? "border-amber-500/40 bg-amber-500/10 text-amber-300" : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"].join(" ")}
+                        >
+                          {splitModes[item.id] ? "Splitting by line ✓" : "Log as one expense"}
+                        </button>
+                      </div>
+
+                      {splitModes[item.id] ? (
+                        <div className="space-y-2">
+                          <p className="text-[11px] text-white/40">Each line item logs as a separate expense. Assign a job per item.</p>
+                          {lineItemForms[item.id].map((li, idx) => (
+                            <div key={idx} className="rounded-xl border border-white/8 bg-black/20 p-3 space-y-2">
+                              <div className="grid gap-2 sm:grid-cols-3">
+                                <div className="sm:col-span-2">
+                                  <label className={lbl}>Description</label>
+                                  <input className={inp} value={li.description} onChange={(e) => {
+                                    setLineItemForms((prev) => {
+                                      const rows = [...(prev[item.id] || [])];
+                                      rows[idx] = { ...rows[idx], description: e.target.value };
+                                      return { ...prev, [item.id]: rows };
+                                    });
+                                  }} />
+                                </div>
+                                <div>
+                                  <label className={lbl}>Amount ($)</label>
+                                  <input type="number" min="0.01" step="0.01" className={inp} value={li.amountCents} onChange={(e) => {
+                                    setLineItemForms((prev) => {
+                                      const rows = [...(prev[item.id] || [])];
+                                      rows[idx] = { ...rows[idx], amountCents: e.target.value };
+                                      return { ...prev, [item.id]: rows };
+                                    });
+                                  }} />
+                                </div>
+                              </div>
+                              <div>
+                                <label className={lbl}>Job</label>
+                                <JobSelect
+                                  value={li.job_id ? String(li.job_id) : ""}
+                                  jobs={jobs}
+                                  onChange={(name, id) => {
+                                    setLineItemForms((prev) => {
+                                      const rows = [...(prev[item.id] || [])];
+                                      rows[idx] = { ...rows[idx], job_name: name, job_id: id ?? 0 };
+                                      return { ...prev, [item.id]: rows };
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-white/5">
+                          {lineItemForms[item.id].map((li, idx) => (
+                            <div key={idx} className="flex items-center justify-between py-1.5 text-xs">
+                              <span className="text-white/70 truncate pr-2">{li.description || "Item"}</span>
+                              <span className="shrink-0 text-white/50">${li.amountCents || "—"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div><label className={lbl}>Job (optional)</label>
                     <JobSelect value={f.job_id ? String(f.job_id) : ""} jobs={jobs} onChange={(name, id) => { updateForm(item.id, "job_name", name); updateForm(item.id, "job_id", id ?? 0); }} />
                   </div>
@@ -401,7 +585,7 @@ function ReceiptForm({ jobs, onDone, onSaveLater }: { jobs: Job[]; onDone: () =>
                     ) : (
                       <button type="button" onClick={() => confirmItem(item)} disabled={busy}
                         className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-40 transition">
-                        {phase === "confirming" ? "Logging…" : "Confirm & Log"}
+                        {phase === "confirming" ? "Logging…" : splitModes[item.id] ? `Log ${lineItemForms[item.id]?.length ?? 0} items` : "Confirm & Log"}
                       </button>
                     )}
                     <button type="button" onClick={onSaveLater} disabled={busy}
