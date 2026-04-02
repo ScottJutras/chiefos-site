@@ -137,7 +137,10 @@ export async function extractReceiptWithVision(
   const content = response.choices[0]?.message?.content?.trim() || "";
 
   try {
-    const parsed = JSON.parse(content);
+    // Strip markdown code fences if GPT-4o wrapped the response
+    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonStr = fenceMatch ? fenceMatch[1].trim() : content;
+    const parsed = JSON.parse(jsonStr);
     return {
       text: parsed.rawText || "",
       fields: {
