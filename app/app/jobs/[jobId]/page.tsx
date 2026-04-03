@@ -85,7 +85,7 @@ type JobDocumentFile = {
   created_at: string;
 };
 
-type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos" | "log";
+type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos";
 
 type TxRow = {
   id: number;
@@ -1324,6 +1324,8 @@ function ExpensesTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Par
         )
       )}
 
+      <InlineLogButton job={job} type="expense" label="Log Expense" onDone={() => {}} />
+      <InlineLogButton job={job} type="receipt" label="Upload Receipt" onDone={() => {}} />
       <DashboardDataPanel view="expenses" selectedJobName={jobName || null} />
     </div>
   );
@@ -1335,7 +1337,277 @@ function RevenueTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Part
     <div className="space-y-4">
       <BudgetCard label="Contract value" currentCents={job.contract_value_cents} fieldType="contract_value_cents" jobId={job.id}
         onSaved={(v) => onJobUpdated({ contract_value_cents: v })} />
+      <InlineLogButton job={job} type="revenue" label="Log Revenue" onDone={() => {}} />
       <DashboardDataPanel view="revenue" selectedJobName={jobName || null} />
+    </div>
+  );
+}
+
+// ─── InlineLogButton ──────────────────────────────────────────────────────────
+// Thin collapsible form for logging directly inside any tab
+
+type InlineLogType = "expense" | "revenue" | "hours" | "task" | "reminder" | "receipt";
+
+function InlineLogButton({ job, type, label, onDone }: {
+  job: JobRow; type: InlineLogType; label: string; onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const labelIcons: Record<InlineLogType, string> = {
+    expense: "💸", revenue: "💰", hours: "⏱", task: "✅", reminder: "🔔", receipt: "📷",
+  };
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={[
+          "w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium transition",
+          open
+            ? "border-white/20 bg-white/8 text-white"
+            : "border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.06] hover:text-white",
+        ].join(" ")}
+      >
+        <span className="flex items-center gap-2">
+          <span>{labelIcons[type]}</span>
+          <span>{label}</span>
+        </span>
+        <span className="text-[10px] text-white/30">{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-[20px] border border-white/10 bg-black/40 p-5">
+          {type === "expense" && (
+            <JobExpenseForm job={job} onDone={() => { setOpen(false); onDone(); }} />
+          )}
+          {type === "receipt" && (
+            <JobReceiptForm job={job} onDone={() => { setOpen(false); onDone(); }} onCancel={() => setOpen(false)} />
+          )}
+          {type === "revenue" && (
+            <JobRevenueForm job={job} onDone={() => { setOpen(false); onDone(); }} />
+          )}
+          {type === "hours" && (
+            <JobHoursForm job={job} onDone={() => { setOpen(false); onDone(); }} />
+          )}
+          {type === "task" && (
+            <JobTaskForm job={job} onDone={() => { setOpen(false); onDone(); }} />
+          )}
+          {type === "reminder" && (
+            <JobReminderForm onDone={() => { setOpen(false); onDone(); }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Photos Tab ───────────────────────────────────────────────────────────────
+
+type JobPhoto = {
+  id: string;
+  description: string | null;
+  public_url: string;
+  storage_path: string;
+  source: string;
+  created_at: string;
+};
+
+function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
+  const [photos, setPhotos] = useState<JobPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [description, setDescription] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [selected, setSelected] = useState<JobPhoto | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function loadPhotos() {
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/jobs/${job.id}/photos`, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) {
+        const j = await r.json();
+        setPhotos((j.photos as JobPhoto[]) || []);
+      }
+    } catch {}
+    setLoading(false);
+  }
+
+  useEffect(() => { void loadPhotos(); }, [job.id]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setErr(null);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const storagePath = `${tenantId}/${job.id}/${Date.now()}.${ext}`;
+
+      // Upload directly to Supabase Storage from the browser
+      const { error: uploadError } = await supabase.storage
+        .from("job-photos")
+        .upload(storagePath, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage.from("job-photos").getPublicUrl(storagePath);
+      const publicUrl = urlData?.publicUrl || "";
+
+      // Record in backend
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/jobs/${job.id}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ storagePath, publicUrl, description: description.trim() || null }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || "Upload failed");
+
+      setPhotos((prev) => [j.photo as JobPhoto, ...prev]);
+      setDescription("");
+    } catch (e: any) {
+      setErr(e.message || "Upload failed.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleDelete(photoId: string) {
+    setDeletingId(photoId);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      await fetch(`/api/jobs/${job.id}/photos/${photoId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      if (selected?.id === photoId) setSelected(null);
+    } catch {}
+    setDeletingId(null);
+  }
+
+  async function handleShare() {
+    setSharingLoading(true);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/jobs/${job.id}/photos/share`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await r.json();
+      if (j.ok) setShareUrl(j.url);
+    } catch {}
+    setSharingLoading(false);
+  }
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Lightbox */}
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
+          <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={selected.public_url} alt={selected.description || "Job photo"} className="w-full max-h-[75vh] object-contain rounded-xl" />
+            {selected.description && <div className="mt-2 text-sm text-white/70 text-center">{selected.description}</div>}
+            <div className="mt-3 flex justify-center gap-3">
+              <a href={selected.public_url} download className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition" onClick={(e) => e.stopPropagation()}>Download</a>
+              <button type="button" onClick={() => { if (window.confirm("Delete this photo?")) handleDelete(selected.id); }} className="rounded-xl border border-red-500/30 px-4 py-2 text-sm text-red-400 hover:bg-red-500/15 transition">Delete</button>
+              <button type="button" onClick={() => setSelected(null)} className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white/60 hover:bg-white/10 transition">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload section */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Upload Photo</div>
+        <input
+          type="text"
+          placeholder="Description (optional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25"
+        />
+        <div className="flex items-center gap-3">
+          <label className={[
+            "cursor-pointer rounded-xl border px-4 py-2 text-sm font-medium transition",
+            uploading
+              ? "border-white/10 bg-white/5 text-white/40 pointer-events-none"
+              : "border-white/20 bg-white/8 text-white/80 hover:bg-white/15",
+          ].join(" ")}>
+            {uploading ? "Uploading…" : "Choose photo"}
+            <input type="file" accept="image/*" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+          <span className="text-xs text-white/30">JPEG, PNG, HEIC supported</span>
+        </div>
+        {err && <div className="text-xs text-red-300">{err}</div>}
+      </div>
+
+      {/* Share link */}
+      {photos.length > 0 && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-sm font-medium text-white/80">Client gallery link</div>
+            <div className="text-xs text-white/40">Share all photos with your client — link valid 30 days</div>
+          </div>
+          {shareUrl ? (
+            <div className="flex items-center gap-2">
+              <input readOnly value={shareUrl} className="rounded-xl border border-white/15 bg-black/40 px-3 py-1.5 text-xs text-white/70 w-64 outline-none" />
+              <button type="button" onClick={() => navigator.clipboard.writeText(shareUrl)} className="rounded-xl bg-white/8 border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/15 transition">Copy</button>
+            </div>
+          ) : (
+            <button type="button" onClick={handleShare} disabled={sharingLoading} className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 hover:bg-white/10 transition disabled:opacity-50">
+              {sharingLoading ? "Generating…" : "Generate link"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Photo grid */}
+      {loading ? (
+        <div className="text-sm text-white/40 py-6 text-center">Loading photos…</div>
+      ) : photos.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-10 text-center">
+          <div className="text-sm text-white/40">No photos yet.</div>
+          <div className="mt-1 text-xs text-white/25">Upload above or send photos via WhatsApp and tag this job.</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {photos.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelected(p)}
+              disabled={deletingId === p.id}
+              className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 hover:border-white/25 transition bg-white/[0.03]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={p.public_url} alt={p.description || "Job photo"} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              {p.description && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-white/80 text-left line-clamp-1">
+                  {p.description}
+                </div>
+              )}
+              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white/60">
+                {fmtDate(p.created_at)}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1435,6 +1707,7 @@ function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Pa
     <div className="space-y-4">
       <BudgetCard label="Labour hours budget" currentHours={job.labour_hours_budget} fieldType="labour_hours_budget" jobId={job.id}
         onSaved={(v) => onJobUpdated({ labour_hours_budget: v })} />
+      <InlineLogButton job={job} type="hours" label="Log Hours" onDone={() => {}} />
       <DashboardDataPanel view="time" selectedJobName={jobName || null} />
     </div>
   );
@@ -2126,7 +2399,7 @@ function JobReminderForm({ onDone }: { onDone: () => void }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos", "log"];
+const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos"];
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -2259,7 +2532,6 @@ export default function JobDetailPage() {
     { key: "reminders", label: "Reminders" },
     { key: "documents", label: "Documents" },
     { key: "photos", label: "Photos" },
-    { key: "log", label: "Log" },
   ];
 
   return (
@@ -2391,11 +2663,17 @@ export default function JobDetailPage() {
             <TimeClockTab job={job} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
           )}
           {tab === "tasks" && (
-            <DashboardDataPanel view="tasks" selectedJobName={String(job.job_name || job.name || "").trim() || null} />
+            <div className="space-y-4">
+              <InlineLogButton job={job} type="task" label="Log Task" onDone={() => {}} />
+              <DashboardDataPanel view="tasks" selectedJobName={String(job.job_name || job.name || "").trim() || null} />
+            </div>
           )}
           {tab === "reminders" && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <div className="text-sm text-white/50">Reminders coming soon. Set follow-up reminders for this job.</div>
+            <div className="space-y-4">
+              <InlineLogButton job={job} type="reminder" label="Log Reminder" onDone={() => {}} />
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-white/40">
+                Reminders you set will appear here.
+              </div>
             </div>
           )}
           {tab === "documents" && tenantId && (
@@ -2410,13 +2688,8 @@ export default function JobDetailPage() {
               onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)}
             />
           )}
-          {tab === "photos" && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
-              <div className="text-sm text-white/50">Photo gallery coming soon. Job-site photos sent via WhatsApp will appear here.</div>
-            </div>
-          )}
-          {tab === "log" && job && (
-            <JobLogTab job={job} onDone={setTab} />
+          {tab === "photos" && tenantId && (
+            <PhotosTab job={job} tenantId={tenantId} />
           )}
         </div>
       </div>
