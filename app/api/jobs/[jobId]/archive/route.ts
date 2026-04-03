@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 15;
 
-export async function POST(req: NextRequest, { params }: { params: { jobId: string } }) {
-  return proxyToCore(req, `/api/jobs/${params.jobId}/archive`);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
+  const { jobId } = await params;
+  return proxyToCore(req, `/api/jobs/${jobId}/archive`);
 }
