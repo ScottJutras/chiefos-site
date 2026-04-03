@@ -2043,6 +2043,9 @@ export default function JobDetailPage() {
   const [documentFiles, setDocumentFiles] = useState<JobDocumentFile[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const initialTab = VALID_TABS.includes(searchParams.get("tab") as Tab)
     ? (searchParams.get("tab") as Tab)
     : "expenses";
@@ -2053,7 +2056,7 @@ export default function JobDetailPage() {
     if (!tenantId || isNaN(jobId)) return;
     setLoading(true);
     try {
-      const { data: jobData } = await supabase.from("jobs").select("id, job_no, job_name, name, status, active, start_date, end_date, material_budget_cents, labour_hours_budget, contract_value_cents").eq("id", jobId).single();
+      const { data: jobData } = await supabase.from("jobs").select("id, job_no, job_name, name, status, active, start_date, end_date, material_budget_cents, labour_hours_budget, contract_value_cents").eq("id", jobId).is("deleted_at", null).single();
       if (!jobData) { setNotFound(true); setLoading(false); return; }
       setJob(jobData as JobRow);
 
@@ -2088,9 +2091,50 @@ export default function JobDetailPage() {
     if (!gateLoading && tenantId) void load();
   }, [gateLoading, tenantId, load]);
 
+  async function handleArchiveToggle() {
+    if (!job) return;
+    setActionErr(null);
+    setActionLoading("archive");
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const isArchived = String(job.status || "").toLowerCase() === "archived";
+      const endpoint = isArchived
+        ? `/api/jobs/${job.id}/unarchive`
+        : `/api/jobs/${job.id}/archive`;
+      const r = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || "Failed");
+      setJob((prev) => prev ? { ...prev, status: isArchived ? "active" : "archived", active: !isArchived } : prev);
+    } catch (e: any) {
+      setActionErr(e.message || "Something went wrong.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!job) return;
+    setActionErr(null);
+    setActionLoading("delete");
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/jobs/${job.id}/delete`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || "Failed");
+      window.location.href = "/app/jobs";
+    } catch (e: any) {
+      setActionErr(e.message || "Something went wrong.");
+      setActionLoading(null);
+      setConfirmDelete(false);
+    }
+  }
+
   if (gateLoading || loading) return <div className="p-8 text-sm text-white/60">Loading…</div>;
   if (notFound || !job) return <div className="p-8 text-center"><div className="text-white/60 mb-4">Job not found.</div><Link href="/app/jobs" className="text-sm text-white/50 underline">← Back to jobs</Link></div>;
 
+  const isArchived = String(job.status || "").toLowerCase() === "archived";
   const title = String(job.job_name || job.name || "Untitled job");
   const tabs: { key: Tab; label: string }[] = [
     { key: "expenses", label: "Expenses" },
@@ -2109,12 +2153,75 @@ export default function JobDetailPage() {
         <div className="mb-6"><Link href="/app/jobs" className="text-[11px] text-white/40 hover:text-white/60 transition">← All jobs</Link></div>
         {/* Header */}
         <div className="mb-6">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Job</div>
-          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white/95">{title}</h1>
-          {(job.start_date || job.end_date) && (
-            <div className="mt-1 text-sm text-white/40">
-              {job.start_date && <span>Started {new Date(job.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>}
-              {job.end_date && <span> · Ends {new Date(job.end_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Job</div>
+              <div className="mt-1.5 flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-2xl font-semibold tracking-tight text-white/95">{title}</h1>
+                {isArchived && (
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-400">Archived</span>
+                )}
+              </div>
+              {(job.start_date || job.end_date) && (
+                <div className="mt-1 text-sm text-white/40">
+                  {job.start_date && <span>Started {new Date(job.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>}
+                  {job.end_date && <span> · Ends {new Date(job.end_date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Job actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleArchiveToggle}
+                disabled={actionLoading !== null}
+                className={[
+                  "rounded-xl border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50",
+                  isArchived
+                    ? "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                    : "border-amber-500/25 bg-amber-500/8 text-amber-400/80 hover:bg-amber-500/15",
+                ].join(" ")}
+              >
+                {actionLoading === "archive" ? "…" : isArchived ? "Unarchive" : "Archive"}
+              </button>
+
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/50">Delete this job?</span>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={actionLoading !== null}
+                    className="rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/25 transition disabled:opacity-50"
+                  >
+                    {actionLoading === "delete" ? "Deleting…" : "Yes, delete"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={actionLoading !== null}
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/50 hover:bg-white/10 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setActionErr(null); setConfirmDelete(true); }}
+                  disabled={actionLoading !== null}
+                  className="rounded-xl border border-red-500/20 bg-transparent px-3 py-1.5 text-xs font-medium text-red-400/60 hover:border-red-500/30 hover:text-red-400/80 transition disabled:opacity-50"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+
+          {actionErr && (
+            <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {actionErr}
             </div>
           )}
         </div>

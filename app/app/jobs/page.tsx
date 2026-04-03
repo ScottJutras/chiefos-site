@@ -23,7 +23,7 @@ type JobRow = {
   contract_value_cents: number | null;
 };
 
-type StatusKey = "active" | "paused" | "closed" | "other";
+type StatusKey = "active" | "paused" | "closed" | "other" | "archived";
 
 type TimeEntry = {
   job_no: number | null;
@@ -35,6 +35,7 @@ type TimeEntry = {
 
 function normalizeStatus(raw?: string | null, active?: boolean | null): StatusKey {
   const s = String(raw || "").trim().toLowerCase();
+  if (s === "archived") return "archived";
   if (active || s === "active" || s === "open" || s.includes("active")) return "active";
   if (s.includes("pause") || s.includes("hold")) return "paused";
   if (s.includes("closed") || s.includes("done") || s.includes("complete")) return "closed";
@@ -43,19 +44,21 @@ function normalizeStatus(raw?: string | null, active?: boolean | null): StatusKe
 
 function statusDot(status: StatusKey) {
   switch (status) {
-    case "active": return "bg-emerald-400";
-    case "paused": return "bg-amber-400";
-    case "closed": return "bg-white/30";
-    default: return "bg-white/20";
+    case "active":   return "bg-emerald-400";
+    case "paused":   return "bg-amber-400";
+    case "closed":   return "bg-white/30";
+    case "archived": return "bg-amber-600/60";
+    default:         return "bg-white/20";
   }
 }
 
 function statusLabel(status: StatusKey) {
   switch (status) {
-    case "active": return "Active";
-    case "paused": return "Paused";
-    case "closed": return "Closed";
-    default: return "Other";
+    case "active":   return "Active";
+    case "paused":   return "Paused";
+    case "closed":   return "Closed";
+    case "archived": return "Archived";
+    default:         return "Other";
   }
 }
 
@@ -463,6 +466,7 @@ export default function JobsPage() {
         .select(
           "id, job_no, job_name, name, status, active, start_date, end_date, created_at, updated_at, material_budget_cents, labour_hours_budget, contract_value_cents"
         )
+        .is("deleted_at", null)
         .order("updated_at", { ascending: false })
         .limit(1000);
 
@@ -543,8 +547,12 @@ export default function JobsPage() {
   }, [gateLoading, load]);
 
   const counts = useMemo(() => {
-    const out = { all: jobs.length, active: 0, paused: 0, closed: 0, other: 0 };
-    for (const j of jobs) out[normalizeStatus(j.status, j.active)]++;
+    const out = { all: 0, active: 0, paused: 0, closed: 0, other: 0, archived: 0 };
+    for (const j of jobs) {
+      const st = normalizeStatus(j.status, j.active);
+      out[st]++;
+      if (st !== "archived") out.all++;
+    }
     return out;
   }, [jobs]);
 
@@ -554,7 +562,11 @@ export default function JobsPage() {
       const title = String(j.job_name || j.name || "").toLowerCase();
       const no = String(j.job_no || "");
       const matchText = !needle || title.includes(needle) || no.includes(needle);
-      const matchStatus = statusFilter === "all" || normalizeStatus(j.status, j.active) === statusFilter;
+      const st = normalizeStatus(j.status, j.active);
+      const matchStatus =
+        statusFilter === "archived" ? st === "archived"
+        : statusFilter === "all"    ? st !== "archived"
+        : st === statusFilter;
       return matchText && matchStatus;
     });
   }, [jobs, q, statusFilter]);
@@ -594,7 +606,7 @@ export default function JobsPage() {
           className="w-64 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:border-white/20"
         />
         <div className="flex flex-wrap gap-2">
-          {(["all", "active", "paused", "closed", "other"] as const).map((key) => (
+          {(["all", "active", "paused", "closed", "other", "archived"] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -602,19 +614,20 @@ export default function JobsPage() {
               className={[
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition",
                 statusFilter === key
-                  ? "border-white/20 bg-white text-black"
+                  ? key === "archived"
+                    ? "border-amber-500/40 bg-amber-500/20 text-amber-300"
+                    : "border-white/20 bg-white text-black"
+                  : key === "archived"
+                  ? "border-amber-500/15 bg-transparent text-amber-400/60 hover:bg-amber-500/10"
                   : "border-white/10 bg-white/5 text-white/65 hover:bg-white/10",
               ].join(" ")}
             >
-              {key === "all"
-                ? `All (${counts.all})`
-                : key === "active"
-                ? `Active (${counts.active})`
-                : key === "paused"
-                ? `Paused (${counts.paused})`
-                : key === "closed"
-                ? `Closed (${counts.closed})`
-                : `Other (${counts.other})`}
+              {key === "all"      ? `All (${counts.all})`
+               : key === "active"   ? `Active (${counts.active})`
+               : key === "paused"   ? `Paused (${counts.paused})`
+               : key === "closed"   ? `Closed (${counts.closed})`
+               : key === "archived" ? `Archived (${counts.archived})`
+               : `Other (${counts.other})`}
             </button>
           ))}
         </div>
