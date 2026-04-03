@@ -101,8 +101,8 @@ export default function CreateJobForm() {
 
         const jobId = j?.job?.id != null ? String(j.job.id).trim() : "";
         const target = jobId
-          ? canonicalAppPath(`/app/dashboard?jobId=${encodeURIComponent(jobId)}`)
-          : canonicalAppPath("/app/dashboard");
+          ? canonicalAppPath(`/app/jobs/${encodeURIComponent(jobId)}`)
+          : canonicalAppPath("/app/jobs");
 
         window.setTimeout(() => {
           router.push(target);
