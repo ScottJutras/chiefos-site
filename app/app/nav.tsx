@@ -4,18 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+// Primary bar — always visible on mobile
 const primaryItems = [
-  { href: "/app/jobs", label: "Home" },
-  { href: "/app/pending-review", label: "Review" },
-  { href: "/app/uploads", label: "Capture" },
-  { href: "/app/chief", label: "Chief" },
+  { href: "/app/dashboard",          label: "Dashboard" },
+  { href: "/app/jobs",               label: "Jobs"      },
+  { href: "/app/activity/expenses",  label: "My Books"  },
+  { href: "/app/uploads",            label: "Inbox"     },
 ];
 
+// "More" dropdown — secondary pages
 const secondaryItems = [
-  { href: "/app/dashboard", label: "Dashboard" },
-  { href: "/app/activity/expenses", label: "Activity" },
-  { href: "/app/settings", label: "Settings" },
-  { href: "/app/settings/billing", label: "Billing" },
+  { href: "/app/overhead",           label: "Overhead"  },
+  { href: "/app/chief",              label: "Ask Chief" },
+  { href: "/app/settings",           label: "Settings"  },
+  { href: "/app/settings/billing",   label: "Billing"   },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -36,14 +38,11 @@ export function AppNav() {
         setOpen(false);
       }
     }
-
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-
     document.addEventListener("mousedown", onMouseDown);
     document.addEventListener("keydown", onKeyDown);
-
     return () => {
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("keydown", onKeyDown);
@@ -54,7 +53,6 @@ export function AppNav() {
     <nav className="flex items-center gap-2 overflow-visible whitespace-nowrap">
       {primaryItems.map((it) => {
         const active = isActive(pathname, it.href);
-
         return (
           <Link
             key={it.href}
@@ -88,14 +86,13 @@ export function AppNav() {
           <span className="text-[10px]">{open ? "▲" : "▼"}</span>
         </button>
 
-        {open ? (
+        {open && (
           <div
             className="absolute left-0 top-full z-50 mt-2 w-52 rounded-2xl border border-white/10 bg-black/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl"
             role="menu"
           >
             {secondaryItems.map((it) => {
               const active = isActive(pathname, it.href);
-
               return (
                 <Link
                   key={it.href}
@@ -114,7 +111,7 @@ export function AppNav() {
               );
             })}
           </div>
-        ) : null}
+        )}
       </div>
     </nav>
   );
