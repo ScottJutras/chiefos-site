@@ -12,6 +12,16 @@ import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type PhaseRow = {
+  id: string;
+  phase_name: string;
+  started_at: string;
+  ended_at: string | null;
+  expires_at: string | null;
+  expense_cents: number;
+  revenue_cents: number;
+};
+
 type JobRow = {
   id: number;
   job_no: number | null;
@@ -1330,6 +1340,95 @@ function RevenueTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Part
   );
 }
 
+// ─── Phases Section ───────────────────────────────────────────────────────────
+
+function PhasesSection({ jobId, phases, onPhaseRemoved }: {
+  jobId: number;
+  phases: PhaseRow[];
+  onPhaseRemoved: (id: string) => void;
+}) {
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  if (phases.length === 0) return null;
+
+  async function removePhase(phaseId: string) {
+    setErr(null);
+    setRemovingId(phaseId);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/jobs/${jobId}/phases/${phaseId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || "Failed");
+      onPhaseRemoved(phaseId);
+    } catch (e: any) {
+      setErr(e.message || "Could not remove phase.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  const now = new Date();
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+      <div className="px-5 py-4 border-b border-white/8">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Phases</div>
+      </div>
+      <div className="divide-y divide-white/[0.06]">
+        {phases.map((p) => {
+          const isActive = !p.ended_at || new Date(p.ended_at) > now;
+          const expiresSoon = p.expires_at && new Date(p.expires_at) > now;
+          return (
+            <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-white/85">{p.phase_name}</span>
+                  {isActive && (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                      {expiresSoon ? "Active · clears tonight" : "Active"}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[11px] text-white/40">
+                  {fmtDate(p.started_at)}
+                  {p.ended_at ? ` → ${fmtDate(p.ended_at)}` : " → ongoing"}
+                  {(p.expense_cents > 0 || p.revenue_cents > 0) && (
+                    <span className="ml-2 text-white/30">
+                      {p.expense_cents > 0 && `$${(p.expense_cents / 100).toFixed(0)} expenses`}
+                      {p.expense_cents > 0 && p.revenue_cents > 0 && " · "}
+                      {p.revenue_cents > 0 && `$${(p.revenue_cents / 100).toFixed(0)} revenue`}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removePhase(p.id)}
+                disabled={removingId !== null}
+                className="shrink-0 rounded-xl border border-white/10 bg-transparent px-3 py-1.5 text-[11px] font-medium text-white/35 hover:border-red-500/30 hover:text-red-400/70 transition disabled:opacity-40"
+              >
+                {removingId === p.id ? "…" : "Remove"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {err && (
+        <div className="px-5 py-2 text-xs text-red-300 border-t border-white/8">{err}</div>
+      )}
+    </div>
+  );
+}
+
 function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
   const jobName = String(job.job_name || job.name || "").trim();
   return (
@@ -2041,6 +2140,7 @@ export default function JobDetailPage() {
   const [quoteLines, setQuoteLines] = useState<QuoteLineItem[]>([]);
   const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
   const [documentFiles, setDocumentFiles] = useState<JobDocumentFile[]>([]);
+  const [phases, setPhases] = useState<PhaseRow[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
@@ -2080,6 +2180,21 @@ export default function JobDetailPage() {
       setQuoteLines((linesRes.data as QuoteLineItem[]) || []);
       setChangeOrders((coRes.data as ChangeOrder[]) || []);
       setDocumentFiles((filesRes.data as JobDocumentFile[]) || []);
+
+      // Load phases via backend (includes cost breakdown JOIN)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token || "";
+        const phasesRes = await fetch(`/api/jobs/${jobId}/phases`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (phasesRes.ok) {
+          const pj = await phasesRes.json();
+          setPhases((pj.phases as PhaseRow[]) || []);
+        }
+      } catch {
+        // phases fail-soft — tab just won't show
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -2236,6 +2351,17 @@ export default function JobDetailPage() {
               customer={customer} jobId={job.id} jobDoc={jobDoc} tenantId={tenantId}
               onCustomerUpdated={setCustomer}
               onDocUpdated={(u) => setJobDoc((d) => d ? { ...d, ...u } : { id: "", stage: "lead", lead_notes: null, lead_source: null, customer_id: null, ...u })}
+            />
+          </div>
+        )}
+
+        {/* Phases — only visible when phases exist */}
+        {phases.length > 0 && (
+          <div className="mt-5">
+            <PhasesSection
+              jobId={job.id}
+              phases={phases}
+              onPhaseRemoved={(id) => setPhases((prev) => prev.filter((p) => p.id !== id))}
             />
           </div>
         )}
