@@ -222,6 +222,12 @@ export default function SettingsPage() {
           badge="Reference"
         />
         <Tile
+          title="Email Capture"
+          sub="Forward receipts and leads directly to Chief."
+          href="/app/settings/email-capture"
+          badge="New"
+        />
+        <Tile
           title="WhatsApp Connection"
           sub="Manage your WhatsApp linkage and connection health."
           href="/app/settings"
