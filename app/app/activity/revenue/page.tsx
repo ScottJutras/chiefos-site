@@ -107,6 +107,8 @@ export default function RevenuePage() {
   const [sortBy, setSortBy] = useState<SortBy>("date_desc");
   const [totalsRange, setTotalsRange] = useState<TotalsRange>("all");
 
+  const [unassignedBannerDismissed, setUnassignedBannerDismissed] = useState(false);
+
   // Export menu
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
@@ -497,6 +499,29 @@ export default function RevenuePage() {
             </div>
           </div>
         </div>
+
+        {/* Unassigned entries disclosure */}
+        {!unassignedBannerDismissed && rows.filter((r) => !String(r.job_name || r.job_id || "").trim()).length > 0 && (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-3 text-sm">
+            <span className="mt-0.5 shrink-0 text-amber-400">⚠</span>
+            <div className="flex-1 text-amber-200/80">
+              <strong className="font-medium">
+                {rows.filter((r) => !String(r.job_name || r.job_id || "").trim()).length} revenue{rows.filter((r) => !String(r.job_name || r.job_id || "").trim()).length !== 1 ? " entries" : " entry"} have no job assigned.
+              </strong>{" "}
+              They&apos;re included in your company totals but won&apos;t appear in job P&amp;L.
+              Assign them or leave them as-is.{" "}
+              <a href="/app/import" className="underline opacity-70 hover:opacity-100 transition">Import more?</a>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUnassignedBannerDismissed(true)}
+              className="shrink-0 text-amber-400/50 hover:text-amber-400 transition text-lg leading-none"
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">

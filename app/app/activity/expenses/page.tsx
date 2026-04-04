@@ -226,6 +226,7 @@ export default function ExpensesPage() {
   const [tenantProvince, setTenantProvince] = useState<string | null>(null);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [unassignedBannerDismissed, setUnassignedBannerDismissed] = useState(false);
 
   function sortArrow(active: boolean, dir: "asc" | "desc") {
     if (!active) return <span className="ml-1 text-white/30">↕</span>;
@@ -1076,6 +1077,29 @@ export default function ExpensesPage() {
             </div>
           </div>
         </div>
+
+        {/* Unassigned entries disclosure */}
+        {!unassignedBannerDismissed && expenses.filter((e) => isUnassignedJob(e.job_name)).length > 0 && (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-4 py-3 text-sm">
+            <span className="mt-0.5 shrink-0 text-amber-400">⚠</span>
+            <div className="flex-1 text-amber-200/80">
+              <strong className="font-medium">
+                {expenses.filter((e) => isUnassignedJob(e.job_name)).length} expense{expenses.filter((e) => isUnassignedJob(e.job_name)).length !== 1 ? "s" : ""} have no job assigned.
+              </strong>{" "}
+              They&apos;re included in your company totals but won&apos;t appear in job P&amp;L.
+              Assign them or leave them as-is.{" "}
+              <a href="/app/import" className="underline opacity-70 hover:opacity-100 transition">Import more?</a>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUnassignedBannerDismissed(true)}
+              className="shrink-0 text-amber-400/50 hover:text-amber-400 transition text-lg leading-none"
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Utility strip */}
         <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">

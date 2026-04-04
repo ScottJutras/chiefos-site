@@ -25,6 +25,7 @@ const mainGroups = [
     items: [
       { href: "/app/activity/expenses", label: "My Books" },
       { href: "/app/overhead",          label: "Overhead"  },
+      { href: "/app/import",            label: "Import"    },
     ],
   },
 ];
