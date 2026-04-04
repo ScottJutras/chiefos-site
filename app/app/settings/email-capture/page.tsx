@@ -10,7 +10,6 @@ interface CaptureInfo {
   token: string;
   monthly_used: number;
   monthly_cap: number | null;
-  plan: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -40,11 +39,9 @@ async function fetchWithBearer(path: string, method: "GET" | "POST" = "GET") {
 function UsageMeter({
   used,
   cap,
-  plan,
 }: {
   used: number;
   cap: number | null;
-  plan: string;
 }) {
   if (cap === 0) {
     return (
@@ -59,7 +56,7 @@ function UsageMeter({
   }
 
   const pct = cap === null ? 0 : Math.min(100, Math.round((used / cap) * 100));
-  const label = cap === null ? `${used} captures this month (unlimited)` : `${used} / ${cap} captures this month`;
+  const label = cap === null ? `${used} captures this month` : `${used} / ${cap} captures this month`;
 
   return (
     <div className="space-y-2">
@@ -207,7 +204,6 @@ export default function EmailCapturePage() {
           <UsageMeter
             used={info.monthly_used}
             cap={info.monthly_cap}
-            plan={info.plan}
           />
 
           {/* Test CTA */}

@@ -47,9 +47,10 @@ async function getPortalContext(req: Request) {
   if (puErr || !pu?.tenant_id)
     return { ok: false as const, error: puErr?.message || "Missing tenant." };
 
+  // Note: no `plan` column on chiefos_tenants — omit it from select
   const { data: tenant, error: tenantErr } = await admin
     .from("chiefos_tenants")
-    .select("id, owner_id, plan, email_capture_token")
+    .select("id, owner_id, email_capture_token")
     .eq("id", pu.tenant_id)
     .single();
 
@@ -63,18 +64,11 @@ async function getPortalContext(req: Request) {
     tenantId:  String(pu.tenant_id),
     ownerId:   String(tenant.owner_id),
     role:      String(pu.role || ""),
-    plan:      String(tenant.plan || "free").toLowerCase(),
     token:     (tenant.email_capture_token as string | null) ?? null,
   };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function monthlyCap(plan: string): number | null {
-  if (plan === "pro")     return null;  // unlimited
-  if (plan === "starter") return 30;
-  return 0; // free: disabled
-}
 
 async function getMonthlyUsed(
   admin: ReturnType<typeof adminClient>,
@@ -109,7 +103,7 @@ export async function GET(req: Request) {
   const ctx = await getPortalContext(req);
   if (!ctx.ok) return json(401, { ok: false, error: ctx.error });
 
-  const { admin, tenantId, plan } = ctx;
+  const { admin, tenantId } = ctx;
   let captureToken = ctx.token;
 
   // Auto-generate if missing (shouldn't happen after migration backfill)
@@ -121,7 +115,6 @@ export async function GET(req: Request) {
       .eq("id", tenantId);
   }
 
-  const cap        = monthlyCap(plan);
   const monthlyUsed = await getMonthlyUsed(admin, tenantId);
 
   return json(200, {
@@ -129,8 +122,8 @@ export async function GET(req: Request) {
     capture_address: `${captureToken}@${EMAIL_CAPTURE_DOMAIN}`,
     token:           captureToken,
     monthly_used:    monthlyUsed,
-    monthly_cap:     cap,
-    plan,
+    // No plan column yet — cap enforcement is in Chief Core; show null (unlimited display)
+    monthly_cap:     null,
   });
 }
 
@@ -144,7 +137,7 @@ export async function POST(req: Request) {
     return json(403, { ok: false, error: "Only the owner can rotate the capture address." });
   }
 
-  const { admin, tenantId, plan } = ctx;
+  const { admin, tenantId } = ctx;
   const newToken = randomHexToken();
 
   const { error } = await admin
@@ -156,7 +149,6 @@ export async function POST(req: Request) {
     return json(500, { ok: false, error: "Failed to rotate token." });
   }
 
-  const cap         = monthlyCap(plan);
   const monthlyUsed = await getMonthlyUsed(admin, tenantId);
 
   return json(200, {
@@ -164,7 +156,6 @@ export async function POST(req: Request) {
     capture_address: `${newToken}@${EMAIL_CAPTURE_DOMAIN}`,
     token:           newToken,
     monthly_used:    monthlyUsed,
-    monthly_cap:     cap,
-    plan,
+    monthly_cap:     null,
   });
 }
