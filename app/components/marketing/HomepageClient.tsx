@@ -625,9 +625,9 @@ export default function HomepageClient() {
       <nav style={s.nav} className="chiefos-nav">
         <div style={s.logo}>CHIEFOS</div>
         <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
-          <span style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", cursor: "pointer" }}>Pricing</span>
-          <span style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", cursor: "pointer" }}>How It Works</span>
-          <button style={s.navCta}>Get Started</button>
+          <a href="/pricing" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
+          <a href="/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Sign in</a>
+          <button style={s.navCta} onClick={() => { window.location.href = "/signup"; }}>Get Started</button>
         </div>
       </nav>
 
@@ -652,8 +652,8 @@ export default function HomepageClient() {
         </FadeIn>
         <FadeIn delay={0.45}>
           <div className="chiefos-hero-btns" style={{ display: "flex", gap: "0", alignItems: "center" }}>
-            <button style={s.ctaPrimary}>Get Started Free</button>
-            <button style={s.ctaSecondary}>See How It Works</button>
+            <button style={s.ctaPrimary} onClick={() => { window.location.href = "/signup"; }}>Get Started Free</button>
+            <button style={s.ctaSecondary} onClick={() => { window.location.href = "/pricing"; }}>See Pricing</button>
           </div>
         </FadeIn>
       </section>
@@ -1105,7 +1105,7 @@ export default function HomepageClient() {
           </p>
         </FadeIn>
         <FadeIn delay={0.45}>
-          <button style={{ ...s.ctaPrimary, padding: "18px 64px", fontSize: "16px" }}>
+          <button style={{ ...s.ctaPrimary, padding: "18px 64px", fontSize: "16px" }} onClick={() => { window.location.href = "/signup"; }}>
             Get Started Free
           </button>
         </FadeIn>
