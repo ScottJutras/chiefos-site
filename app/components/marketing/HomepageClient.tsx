@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import SiteFooter from "@/app/components/marketing/SiteFooter";
 
 // ─── Scroll-reveal ───────────────────────────────────────────────────────────
 
@@ -1112,13 +1113,10 @@ export default function HomepageClient() {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer style={s.footer}>
-        <div style={{ marginBottom: "8px" }}>
-          <span style={{ color: C.gold }}>CHIEFOS</span>
-          {"  ·  "}Contractor-Grade Intelligence
-        </div>
-        <div>© 2026 ChiefOS Inc. All rights reserved.</div>
-      </footer>
+      <SiteFooter
+        brandLine="The operating system for contractors."
+        subLine="One system for time, expenses, jobs, and invoicing — powered by AI."
+      />
     </div>
   );
 }
