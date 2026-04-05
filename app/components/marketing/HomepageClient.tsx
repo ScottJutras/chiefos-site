@@ -1116,6 +1116,7 @@ export default function HomepageClient() {
       <SiteFooter
         brandLine="The operating system for contractors."
         subLine="One system for time, expenses, jobs, and invoicing — powered by AI."
+        hideActions
       />
     </div>
   );

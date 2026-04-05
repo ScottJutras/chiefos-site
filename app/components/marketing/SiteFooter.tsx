@@ -6,9 +6,11 @@ import Link from "next/link";
 export default function SiteFooter({
   brandLine = "Start with receipts. End with job clarity.",
   subLine = "Capture real work. Understand real jobs.",
+  hideActions = false,
 }: {
   brandLine?: string;
   subLine?: string;
+  hideActions?: boolean;
 }) {
   const btnBase =
     "inline-flex items-center justify-center h-10 rounded-2xl px-4 text-sm font-semibold transition hover:-translate-y-[1px] active:translate-y-0";
@@ -27,34 +29,36 @@ export default function SiteFooter({
             </p>
 
             {/* Footer actions (uniform height) */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link
-  href="/signup?mode=tester&plan=starter"
-  className={[
-    btnBase,
-    "border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85",
-  ].join(" ")}
->
-  Testers
-</Link>
+            {!hideActions && (
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  href="/signup?mode=tester&plan=starter"
+                  className={[
+                    btnBase,
+                    "border border-white/10 bg-black/30 text-white/70 hover:bg-black/40 hover:text-white/85",
+                  ].join(" ")}
+                >
+                  Testers
+                </Link>
 
-              <Link
-                href="/pricing"
-                className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
-              >
-                Get started
-              </Link>
+                <Link
+                  href="/pricing"
+                  className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
+                >
+                  Get started
+                </Link>
 
-              <Link
-                href="/login"
-                className={[
-                  btnBase,
-                  "border border-white/15 bg-white/5 text-white hover:bg-white/10",
-                ].join(" ")}
-              >
-                Sign in
-              </Link>
-            </div>
+                <Link
+                  href="/login"
+                  className={[
+                    btnBase,
+                    "border border-white/15 bg-white/5 text-white hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-8 text-sm">
