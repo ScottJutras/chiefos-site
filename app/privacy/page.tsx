@@ -1,20 +1,14 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "March 8, 2026";
+const LAST_UPDATED = "April 5, 2026";
+const COMPANY = "9839429 Canada Inc. (operating as ChiefOS)";
+const PRIVACY_EMAIL = "privacy@usechiefos.com";
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
       <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-white/70">
-        {children}
-      </div>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-white/70">{children}</div>
     </section>
   );
 }
@@ -34,165 +28,298 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6">
         <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/55">
-            Legal
-          </div>
+          <div className="text-xs tracking-[0.18em] uppercase text-white/55">Legal</div>
 
           <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-white/95">
             Privacy Policy
           </h1>
 
-          <div className="mt-3 text-sm text-white/60">
-            Last updated: {LAST_UPDATED}
-          </div>
+          <div className="mt-3 text-sm text-white/60">Last updated: {LAST_UPDATED}</div>
 
           <div className="mt-4 text-sm text-white/70 leading-relaxed">
-            This Privacy Policy explains how ChiefOS (“ChiefOS”, “we”, “us”) collects,
-            uses, and protects information when you use our website, portal, and
-            messaging-based features (including WhatsApp ingestion).
+            This Privacy Policy describes how {COMPANY} ("ChiefOS", "we", "us", "our") collects,
+            uses, discloses, and protects personal information when you use our website, web portal,
+            and messaging-based features (including WhatsApp ingestion). We are subject to the
+            Personal Information Protection and Electronic Documents Act (PIPEDA) and applicable
+            Canadian provincial privacy laws.
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link
-              href="/terms"
-              className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]"
-            >
+            <Link href="/terms" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
               Terms of Service
             </Link>
-
-            <a
-              href="mailto:privacy@usechiefos.com"
-              className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]"
-            >
-              privacy@usechiefos.com
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+              {PRIVACY_EMAIL}
             </a>
           </div>
         </div>
 
-        <Section title="What we collect">
+        <Section title="1. What information we collect">
+          <div className="font-semibold text-white/85">Account information</div>
           <Bullets
             items={[
-              <>Account information such as email address, authentication identifiers, and phone number if connected through messaging integrations.</>,
-              <>Business data submitted to the platform including receipts, invoices, documents, transaction logs, job information, notes, and related metadata.</>,
-              <>Usage information such as page views, request timestamps, system activity logs, and security events.</>,
-              <>Payment status information if you subscribe to a paid plan. Payments are processed by Stripe and we do not store full card details.</>,
+              <>Email address and authentication credentials used to create and access your account.</>,
+              <>Phone number, if you connect a messaging integration (e.g. WhatsApp).</>,
+              <>Business name and profile information you provide during onboarding.</>,
+            ]}
+          />
+          <div className="font-semibold text-white/85 mt-3">Customer Data (business records)</div>
+          <Bullets
+            items={[
+              <>Receipts, invoices, and financial documents you submit by photo, file upload, or email.</>,
+              <>Transaction records including amounts, dates, vendors, categories, and job assignments.</>,
+              <>Time entries, job records, tasks, and reminders you log through the platform.</>,
+              <>Voice messages and text messages sent through connected messaging channels.</>,
+              <>Metadata associated with submitted records (file names, timestamps, source channels).</>,
+            ]}
+          />
+          <div className="font-semibold text-white/85 mt-3">Usage and technical information</div>
+          <Bullets
+            items={[
+              <>Page views, feature interactions, and navigation activity within the platform.</>,
+              <>Device type, browser, operating system, and IP address.</>,
+              <>Request timestamps, error logs, and security event logs.</>,
+            ]}
+          />
+          <div className="font-semibold text-white/85 mt-3">Payment information</div>
+          <Bullets
+            items={[
+              <>Billing status and subscription tier. Payments are processed by Stripe and we do not store full card numbers or CVV codes.</>,
             ]}
           />
         </Section>
 
-        <Section title="How we use information">
+        <Section title="2. How we use information">
           <Bullets
             items={[
-              <>Provide and operate the Service.</>,
-              <>Organize and process business records submitted by users.</>,
-              <>Generate insights and summaries using automated systems.</>,
-              <>Maintain platform reliability, security, and performance.</>,
-              <>Communicate with users regarding product updates and support requests.</>,
+              <>Operate, maintain, and improve the Service.</>,
+              <>Process and organize business records you submit.</>,
+              <>Generate AI-assisted insights, summaries, and answers about your business data.</>,
+              <>Authenticate your identity and protect account security.</>,
+              <>Send transactional communications such as receipts, account alerts, and support responses.</>,
+              <>Send product updates, feature announcements, and relevant offers (you may opt out — see Section 9).</>,
+              <>Comply with applicable laws and respond to lawful requests from authorities.</>,
+              <>Investigate and prevent fraud, abuse, and security incidents.</>,
             ]}
           />
         </Section>
 
-        <Section title="Artificial intelligence and automated processing">
+        <Section title="3. Artificial intelligence and automated processing">
           <div>
-            ChiefOS uses automated systems and machine learning to analyze submitted
-            records and generate insights intended to help users understand business
+            ChiefOS uses AI systems to analyze submitted records, categorize transactions, extract data
+            from receipts, generate summaries, and answer questions about your business activity.
+          </div>
+          <div>
+            These systems process your Customer Data as part of the Service. AI-generated outputs are
+            informational only and may contain inaccuracies. You remain responsible for reviewing
+            important financial or operational decisions.
+          </div>
+          <div>
+            We do not use individually identifiable Customer Data to train third-party AI models without
+            your consent. Aggregated and de-identified data may be used to improve our own systems
+            (see Section 4).
+          </div>
+        </Section>
+
+        <Section title="4. Aggregated and de-identified data">
+          <div>
+            ChiefOS may create aggregated, anonymized, or de-identified datasets derived from platform
             activity.
           </div>
-
-          <div>
-            These systems may process Customer Data to improve capture accuracy,
-            classification, summarization, and insight generation.
-          </div>
-
-          <div>
-            AI-generated outputs are informational and may contain inaccuracies.
-            Users remain responsible for reviewing important financial or operational
-            decisions.
-          </div>
-        </Section>
-
-        <Section title="Aggregated and de-identified data">
-          <div>
-            ChiefOS may create aggregated, anonymized, or de-identified datasets derived
-            from platform activity.
-          </div>
-
           <Bullets
             items={[
               <>These datasets do not identify individual users or businesses.</>,
-              <>They cannot reasonably be used to reconstruct customer records.</>,
-              <>They may be used internally to improve reliability, develop new features, conduct research, and train machine learning systems.</>,
+              <>They cannot reasonably be used to reconstruct individual customer records.</>,
+              <>They may be used internally to improve platform reliability, develop new features, conduct research, and refine machine learning systems.</>,
             ]}
           />
         </Section>
 
-        <Section title="How we share information">
+        <Section title="5. How we share information">
           <div>
-            We do not sell personal information. Information may be shared only when
-            necessary to operate the Service or comply with legal obligations.
+            We do not sell personal information. We share information only when necessary to operate
+            the Service or comply with legal obligations.
           </div>
-
-          <div className="mt-3 font-semibold text-white/85">Service providers</div>
-
+          <div className="font-semibold text-white/85 mt-3">Service providers (subprocessors)</div>
           <Bullets
             items={[
-              <>Supabase – authentication, database, and storage.</>,
-              <>Vercel – application hosting and delivery.</>,
-              <>Twilio – messaging infrastructure for WhatsApp ingestion.</>,
-              <>Stripe – subscription billing and payments.</>,
+              <><strong className="text-white/85">Supabase</strong> — authentication, database storage, and file storage.</>,
+              <><strong className="text-white/85">Vercel</strong> — application hosting and delivery.</>,
+              <><strong className="text-white/85">Twilio</strong> — messaging infrastructure for WhatsApp ingestion.</>,
+              <><strong className="text-white/85">Stripe</strong> — subscription billing and payment processing.</>,
+              <><strong className="text-white/85">OpenAI / Anthropic</strong> — AI model providers used to process submitted records and generate insights.</>,
+              <><strong className="text-white/85">SendGrid / Postmark</strong> — transactional email delivery.</>,
             ]}
           />
-        </Section>
-
-        <Section title="Data retention">
-          <Bullets
-            items={[
-              <>Workspace data is retained while your account is active.</>,
-              <>Users may delete or reset their workspace from settings.</>,
-              <>Deleted information may persist temporarily in backups (typically 30–90 days).</>,
-              <>Aggregated or anonymized data may be retained for research and service improvement.</>,
-            ]}
-          />
-        </Section>
-
-        <Section title="Security">
-          <Bullets
-            items={[
-              <>Encryption in transit (HTTPS) and encrypted infrastructure storage.</>,
-              <>Access controls and operational least-privilege practices.</>,
-              <>Tenant isolation patterns to prevent cross-workspace access.</>,
-              <>Monitoring and logging for reliability and security investigations.</>,
-            ]}
-          />
-        </Section>
-
-        <Section title="Your rights">
-          <Bullets
-            items={[
-              <>Access and update information through account settings.</>,
-              <>Request export of your data.</>,
-              <>Request deletion of your account.</>,
-            ]}
-          />
-        </Section>
-
-        <Section title="International data transfers">
           <div>
-            Our service providers may process data in multiple regions including the
-            United States. We take reasonable steps to ensure appropriate protections
-            are applied.
+            All service providers are bound by data processing agreements and are permitted to use
+            your information only as needed to provide their services to us.
+          </div>
+          <div className="font-semibold text-white/85 mt-3">Legal requirements</div>
+          <div>
+            We may disclose information if required to do so by law, court order, or lawful request
+            from a government authority, or where we believe disclosure is necessary to protect the
+            rights, property, or safety of ChiefOS, our users, or the public.
+          </div>
+          <div className="font-semibold text-white/85 mt-3">Business transfers</div>
+          <div>
+            If ChiefOS is involved in a merger, acquisition, or sale of assets, your information may
+            be transferred as part of that transaction. We will provide notice before your information
+            becomes subject to a different privacy policy.
           </div>
         </Section>
 
-        <Section title="Changes to this policy">
+        <Section title="6. Cookies and tracking">
           <div>
-            We may update this Privacy Policy as the Service evolves. Updates will be
-            reflected by revising the “Last updated” date above.
+            Our website and portal use cookies and similar technologies to support authentication,
+            remember your preferences, and understand how users navigate the platform.
+          </div>
+          <div className="font-semibold text-white/85 mt-3">Types of cookies we use</div>
+          <Bullets
+            items={[
+              <><strong className="text-white/85">Essential cookies:</strong> Required for authentication and core platform functionality. Cannot be disabled.</>,
+              <><strong className="text-white/85">Analytics cookies:</strong> Help us understand usage patterns to improve the Service. You may decline these.</>,
+            ]}
+          />
+          <div>
+            Most browsers allow you to control cookies through browser settings. Disabling essential
+            cookies may prevent certain features from working.
+          </div>
+        </Section>
+
+        <Section title="7. Data retention">
+          <Bullets
+            items={[
+              <>Account and workspace data is retained while your account is active.</>,
+              <>If you close your account, you may request an export of your data within 30 days. After that period, your data will be scheduled for deletion.</>,
+              <>Deleted or purged records may persist in encrypted backups for up to 90 days before being permanently removed.</>,
+              <>We may retain certain information longer where required by law or for legitimate business purposes (e.g., billing records for tax compliance).</>,
+              <>Aggregated or anonymized data derived from your records may be retained indefinitely as it does not identify you.</>,
+            ]}
+          />
+        </Section>
+
+        <Section title="8. Security">
+          <Bullets
+            items={[
+              <>All data is transmitted using HTTPS/TLS encryption.</>,
+              <>Data at rest is stored using encrypted infrastructure provided by our hosting partners.</>,
+              <>Access controls and least-privilege practices limit who can access your data internally.</>,
+              <>Tenant isolation architecture prevents cross-account data access.</>,
+              <>Security events are logged and monitored for anomalies.</>,
+            ]}
+          />
+          <div>
+            No method of transmission over the internet or electronic storage is 100% secure. While
+            we take reasonable precautions, we cannot guarantee absolute security.
+          </div>
+        </Section>
+
+        <Section title="9. Marketing communications and opt-out">
+          <div>
+            We may send you product updates, tips, and relevant offers by email. You can opt out of
+            marketing communications at any time by:
+          </div>
+          <Bullets
+            items={[
+              <>Clicking "Unsubscribe" in any marketing email we send.</>,
+              <>Emailing us at {PRIVACY_EMAIL} and requesting to be removed from marketing lists.</>,
+            ]}
+          />
+          <div>
+            Opting out of marketing emails will not affect transactional messages related to your
+            account or subscription (e.g., receipts, security alerts, or support responses).
+          </div>
+        </Section>
+
+        <Section title="10. Children's privacy">
+          <div>
+            The Service is intended for use by adults and is not directed at children under 18 years
+            of age. We do not knowingly collect personal information from anyone under 18. If you
+            believe we have inadvertently collected such information, please contact us at {PRIVACY_EMAIL}
+            and we will delete it promptly.
+          </div>
+        </Section>
+
+        <Section title="11. Your rights">
+          <div>
+            Subject to applicable law, you have the following rights regarding your personal information:
+          </div>
+          <Bullets
+            items={[
+              <><strong className="text-white/85">Access:</strong> Request a copy of the personal information we hold about you.</>,
+              <><strong className="text-white/85">Correction:</strong> Request that inaccurate or incomplete information be corrected.</>,
+              <><strong className="text-white/85">Deletion:</strong> Request that we delete your personal information, subject to our legal retention obligations.</>,
+              <><strong className="text-white/85">Data portability:</strong> Request an export of your Customer Data in a machine-readable format.</>,
+              <><strong className="text-white/85">Withdrawal of consent:</strong> Where processing is based on consent, you may withdraw it at any time. This will not affect processing already carried out.</>,
+              <><strong className="text-white/85">Objection:</strong> Object to certain types of processing, including direct marketing.</>,
+            ]}
+          />
+          <div>
+            To exercise any of these rights, contact us at {PRIVACY_EMAIL}. We will respond within
+            30 days. We may need to verify your identity before processing your request.
+          </div>
+        </Section>
+
+        <Section title="12. Data breach notification">
+          <div>
+            In the event of a data breach that poses a real risk of significant harm to individuals,
+            we will notify affected users and, where required by law, the relevant privacy commissioner.
+            Notification will be provided without unreasonable delay and will include:
+          </div>
+          <Bullets
+            items={[
+              <>A description of what happened and what information was involved.</>,
+              <>Steps we have taken or are taking to address the breach.</>,
+              <>Steps you can take to reduce the risk of harm.</>,
+              <>Contact information for further questions.</>,
+            ]}
+          />
+        </Section>
+
+        <Section title="13. International data transfers">
+          <div>
+            Our service providers may process data in multiple regions, including the United States
+            and European Union. Where data is transferred internationally, we take reasonable steps to
+            ensure appropriate contractual and technical protections are in place consistent with
+            applicable Canadian privacy law.
+          </div>
+        </Section>
+
+        <Section title="14. Changes to this policy">
+          <div>
+            We may update this Privacy Policy as the Service evolves or legal requirements change.
+            We will notify you of material changes by email or by posting a notice in the platform
+            before the changes take effect. The "Last updated" date at the top of this page reflects
+            the most recent revision.
+          </div>
+        </Section>
+
+        <Section title="15. Contact us">
+          <div>
+            For privacy questions, access requests, or complaints, contact our privacy team:
+          </div>
+          <div className="mt-2">
+            <div className="text-white/85 font-semibold">ChiefOS Privacy</div>
+            <div>9839429 Canada Inc.</div>
+            <div>
+              <a href={`mailto:${PRIVACY_EMAIL}`} className="underline hover:text-white transition">
+                {PRIVACY_EMAIL}
+              </a>
+            </div>
+          </div>
+          <div>
+            If you are not satisfied with our response, you may file a complaint with the Office of
+            the Privacy Commissioner of Canada at{" "}
+            <a href="https://www.priv.gc.ca" className="underline hover:text-white transition" target="_blank" rel="noopener noreferrer">
+              priv.gc.ca
+            </a>.
           </div>
         </Section>
 
         <div className="text-xs text-white/45">
-          This page is provided for transparency and product clarity. It is not legal advice.
+          ChiefOS is a product of 9839429 Canada Inc. This policy is provided for transparency.
+          It is not legal advice.
         </div>
       </div>
     </main>
