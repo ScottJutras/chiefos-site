@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import SiteFooter from "@/app/components/marketing/SiteFooter";
+import Link from "next/link";
 
 // ─── Scroll-reveal ───────────────────────────────────────────────────────────
 
@@ -1113,11 +1113,60 @@ export default function HomepageClient() {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <SiteFooter
-        brandLine="The operating system for contractors."
-        subLine="One system for time, expenses, jobs, and invoicing — powered by AI."
-        hideActions
-      />
+      <footer style={{ borderTop: `1px solid ${C.goldBorder}`, background: C.bg, padding: "64px 24px 40px" }}>
+        <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "48px", marginBottom: "48px" }}>
+            {/* Brand */}
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "16px", fontWeight: 700, letterSpacing: "2px", color: C.gold, marginBottom: "12px" }}>CHIEFOS</div>
+              <p style={{ fontSize: "13px", color: C.textMuted, lineHeight: 1.7, margin: 0 }}>
+                The operating system for contractors.<br />
+                One system for time, expenses, jobs,<br />
+                and invoicing — powered by AI.
+              </p>
+            </div>
+            {/* Explore */}
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: C.textFaint, marginBottom: "16px" }}>Explore</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {[["/#how", "How it works"], ["/#scoreboard", "Job performance"], ["/#time", "Time tracking"], ["/pricing", "Plans"], ["/#faq", "FAQ"]].map(([href, label]) => (
+                  <Link key={href} href={href} style={{ fontSize: "13px", color: C.textMuted, textDecoration: "none", transition: "color 0.2s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = C.text)}
+                    onMouseLeave={e => (e.currentTarget.style.color = C.textMuted)}>{label}</Link>
+                ))}
+              </div>
+            </div>
+            {/* Legal */}
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: C.textFaint, marginBottom: "16px" }}>Legal</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {[["/privacy", "Privacy"], ["/terms", "Terms"], ["/legal/ai-policy", "AI Policy"]].map(([href, label]) => (
+                  <Link key={href} href={href} style={{ fontSize: "13px", color: C.textMuted, textDecoration: "none", transition: "color 0.2s" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = C.text)}
+                    onMouseLeave={e => (e.currentTarget.style.color = C.textMuted)}>{label}</Link>
+                ))}
+              </div>
+            </div>
+            {/* Contact */}
+            <div>
+              <div style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: C.textFaint, marginBottom: "16px" }}>Contact</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <a href="mailto:support@usechiefos.com" style={{ fontSize: "13px", color: C.textMuted, textDecoration: "none" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = C.text)}
+                  onMouseLeave={e => (e.currentTarget.style.color = C.textMuted)}>support@usechiefos.com</a>
+              </div>
+            </div>
+          </div>
+          <div style={{ borderTop: `1px solid ${C.goldBorder}`, paddingTop: "24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "2px", color: C.textFaint }}>
+              © {new Date().getFullYear()} CHIEFOS — 9839429 CANADA INC.
+            </span>
+            <span style={{ fontFamily: "'Space Mono', monospace", fontSize: "10px", letterSpacing: "2px", color: C.textFaint }}>
+              PRIVACY-FIRST BY DESIGN
+            </span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
