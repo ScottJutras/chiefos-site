@@ -55,7 +55,10 @@ export default function SupplierDetailPage() {
   // Load supplier detail (categories)
   useEffect(() => {
     apiFetch(`/api/catalog/suppliers/${slug}`)
-      .then((data) => setSupplier(data.supplier ?? data))
+      .then((data) => {
+        const sup = data.supplier ?? data;
+        setSupplier({ ...sup, categories: data.categories ?? sup.categories ?? [] });
+      })
       .catch((e) => setError(e.message));
   }, [slug]);
 
