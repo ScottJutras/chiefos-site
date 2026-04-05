@@ -24,6 +24,7 @@ export default function MarketingSiteFooter() {
   const pathname = usePathname();
 
   const hide =
+    pathname === "/" ||
     pathname.startsWith("/app") ||
     pathname.startsWith("/api") ||
     pathname === "/login" ||
