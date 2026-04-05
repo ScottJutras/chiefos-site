@@ -2,32 +2,47 @@
 import { supabase } from "@/lib/supabase";
 
 /**
+ * Polls getSession() until a token is available or timeout expires.
+ * Needed because the Supabase client hydrates from localStorage async
+ * on first render — a single getSession() call can return null even
+ * when the user is fully logged in.
+ */
+async function getAccessToken(timeoutMs = 3000, intervalMs = 150): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (token) return token;
+    } catch {
+      // ignore transient errors
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return "";
+}
+
+/**
  * Tenant-safe API fetch helper.
  * Always attaches Supabase access_token as Bearer for backend API.
  * Fail-closed: throws on missing session.
  */
 export async function apiFetch(path: string, init: RequestInit = {}) {
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession();
+  const token = await getAccessToken();
 
-  if (error || !session?.access_token) {
-    // Fail closed — forces UI to re-auth
-    throw new Error("AUTH_REQUIRED");
+  if (!token) {
+    throw new Error("AUTH_REQUIRED: Missing session. Please log in again.");
   }
 
   const headers = new Headers(init.headers || {});
-  headers.set("Authorization", `Bearer ${session.access_token}`);
+  headers.set("Authorization", `Bearer ${token}`);
 
-  // Preserve caller content-type if set; otherwise default JSON for POSTs
   if (!headers.has("Content-Type") && init.method && init.method !== "GET") {
     headers.set("Content-Type", "application/json");
   }
 
   const r = await fetch(path, { ...init, headers });
 
-  // Try to parse JSON consistently
   const text = await r.text();
   let json: any = null;
   try {
