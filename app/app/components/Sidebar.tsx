@@ -28,6 +28,12 @@ const mainGroups = [
       { href: "/app/import",            label: "Import"    },
     ],
   },
+  {
+    label: "SUPPLIERS",
+    items: [
+      { href: "/app/catalogs", label: "Catalogs" },
+    ],
+  },
 ];
 
 const bottomItems = [

@@ -228,6 +228,12 @@ export default function SettingsPage() {
           badge="New"
         />
         <Tile
+          title="Data Integrity"
+          sub="Verify your financial records with cryptographic hash chains."
+          href="/app/settings/integrity"
+          badge="New"
+        />
+        <Tile
           title="WhatsApp Connection"
           sub="Manage your WhatsApp linkage and connection health."
           href="/app/settings"
