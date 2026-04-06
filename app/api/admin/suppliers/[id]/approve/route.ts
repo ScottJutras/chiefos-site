@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { proxyToCore } from "../../../../../_coreProxy";
+import { proxyToCore } from "../../../../_coreProxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
