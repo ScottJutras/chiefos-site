@@ -434,6 +434,13 @@ function DocumentsTab({
   const [showQuoteSend, setShowQuoteSend] = useState(false);
   const [lastQuoteFileId, setLastQuoteFileId] = useState<string | null>(null);
 
+  // ── Catalog modal state
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogResults, setCatalogResults] = useState<any[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogErr, setCatalogErr] = useState<string | null>(null);
+
   // ── Contract state
   const [contractTerms, setContractTerms] = useState("Payment is due within 14 days of invoice. A deposit of 30% is required before work commences. All materials remain the property of the contractor until paid in full.");
   const [genContractLoading, setGenContractLoading] = useState(false);
@@ -518,6 +525,33 @@ function DocumentsTab({
   async function deleteLine(id: string) {
     await supabase.from("quote_line_items").delete().eq("id", id);
     const updated = lines.filter((l) => l.id !== id); setLines(updated); onQuoteLinesUpdated(updated);
+  }
+
+  async function searchCatalog(q: string) {
+    if (!q.trim()) return;
+    setCatalogLoading(true); setCatalogErr(null);
+    try {
+      const tok = await getBearerToken();
+      const res = await fetch(`/api/catalog/products/search?q=${encodeURIComponent(q.trim())}&limit=10`, {
+        headers: { Authorization: `Bearer ${tok}` },
+      });
+      const data = await res.json();
+      if (!res.ok) { setCatalogErr(data?.error?.message || "Search failed."); setCatalogResults([]); }
+      else setCatalogResults(data.products ?? []);
+    } catch { setCatalogErr("Search failed."); setCatalogResults([]); }
+    finally { setCatalogLoading(false); }
+  }
+
+  function pickCatalogProduct(p: any) {
+    // Pre-fill the manual line item form with catalog data
+    setNewDesc(p.name || "");
+    setNewQty("1");
+    setNewPrice(((p.unit_price_cents || 0) / 100).toFixed(2));
+    setNewCat("materials");
+    setCatalogOpen(false);
+    setCatalogQuery("");
+    setCatalogResults([]);
+    setAddingLine(true);
   }
 
   async function genAndUpload(pdfDoc: jsPDF, kind: string, label: string): Promise<string | null> {
@@ -714,7 +748,80 @@ function DocumentsTab({
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setAddingLine(true)} className="rounded-xl border border-dashed border-white/15 px-4 py-2.5 text-xs font-medium text-white/50 hover:border-white/25 hover:text-white/70 transition w-full text-center">+ Add line item</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setAddingLine(true)} className="flex-1 rounded-xl border border-dashed border-white/15 px-4 py-2.5 text-xs font-medium text-white/50 hover:border-white/25 hover:text-white/70 transition text-center">+ Add line item</button>
+              <button type="button" onClick={() => { setCatalogOpen(true); setCatalogErr(null); setCatalogResults([]); setCatalogQuery(""); }} className="rounded-xl border border-dashed border-indigo-500/30 px-4 py-2.5 text-xs font-medium text-indigo-400/70 hover:border-indigo-400/50 hover:text-indigo-300 transition whitespace-nowrap">+ From catalog</button>
+            </div>
+          )}
+
+          {/* Catalog search modal */}
+          {catalogOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0e0e10] shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
+                  <div>
+                    <div className="text-sm font-semibold text-white/90">Supplier Catalog</div>
+                    <div className="text-xs text-white/40 mt-0.5">Search for materials and add to quote</div>
+                  </div>
+                  <button type="button" onClick={() => setCatalogOpen(false)} className="text-white/30 hover:text-white/60 transition text-lg leading-none">✕</button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <form onSubmit={(e) => { e.preventDefault(); searchCatalog(catalogQuery); }} className="flex gap-2">
+                    <input
+                      autoFocus
+                      value={catalogQuery}
+                      onChange={(e) => setCatalogQuery(e.target.value)}
+                      placeholder="Search products (e.g. vinyl siding, J-channel)…"
+                      className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm text-white/90 placeholder:text-white/30 outline-none focus:border-white/20"
+                    />
+                    <button type="submit" disabled={catalogLoading} className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/70 hover:bg-white/[0.09] disabled:opacity-50 transition">
+                      {catalogLoading ? "…" : "Search"}
+                    </button>
+                  </form>
+
+                  {catalogErr && <div className="text-xs text-red-300">{catalogErr}</div>}
+
+                  {catalogResults.length > 0 && (
+                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                      {catalogResults.map((p: any) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => pickCatalogProduct(p)}
+                          className="w-full rounded-xl border border-white/8 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/15 transition px-4 py-3 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-white/85 leading-snug truncate">{p.name}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                {p.sku && <span className="text-[10px] font-mono text-white/35">{p.sku}</span>}
+                                {p.supplier_name && <span className="text-[10px] text-white/35">{p.supplier_name}</span>}
+                                {p.category_name && <span className="text-[10px] text-white/30">{p.category_name}</span>}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="text-sm font-semibold text-white/80">
+                                {p.unit_price_cents != null ? `$${(p.unit_price_cents / 100).toFixed(2)}` : "—"}
+                              </div>
+                              <div className="text-[10px] text-white/35">{p.unit_of_measure || ""}</div>
+                            </div>
+                          </div>
+                          {p.price_effective_date && (
+                            <div className="mt-1.5 text-[10px] text-white/25 italic">
+                              Pricing as of {new Date(p.price_effective_date).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!catalogLoading && catalogResults.length === 0 && catalogQuery && !catalogErr && (
+                    <div className="text-sm text-white/35 text-center py-4">No products found for "{catalogQuery}".</div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           {lines.length > 0 && (
