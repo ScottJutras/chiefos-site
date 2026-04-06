@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TurnstileBox from "@/app/components/TurnstileBox";
+import { supabase } from "@/lib/supabase";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -181,6 +182,17 @@ export default function SupplierSignupPage() {
 
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || data.message || "Signup failed.");
+
+      // Create a session so the dashboard auth gate can verify the supplier identity
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: form.contactEmail,
+        password: form.password,
+      });
+      if (signInErr) {
+        // Account created but auto-login failed — send to login page instead
+        router.push("/supplier/login?created=1");
+        return;
+      }
 
       router.push("/supplier/dashboard");
     } catch (e: any) {

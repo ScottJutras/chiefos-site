@@ -79,6 +79,29 @@ export async function proxyToCore(req: NextRequest, upstreamPath: string) {
     );
   }
 
+  return _proxyUpstream(req, upstreamPath, token, traceId, startedAt);
+}
+
+/**
+ * Unauthenticated proxy variant — for public endpoints like /supplier/signup.
+ * Forwards the request without requiring a Bearer token.
+ * Any Authorization header already on the incoming request is still forwarded if present.
+ */
+export async function proxyToCorePublic(req: NextRequest, upstreamPath: string) {
+  const traceId = req.headers.get("x-trace-id") || makeTraceId();
+  const startedAt = Date.now();
+  const token = bearerFromReq(req); // may be empty — that's fine
+  return _proxyUpstream(req, upstreamPath, token, traceId, startedAt);
+}
+
+async function _proxyUpstream(
+  req: NextRequest,
+  upstreamPath: string,
+  token: string,
+  traceId: string,
+  startedAt: number
+) {
+
   const core = mustEnv("CHIEF_CORE_API_BASE_URL").replace(/\/$/, "");
   const url = `${core}${upstreamPath.startsWith("/") ? "" : "/"}${upstreamPath}`;
 
