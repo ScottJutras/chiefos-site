@@ -1089,30 +1089,6 @@ export default function HomepageClient() {
 
       <div style={s.divider} />
 
-      {/* ── ASK CHIEF ANYTHING ──────────────────────────────────────────── */}
-      <section style={s.section} id="ask-chief">
-        <FadeIn>
-          <div style={s.sectionLabel}>Live Demo</div>
-        </FadeIn>
-        <FadeIn delay={0.1}>
-          <h2 style={s.sectionTitle}>
-            Ask Chief{" "}
-            <span style={s.heroAccent}>Anything.</span>
-          </h2>
-        </FadeIn>
-        <FadeIn delay={0.2}>
-          <p style={{ ...s.body, marginBottom: "48px" }}>
-            Chief answers like a seasoned ops manager who knows your business cold.
-            Try a question below — or ask your own.
-          </p>
-        </FadeIn>
-        <FadeIn delay={0.3}>
-          <DemoChiefChat />
-        </FadeIn>
-      </section>
-
-      <div style={s.divider} />
-
       {/* ── FINAL CTA ───────────────────────────────────────────────────── */}
       <section style={s.finalCta}>
         <div style={{ position: "absolute", bottom: "-100px", left: "50%", transform: "translateX(-50%)", width: "600px", height: "400px", background: "radial-gradient(ellipse, rgba(212,168,83,0.05) 0%, transparent 70%)", pointerEvents: "none" }} />
@@ -1193,6 +1169,9 @@ export default function HomepageClient() {
           </div>
         </div>
       </footer>
+
+      {/* ── FLOATING CHIEF CHAT ──────────────────────────────────────────── */}
+      <DemoChiefChat />
     </div>
   );
 }
