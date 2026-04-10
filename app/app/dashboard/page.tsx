@@ -7,6 +7,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
+import OnboardingWidget from "@/app/app/components/OnboardingWidget";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
@@ -27,6 +28,24 @@ type Summary = {
   openTasks: number;
   activeJobs: number;
   totalJobs: number;
+};
+
+type MarginAlert = {
+  id: number;
+  signal_key: string;
+  payload: {
+    job_id: number;
+    job_no: number;
+    job_name: string;
+    margin_pct: number;
+    prev_margin: number | null;
+    threshold: number;
+    revenue_cents: number;
+    is_rapid_drop: boolean;
+    title: string;
+    summary: string;
+  };
+  sent_at: string;
 };
 
 type TxRow = {
@@ -213,6 +232,166 @@ function moneyFmt(cents: number) {
   });
 }
 
+const WA_NUMBER = "12316802664";
+
+function EmptyStateBanner({ hasWhatsApp }: { hasWhatsApp: boolean }) {
+  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $150 Home Depot")}`;
+  return (
+    <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-6 py-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-medium text-white/90">Your dashboard is ready — nothing here yet.</div>
+          <div className="mt-1 text-xs text-white/50 max-w-md leading-relaxed">
+            {hasWhatsApp
+              ? "Start logging in WhatsApp and your numbers will appear here automatically."
+              : "Link WhatsApp first, then log your first expense — it takes about 30 seconds."}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {hasWhatsApp ? (
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+              >
+                Log first expense in WhatsApp
+              </a>
+            ) : (
+              <Link
+                href="/app/welcome"
+                className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+              >
+                Complete setup
+              </Link>
+            )}
+            <a
+              href={`https://wa.me/${WA_NUMBER}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/60 hover:bg-white/5 transition"
+            >
+              Open WhatsApp
+            </a>
+          </div>
+        </div>
+        <div className="text-right hidden sm:block">
+          <div className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Try texting Chief</div>
+          <div className="font-mono text-xs text-white/50 bg-black/20 border border-white/10 rounded-lg px-3 py-2">
+            expense $150 Home Depot
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarginAlertsBanner({
+  alerts,
+  onDismiss,
+}: {
+  alerts: MarginAlert[];
+  onDismiss: (id: number, signalKey: string) => void;
+}) {
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {alerts.map((alert) => {
+        const p = alert.payload;
+        const isRapidDrop = p?.is_rapid_drop;
+        const jobId = p?.job_id;
+        return (
+          <div
+            key={alert.id}
+            className={[
+              "flex flex-wrap items-start justify-between gap-3 rounded-[18px] border px-5 py-4",
+              isRapidDrop
+                ? "border-amber-500/30 bg-amber-500/[0.06]"
+                : "border-red-500/30 bg-red-500/[0.06]",
+            ].join(" ")}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={[
+                    "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full",
+                    isRapidDrop
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-red-500/20 text-red-400",
+                  ].join(" ")}
+                >
+                  {isRapidDrop ? "Margin Declining" : "Low Margin"}
+                </span>
+                <span className="text-[11px] text-white/40">{p?.margin_pct}% margin</span>
+              </div>
+              <div className="mt-1.5 text-sm font-medium text-white/90">{p?.title}</div>
+              <div className="mt-0.5 text-xs text-white/50 leading-relaxed">{p?.summary}</div>
+              {jobId ? (
+                <Link
+                  href={`/app/jobs/${jobId}`}
+                  className="mt-2 inline-flex items-center text-xs text-white/60 hover:text-white/90 underline underline-offset-2 transition"
+                >
+                  View job →
+                </Link>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => onDismiss(alert.id, alert.signal_key)}
+              className="shrink-0 text-[11px] text-white/30 hover:text-white/70 transition mt-0.5"
+              aria-label="Dismiss alert"
+            >
+              Dismiss
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AskChiefNudge({ txCount }: { txCount: number }) {
+  const NUDGE_KEY = "chiefos:ask_chief_nudge_dismissed";
+  const [dismissed, setDismissed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setDismissed(localStorage.getItem(NUDGE_KEY) === "1");
+    }
+  }, []);
+
+  if (!mounted || dismissed || txCount < 3) return null;
+
+  return (
+    <div className="rounded-[16px] border border-white/8 bg-white/[0.025] px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div className="text-xs font-medium text-white/75">You have {txCount} transactions — Chief can answer questions about them.</div>
+        <div className="mt-0.5 text-[11px] text-white/40">Try: "how did this month go?" or "which job made the most money?"</div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Link
+          href="/app/chief"
+          className="inline-flex items-center rounded-xl bg-white px-3 py-1.5 text-[11px] font-semibold text-black hover:bg-white/90 transition"
+        >
+          Ask Chief →
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined") localStorage.setItem(NUDGE_KEY, "1");
+            setDismissed(true);
+          }}
+          className="text-[10px] text-white/25 hover:text-white/50 transition"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CenterWorkspace({
   view,
   setView,
@@ -223,6 +402,10 @@ function CenterWorkspace({
   setPulseRange,
   pulseLoading,
   monthlyOverhead,
+  hasWhatsApp,
+  marginAlerts,
+  onDismissAlert,
+  txCount,
 }: {
   view: ViewKey;
   setView: (v: ViewKey) => void;
@@ -233,7 +416,12 @@ function CenterWorkspace({
   setPulseRange: (v: RangeKey) => void;
   pulseLoading: boolean;
   monthlyOverhead: number;
+  hasWhatsApp: boolean;
+  marginAlerts: MarginAlert[];
+  onDismissAlert: (id: number, signalKey: string) => void;
+  txCount: number;
 }) {
+  const isEmptyState = !pulseLoading && pulseRows.length === 0 && summary.totalJobs === 0;
   // Range-filtered financial totals
   const { rangeRevenue, rangeExpenses, rangeNet } = useMemo(() => {
     const now = new Date();
@@ -289,6 +477,18 @@ function CenterWorkspace({
           <UtilityLink href="/app/uploads" label="Log / Upload" />
         </div>
       </div>
+
+      {/* Margin alerts — shown when active jobs have low/declining margins */}
+      <MarginAlertsBanner alerts={marginAlerts} onDismiss={onDismissAlert} />
+
+      {/* Empty state guidance — shown only when there's no data yet */}
+      {isEmptyState && <EmptyStateBanner hasWhatsApp={hasWhatsApp} />}
+
+      {/* Onboarding progress — compact widget, hides itself when setup is done */}
+      <OnboardingWidget hasWhatsApp={hasWhatsApp} hasData={txCount > 0} />
+
+      {/* Ask Chief nudge — surfaces once ≥ 3 transactions exist */}
+      <AskChiefNudge txCount={txCount} />
 
       {/* 8 KPI cards — 2 rows of 4 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -392,12 +592,14 @@ function CenterWorkspace({
 }
 
 export default function DashboardPage() {
-  const { loading } = useTenantGate({ requireWhatsApp: false });
+  const { loading, hasWhatsApp } = useTenantGate({ requireWhatsApp: false });
   const [view, setView] = useState<ViewKey>("expenses");
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
   const [monthlyOverhead, setMonthlyOverhead] = useState(0);
+  const [marginAlerts, setMarginAlerts] = useState<MarginAlert[]>([]);
+  const [txCount, setTxCount] = useState(0);
 
   const [summary, setSummary] = useState<Summary>({
     pendingReview: 0,
@@ -508,7 +710,9 @@ export default function DashboardPage() {
             .limit(5000);
 
           if (alive) {
-            setPulseRows((txRows as TxRow[]) || []);
+            const rows = (txRows as TxRow[]) || [];
+            setPulseRows(rows);
+            setTxCount(rows.length);
             setPulseLoading(false);
           }
         } catch {
@@ -532,6 +736,24 @@ export default function DashboardPage() {
         } catch {
           // fail-soft
         }
+
+        // Margin alerts — unacknowledged, most recent first, max 5
+        try {
+          const { data: alertRows } = await supabase
+            .from("insight_log")
+            .select("id, signal_key, payload, sent_at")
+            .eq("tenant_id", tenantId)
+            .eq("kind", "margin_alert")
+            .is("acknowledged_at", null)
+            .order("sent_at", { ascending: false })
+            .limit(5);
+
+          if (alive && alertRows) {
+            setMarginAlerts(alertRows as MarginAlert[]);
+          }
+        } catch {
+          // fail-soft
+        }
       } catch {
         // fail-soft
       }
@@ -547,6 +769,24 @@ export default function DashboardPage() {
     [pulseRows, pulseRange]
   );
 
+  async function handleDismissAlert(id: number, signalKey: string) {
+    // Optimistically remove from UI
+    setMarginAlerts((prev) => prev.filter((a) => a.id !== id));
+    // Write acknowledged_at — RLS allows tenant reads; service role writes on backend
+    // We update via a Next.js route to ensure server-side auth for the write
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      await fetch("/api/alerts/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, signal_key: signalKey }),
+      });
+    } catch {
+      // fail-soft: UI already updated
+    }
+  }
+
   if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
 
   return (
@@ -561,6 +801,10 @@ export default function DashboardPage() {
         setPulseRange={setPulseRange}
         pulseLoading={pulseLoading}
         monthlyOverhead={monthlyOverhead}
+        hasWhatsApp={hasWhatsApp}
+        marginAlerts={marginAlerts}
+        onDismissAlert={handleDismissAlert}
+        txCount={txCount}
       />
     </div>
   );

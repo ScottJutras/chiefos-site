@@ -48,8 +48,9 @@ export default function FinishSignupClient() {
 
   const returnTo = useMemo(() => {
     const raw = sp.get("returnTo") || "";
-    if (!raw.startsWith("/")) return "/app";
-    if (raw.startsWith("//")) return "/app";
+    // New signups (no explicit returnTo) go to welcome onboarding
+    if (!raw.startsWith("/")) return "/app/welcome";
+    if (raw.startsWith("//")) return "/app/welcome";
     return raw;
   }, [sp]);
 

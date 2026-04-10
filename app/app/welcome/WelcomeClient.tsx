@@ -1,0 +1,406 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { fetchWhoami } from "@/lib/whoami";
+import { supabase } from "@/lib/supabase";
+
+const WA_NUMBER = "12316802664";
+const WA_EXPENSE_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $150 Home Depot")}`;
+const WA_LINK_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("LINK")}`;
+
+// YouTube walkthrough links — set NEXT_PUBLIC_YOUTUBE_* in your env to enable
+const YT_WALKTHROUGH = process.env.NEXT_PUBLIC_YOUTUBE_WALKTHROUGH || "";
+const YT_EXPENSE     = process.env.NEXT_PUBLIC_YOUTUBE_EXPENSE_GUIDE || "";
+const YT_JOB_PNL     = process.env.NEXT_PUBLIC_YOUTUBE_JOB_PNL_GUIDE || "";
+const YT_EXPORTS     = process.env.NEXT_PUBLIC_YOUTUBE_EXPORTS_GUIDE || "";
+
+type Step = {
+  id: string;
+  label: string;
+  description: string;
+  done: boolean;
+  action?: React.ReactNode;
+};
+
+function VideoLink({ url, label }: { url: string; label: string }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-[11px] text-white/40 hover:text-white/70 transition mt-2"
+    >
+      <svg className="h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>
+      </svg>
+      {label}
+    </a>
+  );
+}
+
+const NEXT_STEPS = [
+  {
+    icon: "💸",
+    title: "Log an expense",
+    description: "Text Chief in WhatsApp: expense $50 Canadian Tire. It gets attached to your job automatically.",
+    action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $50 Canadian Tire")}`, external: true },
+    videoUrl: () => YT_EXPENSE,
+  },
+  {
+    icon: "📊",
+    title: "Check job profitability",
+    description: "After logging a few expenses, ask Chief: job kpis [job name]. You'll see revenue, costs, and margin.",
+    action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("job kpis ")}`, external: true },
+    videoUrl: () => YT_JOB_PNL,
+  },
+  {
+    icon: "📄",
+    title: "Send a quote",
+    description: "Open any job in your portal and create a quote from the Documents tab — ready to share as a PDF link.",
+    action: { label: "Go to Jobs", href: "/app/jobs", external: false },
+    videoUrl: () => "",
+  },
+  {
+    icon: "📥",
+    title: "Export to your accountant",
+    description: "Download expense spreadsheets, timesheet with labor cost, and job P&L PDFs — all ready for bookkeeping.",
+    action: { label: "Go to Exports", href: "/app/exports", external: false },
+    videoUrl: () => YT_EXPORTS,
+  },
+];
+
+function CheckIcon({ done }: { done: boolean }) {
+  if (done) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-white/20 bg-white/5">
+      <div className="h-2.5 w-2.5 rounded-full bg-white/20" />
+    </div>
+  );
+}
+
+export default function WelcomeClient() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [hasWhatsApp, setHasWhatsApp] = useState(false);
+  const [hasExpense, setHasExpense] = useState(false);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  async function loadState() {
+    try {
+      const w: any = await fetchWhoami();
+      if (!w?.ok || !w.userId) {
+        router.replace("/login");
+        return;
+      }
+      if (!w.tenantId) {
+        router.replace("/finish-signup");
+        return;
+      }
+
+      setHasWhatsApp(!!w.hasWhatsApp);
+      setTenantId(String(w.tenantId));
+
+      // Check if user has logged at least one expense/revenue
+      const { count } = await supabase
+        .from("chiefos_portal_expenses")
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", String(w.tenantId))
+        .limit(1);
+
+      setHasExpense((count ?? 0) > 0);
+    } catch {
+      // non-blocking — show page anyway
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-redirect to dashboard once all steps are done
+  useEffect(() => {
+    if (!loading && hasWhatsApp && hasExpense) {
+      const t = setTimeout(() => router.replace("/app/dashboard"), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [loading, hasWhatsApp, hasExpense, router]);
+
+  async function recheckWhatsApp() {
+    setChecking(true);
+    try {
+      const w: any = await fetchWhoami();
+      if (w?.ok && w.hasWhatsApp) {
+        setHasWhatsApp(true);
+        // Also recheck expense
+        if (tenantId) {
+          const { count } = await supabase
+            .from("chiefos_portal_expenses")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .limit(1);
+          setHasExpense((count ?? 0) > 0);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function recheckExpense() {
+    setChecking(true);
+    try {
+      if (tenantId) {
+        const { count } = await supabase
+          .from("chiefos_portal_expenses")
+          .select("*", { count: "exact", head: true })
+          .eq("tenant_id", tenantId)
+          .limit(1);
+        setHasExpense((count ?? 0) > 0);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  const allDone = hasWhatsApp && hasExpense;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f1117]">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[#0f1117] px-4 py-12 text-white">
+      <div className="mx-auto w-full max-w-lg">
+
+        {/* Header */}
+        <div className="mb-10 text-center">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-3">ChiefOS</div>
+          <h1 className="text-3xl font-semibold text-white">
+            {allDone ? "You're all set." : "Your financial reality starts here."}
+          </h1>
+          <p className="mt-3 text-white/55 text-sm leading-relaxed">
+            {allDone
+              ? "Taking you to your dashboard…"
+              : "Complete three quick steps and Chief will start tracking your job profitability."}
+          </p>
+        </div>
+
+        {/* Steps */}
+        <div className="space-y-3">
+
+          {/* Step 1 — Account created */}
+          <div className={[
+            "rounded-[20px] border p-5 transition-all",
+            "border-white/10 bg-white/[0.03]",
+          ].join(" ")}>
+            <div className="flex items-start gap-4">
+              <CheckIcon done={true} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="font-medium text-white/92 text-sm">Account created</div>
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
+                </div>
+                <div className="mt-1 text-xs text-white/45">Your workspace is ready.</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 — Link WhatsApp */}
+          <div className={[
+            "rounded-[20px] border p-5 transition-all",
+            hasWhatsApp
+              ? "border-white/10 bg-white/[0.03]"
+              : "border-white/15 bg-white/[0.05]",
+          ].join(" ")}>
+            <div className="flex items-start gap-4">
+              <CheckIcon done={hasWhatsApp} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={["font-medium text-sm", hasWhatsApp ? "text-white/70" : "text-white/92"].join(" ")}>
+                    Link WhatsApp
+                  </div>
+                  {hasWhatsApp && (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-white/45">
+                  {hasWhatsApp
+                    ? "Your phone is connected. Expenses flow automatically."
+                    : "Connect your phone so Chief knows it's you logging expenses."}
+                </div>
+                {!hasWhatsApp && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <a
+                      href={WA_LINK_LINK}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+                    >
+                      Open WhatsApp to link
+                    </a>
+                    <Link
+                      href="/app/connect-whatsapp?returnTo=/app/welcome"
+                      className="inline-flex items-center rounded-xl border border-white/15 px-4 py-2 text-xs text-white/70 hover:bg-white/5 transition"
+                    >
+                      Show my link code
+                    </Link>
+                    <button
+                      onClick={recheckWhatsApp}
+                      disabled={checking}
+                      className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
+                    >
+                      {checking ? "Checking…" : "Already linked?"}
+                    </button>
+                  </div>
+                )}
+                {YT_WALKTHROUGH && !hasWhatsApp && (
+                  <VideoLink url={YT_WALKTHROUGH} label="Watch 60-second setup walkthrough" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3 — Log first expense */}
+          <div className={[
+            "rounded-[20px] border p-5 transition-all",
+            hasExpense
+              ? "border-white/10 bg-white/[0.03]"
+              : "border-white/15 bg-white/[0.05]",
+          ].join(" ")}>
+            <div className="flex items-start gap-4">
+              <CheckIcon done={hasExpense} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={["font-medium text-sm", hasExpense ? "text-white/70" : "text-white/92"].join(" ")}>
+                    Log your first expense
+                  </div>
+                  {hasExpense && (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-white/45">
+                  {hasExpense
+                    ? "Chief is tracking. Ask him how a job is doing."
+                    : "Try it now — text Chief directly in WhatsApp."}
+                </div>
+                {!hasExpense && (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-xs text-white/70">
+                      expense $150 Home Depot
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={WA_EXPENSE_LINK}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+                      >
+                        Try it in WhatsApp
+                      </a>
+                      <button
+                        onClick={recheckExpense}
+                        disabled={checking}
+                        className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
+                      >
+                        {checking ? "Checking…" : "I already logged one"}
+                      </button>
+                    </div>
+                    {YT_EXPENSE && (
+                      <VideoLink url={YT_EXPENSE} label="Watch: how expense logging works" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* What to try next — shown once setup is underway */}
+        <div className="mt-8">
+          <div className="text-[11px] uppercase tracking-[0.15em] text-white/30 mb-3">What to try first</div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {NEXT_STEPS.map((step) => {
+              const videoUrl = step.videoUrl();
+              return (
+                <div
+                  key={step.title}
+                  className="rounded-[16px] border border-white/8 bg-white/[0.025] p-4 flex flex-col gap-2"
+                >
+                  <div className="text-lg leading-none">{step.icon}</div>
+                  <div className="text-sm font-medium text-white/85">{step.title}</div>
+                  <div className="text-xs text-white/45 leading-relaxed flex-1">{step.description}</div>
+                  <div className="flex flex-col gap-1 mt-1">
+                    {step.action.external ? (
+                      <a
+                        href={step.action.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-white/55 hover:text-white/90 transition"
+                      >
+                        {step.action.label} →
+                      </a>
+                    ) : (
+                      <Link
+                        href={step.action.href}
+                        className="inline-flex items-center text-xs text-white/55 hover:text-white/90 transition"
+                      >
+                        {step.action.label} →
+                      </Link>
+                    )}
+                    {videoUrl && (
+                      <VideoLink url={videoUrl} label="Watch walkthrough" />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          {allDone ? (
+            <Link
+              href="/app/dashboard"
+              className="inline-flex items-center rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition"
+            >
+              Go to dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/app/dashboard"
+              className="text-xs text-white/35 underline underline-offset-4 hover:text-white/55 transition"
+            >
+              Skip for now — go to dashboard
+            </Link>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}

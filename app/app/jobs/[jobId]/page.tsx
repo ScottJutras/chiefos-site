@@ -408,6 +408,16 @@ function DocumentsTab({
   const currentStage = jobDoc?.stage ?? "lead";
   const stageIdx = STAGES.indexOf(currentStage as typeof STAGES[number]);
   const inputCls = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25";
+
+  // Derive a suggested customer name from the job name when no customer exists
+  // e.g. "Roof repair for John Smith" → try to pick "John Smith"
+  const suggestedName = useMemo(() => {
+    if (customer) return null;
+    const jn = String(job.job_name || job.name || "").trim();
+    const forMatch = jn.match(/\bfor\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+    if (forMatch) return forMatch[1];
+    return null;
+  }, [customer, job.job_name, job.name]);
   const sectionCls = "rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden";
   const quoteTotalCents = quoteLines.reduce((s, l) => s + Math.round(l.qty * l.unit_price_cents), 0);
   const approvedCOs = changeOrders.filter((co) => co.approved_at);
@@ -662,6 +672,29 @@ function DocumentsTab({
 
   return (
     <div className="space-y-4">
+
+      {/* Missing customer nudge — shown when no customer contact info exists */}
+      {!customer && (
+        <div className="rounded-[16px] border border-amber-500/20 bg-amber-500/[0.05] px-5 py-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-amber-300">No customer contact info yet</div>
+            <div className="mt-0.5 text-xs text-white/50 leading-relaxed max-w-md">
+              {suggestedName
+                ? `Looks like this job might be for ${suggestedName}. Add contact info below to include it on your quotes and invoices.`
+                : "Add customer contact info to include it on your quotes, contracts, and invoices."}
+            </div>
+          </div>
+          {suggestedName && (
+            <button
+              type="button"
+              onClick={() => setCustName(suggestedName)}
+              className="shrink-0 inline-flex items-center rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 transition"
+            >
+              Pre-fill "{suggestedName}"
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Stage tracker */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
@@ -1266,6 +1299,135 @@ function ContactSection({ customer, jobId, jobDoc, tenantId, onCustomerUpdated, 
   );
 }
 
+// ─── Customer Notes (communication log) ──────────────────────────────────────
+
+type CustomerNote = {
+  id: string;
+  note: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+function CustomerNotesLog({ customerId, tenantId }: { customerId: string; tenantId: string }) {
+  const [notes, setNotes] = useState<CustomerNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data: s } = await supabase.auth.getSession();
+        const token = s?.session?.access_token || "";
+        const r = await fetch(`/api/customers/${customerId}/notes`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) {
+          const j = await r.json();
+          setNotes(j.notes || []);
+        }
+      } catch {}
+      setLoading(false);
+    }
+    void load();
+  }, [customerId]);
+
+  async function addNote() {
+    if (!text.trim()) return;
+    setSaving(true); setErr(null);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      const r = await fetch(`/api/customers/${customerId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ note: text.trim() }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || "Failed to save");
+      setNotes((prev) => [j.note as CustomerNote, ...prev]);
+      setText("");
+    } catch (e: any) {
+      setErr(e.message || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token || "";
+      await fetch(`/api/customers/${customerId}/notes/${noteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch {}
+  }
+
+  function fmtNoteDate(iso: string) {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Client notes</div>
+
+      {/* Add note */}
+      <div className="flex gap-2">
+        <textarea
+          rows={2}
+          placeholder="Log a call, email, site visit, or anything worth remembering…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void addNote(); } }}
+          className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-white/25 resize-none"
+        />
+        <button
+          type="button"
+          onClick={addNote}
+          disabled={saving || !text.trim()}
+          className="self-end rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black hover:bg-white/90 transition disabled:opacity-40"
+        >
+          {saving ? "…" : "Add"}
+        </button>
+      </div>
+      {err && <div className="text-xs text-red-300">{err}</div>}
+
+      {/* Notes list */}
+      {loading ? (
+        <div className="text-xs text-white/35 py-2">Loading…</div>
+      ) : notes.length === 0 ? (
+        <div className="text-xs text-white/30 italic">No notes yet — log calls, emails, or site visits here.</div>
+      ) : (
+        <div className="space-y-2">
+          {notes.map((n) => (
+            <div key={n.id} className="group flex items-start gap-3 rounded-xl bg-white/[0.025] px-3 py-2.5">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-white/80 whitespace-pre-wrap break-words">{n.note}</div>
+                <div className="mt-1 text-[11px] text-white/35">
+                  {fmtNoteDate(n.created_at)}
+                  {n.created_by && n.created_by !== "Owner" && ` · ${n.created_by}`}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => deleteNote(n.id)}
+                className="opacity-0 group-hover:opacity-100 transition text-white/25 hover:text-red-400 text-xs shrink-0 mt-0.5"
+                title="Delete note"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Overhead helpers ─────────────────────────────────────────────────────────
 
 type OverheadRow = {
@@ -1517,14 +1679,35 @@ type JobPhoto = {
   public_url: string;
   storage_path: string;
   source: string;
+  photo_phase: "before" | "during" | "after" | null;
   created_at: string;
 };
+
+type PhotoPhaseFilter = "all" | "before" | "during" | "after";
+
+const PHASE_LABELS: Record<string, string> = { before: "Before", during: "During", after: "After" };
+const PHASE_COLORS: Record<string, string> = {
+  before: "bg-blue-500/20 text-blue-300 border-blue-500/25",
+  during: "bg-amber-500/20 text-amber-300 border-amber-500/25",
+  after:  "bg-emerald-500/20 text-emerald-300 border-emerald-500/25",
+};
+
+function PhaseBadge({ phase }: { phase: string | null }) {
+  if (!phase || !PHASE_LABELS[phase]) return null;
+  return (
+    <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${PHASE_COLORS[phase]}`}>
+      {PHASE_LABELS[phase]}
+    </span>
+  );
+}
 
 function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
   const [photos, setPhotos] = useState<JobPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [description, setDescription] = useState("");
+  const [uploadPhase, setUploadPhase] = useState<"" | "before" | "during" | "after">("");
+  const [phaseFilter, setPhaseFilter] = useState<PhotoPhaseFilter>("all");
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<JobPhoto | null>(null);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -1571,13 +1754,19 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
       const r = await fetch(`/api/jobs/${job.id}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ storagePath, publicUrl, description: description.trim() || null }),
+        body: JSON.stringify({
+          storagePath,
+          publicUrl,
+          description: description.trim() || null,
+          photoPhase: uploadPhase || null,
+        }),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.message || "Upload failed");
 
       setPhotos((prev) => [j.photo as JobPhoto, ...prev]);
       setDescription("");
+      setUploadPhase("");
     } catch (e: any) {
       setErr(e.message || "Upload failed.");
     } finally {
@@ -1628,7 +1817,10 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
           <div className="relative max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={selected.public_url} alt={selected.description || "Job photo"} className="w-full max-h-[75vh] object-contain rounded-xl" />
-            {selected.description && <div className="mt-2 text-sm text-white/70 text-center">{selected.description}</div>}
+            <div className="mt-2 flex items-center justify-center gap-2">
+              {selected.photo_phase && <PhaseBadge phase={selected.photo_phase} />}
+              {selected.description && <span className="text-sm text-white/70">{selected.description}</span>}
+            </div>
             <div className="mt-3 flex justify-center gap-3">
               <a href={selected.public_url} download className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition" onClick={(e) => e.stopPropagation()}>Download</a>
               <button type="button" onClick={() => { if (window.confirm("Delete this photo?")) handleDelete(selected.id); }} className="rounded-xl border border-red-500/30 px-4 py-2 text-sm text-red-400 hover:bg-red-500/15 transition">Delete</button>
@@ -1641,6 +1833,26 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
       {/* Upload section */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
         <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Upload Photo</div>
+        <div className="flex flex-wrap gap-2">
+          {(["", "before", "during", "after"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setUploadPhase(p)}
+              className={[
+                "rounded-full border px-3 py-1 text-xs font-medium transition",
+                uploadPhase === p
+                  ? p === "" ? "border-white/30 bg-white/15 text-white/80"
+                    : p === "before" ? "border-blue-500/50 bg-blue-500/20 text-blue-200"
+                    : p === "during" ? "border-amber-500/50 bg-amber-500/20 text-amber-200"
+                    : "border-emerald-500/50 bg-emerald-500/20 text-emerald-200"
+                  : "border-white/10 bg-transparent text-white/40 hover:border-white/20 hover:text-white/60",
+              ].join(" ")}
+            >
+              {p === "" ? "No phase" : PHASE_LABELS[p]}
+            </button>
+          ))}
+        </div>
         <input
           type="text"
           placeholder="Description (optional)"
@@ -1683,6 +1895,34 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
         </div>
       )}
 
+      {/* Phase filter tabs */}
+      {!loading && photos.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "before", "during", "after"] as PhotoPhaseFilter[]).map((f) => {
+            const count = f === "all" ? photos.length : photos.filter((p) => p.photo_phase === f).length;
+            if (f !== "all" && count === 0) return null;
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setPhaseFilter(f)}
+                className={[
+                  "rounded-full border px-3 py-1 text-xs font-medium transition",
+                  phaseFilter === f
+                    ? f === "all" ? "border-white/30 bg-white/15 text-white/80"
+                      : f === "before" ? "border-blue-500/50 bg-blue-500/20 text-blue-200"
+                      : f === "during" ? "border-amber-500/50 bg-amber-500/20 text-amber-200"
+                      : "border-emerald-500/50 bg-emerald-500/20 text-emerald-200"
+                    : "border-white/10 bg-transparent text-white/40 hover:border-white/20 hover:text-white/60",
+                ].join(" ")}
+              >
+                {f === "all" ? `All (${count})` : `${PHASE_LABELS[f]} (${count})`}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Photo grid */}
       {loading ? (
         <div className="text-sm text-white/40 py-6 text-center">Loading photos…</div>
@@ -1693,7 +1933,9 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {photos.map((p) => (
+          {photos
+            .filter((p) => phaseFilter === "all" || p.photo_phase === phaseFilter)
+            .map((p) => (
             <button
               key={p.id}
               type="button"
@@ -1703,6 +1945,11 @@ function PhotosTab({ job, tenantId }: { job: JobRow; tenantId: string }) {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.public_url} alt={p.description || "Job photo"} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              {p.photo_phase && (
+                <div className="absolute top-1.5 left-1.5">
+                  <PhaseBadge phase={p.photo_phase} />
+                </div>
+              )}
               {p.description && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-[11px] text-white/80 text-left line-clamp-1">
                   {p.description}
@@ -2725,12 +2972,15 @@ export default function JobDetailPage() {
 
         {/* Contact information */}
         {tenantId && (
-          <div className="mt-5">
+          <div className="mt-5 space-y-3">
             <ContactSection
               customer={customer} jobId={job.id} jobDoc={jobDoc} tenantId={tenantId}
               onCustomerUpdated={setCustomer}
               onDocUpdated={(u) => setJobDoc((d) => d ? { ...d, ...u } : { id: "", stage: "lead", lead_notes: null, lead_source: null, customer_id: null, ...u })}
             />
+            {customer?.id && (
+              <CustomerNotesLog customerId={customer.id} tenantId={tenantId} />
+            )}
           </div>
         )}
 

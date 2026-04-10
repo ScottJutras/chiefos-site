@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
@@ -46,6 +46,147 @@ function fmtDate(ts?: string | null) {
   if (!ts) return "";
   const d = new Date(ts);
   return isNaN(d.getTime()) ? ts : d.toLocaleString();
+}
+
+// ─── Upload Panel ─────────────────────────────────────────────────────────────
+
+const ACCEPTED = "image/*,application/pdf,audio/*,.pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.mp3,.m4a,.wav,.aac,.ogg,.webm";
+
+type UploadState = "idle" | "uploading" | "done" | "error";
+
+function UploadPanel({ onUploaded }: { onUploaded: () => void }) {
+  const [files, setFiles]       = useState<File[]>([]);
+  const [state, setState]       = useState<UploadState>("idle");
+  const [message, setMessage]   = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming || !incoming.length) return;
+    const next = Array.from(incoming);
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name + f.size));
+      return [...prev, ...next.filter((f) => !existing.has(f.name + f.size))];
+    });
+    setState("idle");
+    setMessage(null);
+  }
+
+  const onDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    addFiles(e.dataTransfer.files);
+  }, []);
+
+  async function upload() {
+    if (!files.length) return;
+    setState("uploading");
+    setMessage(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (!token) throw new Error("Not signed in.");
+
+      const form = new FormData();
+      for (const f of files) form.append("files", f);
+
+      const r = await fetch("/api/intake/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Upload failed.");
+
+      const { uploadedCount = 0, duplicateCount = 0 } = j;
+      const dupeNote = duplicateCount > 0 ? ` (${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""} flagged)` : "";
+      setMessage(`${uploadedCount} file${uploadedCount !== 1 ? "s" : ""} uploaded${dupeNote}. Processing will start shortly.`);
+      setState("done");
+      setFiles([]);
+      onUploaded();
+    } catch (e: any) {
+      setState("error");
+      setMessage(e?.message || "Upload failed.");
+    }
+  }
+
+  function removeFile(i: number) {
+    setFiles((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <section className="rounded-[24px] border border-white/10 bg-black/40 p-5 space-y-4">
+      <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Upload receipts &amp; documents</div>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-6 py-8 cursor-pointer transition
+          ${dragOver ? "border-white/40 bg-white/5" : "border-white/15 bg-black/20 hover:border-white/25 hover:bg-white/[0.02]"}`}
+      >
+        <svg className="h-8 w-8 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 0-3 3m3-3 3 3M4.75 17.25v.5A2.25 2.25 0 0 0 7 20h10a2.25 2.25 0 0 0 2.25-2.25v-.5" />
+        </svg>
+        <div className="text-sm text-white/50">
+          <span className="font-medium text-white/70">Click to select</span> or drag files here
+        </div>
+        <div className="text-xs text-white/35">Images, PDFs, audio — multiple files OK</div>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept={ACCEPTED}
+          className="hidden"
+          onChange={(e) => addFiles(e.target.files)}
+          onClick={(e) => { (e.target as HTMLInputElement).value = ""; }}
+        />
+      </div>
+
+      {/* Selected file list */}
+      {files.length > 0 && (
+        <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+          {files.map((f, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/30 px-3 py-2">
+              <div className="min-w-0">
+                <div className="truncate text-sm text-white/80">{f.name}</div>
+                <div className="text-xs text-white/35">{(f.size / 1024).toFixed(0)} KB</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="shrink-0 text-xs text-white/35 hover:text-red-300 transition"
+                aria-label="Remove"
+              >✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Status message */}
+      {message && (
+        <div className={`rounded-xl border px-4 py-2.5 text-sm ${state === "error" ? "border-red-500/20 bg-red-500/10 text-red-200" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"}`}>
+          {message}
+        </div>
+      )}
+
+      {/* Upload button */}
+      {files.length > 0 && state !== "done" && (
+        <button
+          type="button"
+          onClick={upload}
+          disabled={state === "uploading"}
+          className="w-full rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {state === "uploading"
+            ? `Uploading ${files.length} file${files.length !== 1 ? "s" : ""}…`
+            : `Upload ${files.length} file${files.length !== 1 ? "s" : ""}`}
+        </button>
+      )}
+    </section>
+  );
 }
 
 // ─── Inbox content ────────────────────────────────────────────────────────────
@@ -239,6 +380,7 @@ function ReviewContent({ tenantId, refreshKey }: { tenantId: string; refreshKey:
 
 function InboxPageInner() {
   const gate = useTenantGate({ requireWhatsApp: false });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   if (gate.loading) return <div className="p-8 text-sm text-white/60">Loading…</div>;
 
@@ -248,9 +390,10 @@ function InboxPageInner() {
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Business</div>
           <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Inbox</h1>
-          <p className="mt-1.5 text-sm text-white/50">Items uploaded via WhatsApp waiting for job assignment and confirmation.</p>
+          <p className="mt-1.5 text-sm text-white/50">Upload receipts and documents, or review items sent via WhatsApp.</p>
         </div>
-        {gate.tenantId && <ReviewContent tenantId={gate.tenantId} refreshKey={0} />}
+        <UploadPanel onUploaded={() => setRefreshKey((k) => k + 1)} />
+        {gate.tenantId && <ReviewContent tenantId={gate.tenantId} refreshKey={refreshKey} />}
       </div>
     </main>
   );

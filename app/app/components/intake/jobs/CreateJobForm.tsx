@@ -179,7 +179,23 @@ export default function CreateJobForm() {
           </div>
         ) : null}
 
-        {resp?.ok === false ? (
+        {resp?.ok === false && resp.code === "PLAN_LIMIT_REACHED" ? (
+          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] p-4">
+            <div className="text-sm font-semibold text-amber-200">Job limit reached</div>
+            <div className="mt-1 text-sm text-amber-100/80">
+              You’ve used all 3 jobs on the Free plan. Upgrade to Starter to manage up to 25 active jobs.
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href="/app/settings/billing?plan=starter"
+                className="inline-flex items-center rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-black hover:bg-amber-400 transition"
+              >
+                Upgrade to Starter →
+              </a>
+              <span className="self-center text-[11px] text-amber-100/50">7 days free — no charge until day 8</span>
+            </div>
+          </div>
+        ) : resp?.ok === false ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
             <div className="text-sm font-semibold text-red-200">Couldn’t create job</div>
             <div className="mt-1 text-sm text-red-100/85">

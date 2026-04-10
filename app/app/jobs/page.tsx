@@ -447,7 +447,8 @@ function JobCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
-  const { loading: gateLoading } = useTenantGate({ requireWhatsApp: false });
+  const { loading: gateLoading, planKey } = useTenantGate({ requireWhatsApp: false });
+  const FREE_JOB_LIMIT = 3;
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [expenses, setExpenses] = useState<Record<number, number>>({});
@@ -596,6 +597,38 @@ export default function JobsPage() {
           + Create job
         </Link>
       </div>
+
+      {/* Free tier job limit indicator */}
+      {!gateLoading && planKey === "free" && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-white/8 bg-white/[0.025] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-white/55">
+              <span className="font-semibold text-white/80">{Math.min(counts.all, FREE_JOB_LIMIT)}</span>
+              <span className="text-white/35"> of </span>
+              <span className="font-semibold text-white/80">{FREE_JOB_LIMIT}</span>
+              <span className="text-white/35"> free jobs used</span>
+            </div>
+            {/* progress dots */}
+            <div className="flex gap-1">
+              {Array.from({ length: FREE_JOB_LIMIT }).map((_, i) => (
+                <div
+                  key={i}
+                  className={[
+                    "h-1.5 w-4 rounded-full transition-colors",
+                    i < counts.all ? (counts.all >= FREE_JOB_LIMIT ? "bg-amber-400" : "bg-white/50") : "bg-white/10",
+                  ].join(" ")}
+                />
+              ))}
+            </div>
+          </div>
+          <Link
+            href="/app/settings/billing?plan=starter"
+            className="text-xs text-amber-400 hover:text-amber-300 transition"
+          >
+            Upgrade for 25 jobs →
+          </Link>
+        </div>
+      )}
 
       {/* Search + filters */}
       <div className="mb-3 flex flex-wrap items-center gap-3">

@@ -64,6 +64,8 @@ type Msg = {
   prompt?: string;
   resp?: AskChiefResp;
   pending?: boolean;
+  /** Partial text accumulated during SSE streaming (before done event) */
+  streamText?: string;
 };
 
 function normalizeRange(r: TotalsRange) {
@@ -333,20 +335,83 @@ function ChiefClientInner() {
         history: history.length > 0 ? history : undefined,
       };
 
-      const r = await fetch("/api/ask-chief", {
+      // ---- SSE streaming path ----
+      const r = await fetch("/api/ask-chief/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
 
-      let j: any = null;
-      try {
-        j = await r.json();
-      } catch {
-        j = null;
+      const ct = r.headers.get("content-type") || "";
+
+      // Non-SSE response (e.g., plan gate JSON) — fall back to JSON parsing
+      if (!ct.includes("text/event-stream")) {
+        let j: any = null;
+        try { j = await r.json(); } catch { j = null; }
+        setPendingResp(normalizeResp(j, r.status));
+        return;
       }
 
-      setPendingResp(normalizeResp(j, r.status));
+      // Stream SSE events
+      if (!r.body) {
+        setPendingResp({ ok: false, code: "ERROR", message: "Stream not supported in this browser." });
+        return;
+      }
+
+      const reader  = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const appendStreamText = (chunk: string) => {
+        setMsgs((prev) =>
+          prev.map((m) =>
+            m.id === pendingChief.id
+              ? { ...m, pending: false, streamText: (m.streamText || "") + chunk }
+              : m
+          )
+        );
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";  // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (raw === "[DONE]") break;
+
+          let evt: any;
+          try { evt = JSON.parse(raw); } catch { continue; }
+
+          if (typeof evt.token === "string") {
+            appendStreamText(evt.token);
+            continue;
+          }
+
+          if (evt.done) {
+            // Final event — replace streamText with the authoritative answer
+            const finalResp = normalizeResp(
+              { ok: evt.ok ?? true, answer: evt.answer, evidence_meta: evt.evidence_meta, warnings: evt.warnings, actions: evt.actions },
+              200
+            );
+            setMsgs((prev) =>
+              prev.map((m) =>
+                m.id === pendingChief.id
+                  ? { ...m, pending: false, streamText: undefined, resp: finalResp }
+                  : m
+              )
+            );
+            continue;
+          }
+
+          // {"status":"thinking","tools":[...]} — no UI change needed (dots still show)
+        }
+      }
     } catch (e: any) {
       const isNetwork = e?.name === "TypeError" || e?.message?.includes("fetch");
       setPendingResp({
@@ -381,6 +446,21 @@ function ChiefClientInner() {
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
             <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+          </div>
+        </div>
+      );
+    }
+
+    // Streaming — show partial text with a blinking cursor
+    if (m.streamText !== undefined && !m.resp) {
+      return (
+        <div className="flex items-start gap-2">
+          <ChiefAvatar />
+          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
+            <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">
+              {m.streamText}
+              <span className="inline-block w-0.5 h-3.5 bg-white/60 ml-0.5 align-middle animate-pulse" />
+            </p>
           </div>
         </div>
       );

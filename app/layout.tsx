@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/app/components/Toast";
@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0f1117",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://app.usechiefos.com"),
   applicationName: "ChiefOS",
@@ -25,8 +34,14 @@ export const metadata: Metadata = {
   description:
     "ChiefOS — an AI-native operating system for contractors and service businesses.",
   icons: {
-    icon: [{ url: "/favicon.ico" }, { url: "/icon.png", type: "image/png" }],
-    apple: [{ url: "/apple-touch-icon.png" }],
+    icon: [{ url: "/icon-192.png", type: "image/png", sizes: "1024x1024" }],
+    apple: [{ url: "/icon-192.png", sizes: "1024x1024" }],
+  },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ChiefOS",
   },
 };
 

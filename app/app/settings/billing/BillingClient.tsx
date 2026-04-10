@@ -41,7 +41,7 @@ const PLAN_UI = {
     label: "Starter",
     badge: "Owner Mode",
     price: "$59/mo",
-    highlights: ["Receipt photos + voice capture", "Ask Chief (owner-only)", "Up to 25 jobs", "Exports (CSV / XLS / PDF)"],
+    highlights: ["7 days free — no charge until day 8", "Receipt photos + voice capture", "Ask Chief (owner-only)", "Up to 25 jobs", "Exports (CSV / XLS / PDF)"],
   },
   pro: {
     label: "Pro",
