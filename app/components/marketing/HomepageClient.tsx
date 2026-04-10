@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import DemoChiefChat from "./DemoChiefChat";
 
 // ─── Scroll-reveal ───────────────────────────────────────────────────────────
 
@@ -1084,6 +1085,30 @@ export default function HomepageClient() {
             </FadeIn>
           ))}
         </div>
+      </section>
+
+      <div style={s.divider} />
+
+      {/* ── ASK CHIEF ANYTHING ──────────────────────────────────────────── */}
+      <section style={s.section} id="ask-chief">
+        <FadeIn>
+          <div style={s.sectionLabel}>Live Demo</div>
+        </FadeIn>
+        <FadeIn delay={0.1}>
+          <h2 style={s.sectionTitle}>
+            Ask Chief{" "}
+            <span style={s.heroAccent}>Anything.</span>
+          </h2>
+        </FadeIn>
+        <FadeIn delay={0.2}>
+          <p style={{ ...s.body, marginBottom: "48px" }}>
+            Chief answers like a seasoned ops manager who knows your business cold.
+            Try a question below — or ask your own.
+          </p>
+        </FadeIn>
+        <FadeIn delay={0.3}>
+          <DemoChiefChat />
+        </FadeIn>
       </section>
 
       <div style={s.divider} />
