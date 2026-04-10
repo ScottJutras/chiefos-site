@@ -627,6 +627,7 @@ export default function HomepageClient() {
         <div style={s.logo}>CHIEFOS</div>
         <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
           <a href="/pricing" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
+          <a href="/supplier/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Supplier Portal</a>
           <a href="/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Sign in</a>
           <button style={s.navCta} onClick={() => { window.location.href = "/signup"; }}>Get Started</button>
         </div>
