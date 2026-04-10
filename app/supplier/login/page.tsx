@@ -100,6 +100,15 @@ function LoginForm() {
             Apply to join
           </Link>
         </p>
+
+        <div className="mt-6 text-center">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-[#706A60] hover:text-[#A8A090] transition-colors">
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 12L6 8l4-4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back to ChiefOS
+          </Link>
+        </div>
       </div>
     </div>
   );
