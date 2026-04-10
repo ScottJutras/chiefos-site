@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
       const encoder = new TextEncoder();
       try {
         const stream = await anthropic.messages.stream({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-3-5-haiku-20241022",
           max_tokens: 400,
           system: SYSTEM_PROMPT,
           messages,
