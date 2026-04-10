@@ -8,9 +8,9 @@ type Toast = { id: string; message: string; kind?: "info" | "error" | "success" 
 const ToastCtx = createContext<{ push: (t: Omit<Toast, "id">) => void } | null>(null);
 
 function tone(kind?: Toast["kind"]) {
-  if (kind === "error") return "border-red-200 bg-red-50 text-red-900";
-  if (kind === "success") return "border-emerald-200 bg-emerald-50 text-emerald-900";
-  return "border-black/10 bg-white text-black";
+  if (kind === "error") return "border-red-500/30 bg-red-500/10 text-red-300";
+  if (kind === "success") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  return "border-[rgba(212,168,83,0.25)] bg-[#0F0E0C] text-[#E8E2D8]";
 }
 
 function badge(kind?: Toast["kind"]) {

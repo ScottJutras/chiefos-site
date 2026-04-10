@@ -16,15 +16,15 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <h2 className="text-lg md:text-xl font-semibold text-white/95">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-white/72">{children}</div>
+      <h2 className="text-lg md:text-xl font-semibold text-[#E8E2D8]">{title}</h2>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-[#A8A090]">{children}</div>
     </section>
   );
 }
 
 function BulletList({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="list-disc pl-5 space-y-2 text-sm text-white/72">
+    <ul className="list-disc pl-5 space-y-2 text-sm text-[#A8A090]">
       {items.map((item, i) => (
         <li key={i}>{item}</li>
       ))}
@@ -35,15 +35,15 @@ function BulletList({ items }: { items: React.ReactNode[] }) {
 export default function LegalAgreementContent() {
   return (
     <div className="space-y-10">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-        <div className="text-xs tracking-[0.18em] uppercase text-white/50">ChiefOS legal package</div>
-        <h1 className="mt-3 text-2xl font-semibold text-white/95">Terms, Privacy, AI Policy, and DPA</h1>
-        <div className="mt-3 text-sm text-white/65 leading-relaxed">
+      <div className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.04)] p-5">
+        <div className="text-xs tracking-[0.18em] uppercase text-[#706A60]">ChiefOS legal package</div>
+        <h1 className="mt-3 text-2xl font-semibold text-[#E8E2D8]">Terms, Privacy, AI Policy, and DPA</h1>
+        <div className="mt-3 text-sm text-[#A8A090] leading-relaxed">
           This package explains the rules for using ChiefOS, how your data is handled, how automated systems are used,
           and how customer data is processed to operate the service.
         </div>
 
-        <div className="mt-4 grid gap-2 text-xs text-white/55 md:grid-cols-2">
+        <div className="mt-4 grid gap-2 text-xs text-[#706A60] md:grid-cols-2">
           <div>Terms version: {LEGAL_TERMS_VERSION}</div>
           <div>Privacy version: {LEGAL_PRIVACY_VERSION}</div>
           <div>AI Policy version: {LEGAL_AI_POLICY_VERSION}</div>
@@ -79,7 +79,7 @@ export default function LegalAgreementContent() {
           portal, and messaging-based features.
         </div>
 
-        <div className="font-medium text-white/85">What we collect</div>
+        <div className="font-medium text-[#E8E2D8]">What we collect</div>
         <BulletList
           items={[
             <>Account information such as email address, authentication identifiers, and connected phone number where applicable.</>,
@@ -89,7 +89,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">How we use information</div>
+        <div className="font-medium text-[#E8E2D8]">How we use information</div>
         <BulletList
           items={[
             <>Provide and operate the service.</>,
@@ -100,7 +100,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">How we share information</div>
+        <div className="font-medium text-[#E8E2D8]">How we share information</div>
         <BulletList
           items={[
             <>We do not sell personal information.</>,
@@ -109,7 +109,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Retention and security</div>
+        <div className="font-medium text-[#E8E2D8]">Retention and security</div>
         <BulletList
           items={[
             <>Workspace data is retained while your account is active unless deletion is requested or required by law.</>,
@@ -125,7 +125,7 @@ export default function LegalAgreementContent() {
           operational insights.
         </div>
 
-        <div className="font-medium text-white/85">How AI is used</div>
+        <div className="font-medium text-[#E8E2D8]">How AI is used</div>
         <BulletList
           items={[
             <>Categorizing submitted receipts and records.</>,
@@ -135,7 +135,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Limitations</div>
+        <div className="font-medium text-[#E8E2D8]">Limitations</div>
         <BulletList
           items={[
             <>AI-generated outputs may contain inaccuracies or incomplete interpretations.</>,
@@ -144,7 +144,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Improvement and training</div>
+        <div className="font-medium text-[#E8E2D8]">Improvement and training</div>
         <BulletList
           items={[
             <>ChiefOS may use aggregated, anonymized, or de-identified datasets derived from platform activity to improve systems and product performance.</>,
@@ -158,7 +158,7 @@ export default function LegalAgreementContent() {
           This DPA explains how ChiefOS processes customer data on behalf of users of the service.
         </div>
 
-        <div className="font-medium text-white/85">Roles</div>
+        <div className="font-medium text-[#E8E2D8]">Roles</div>
         <BulletList
           items={[
             <>The customer acts as the data controller for customer-submitted data.</>,
@@ -166,7 +166,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Scope of processing</div>
+        <div className="font-medium text-[#E8E2D8]">Scope of processing</div>
         <BulletList
           items={[
             <>Storing submitted records.</>,
@@ -176,7 +176,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Security measures</div>
+        <div className="font-medium text-[#E8E2D8]">Security measures</div>
         <BulletList
           items={[
             <>Encrypted data transmission.</>,
@@ -186,7 +186,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Subprocessors</div>
+        <div className="font-medium text-[#E8E2D8]">Subprocessors</div>
         <BulletList
           items={[
             <>Supabase for database and authentication.</>,
@@ -196,7 +196,7 @@ export default function LegalAgreementContent() {
           ]}
         />
 
-        <div className="font-medium text-white/85">Retention and transfers</div>
+        <div className="font-medium text-[#E8E2D8]">Retention and transfers</div>
         <BulletList
           items={[
             <>Customer data is retained only as necessary to operate the service, satisfy legal obligations, or honor account retention requirements.</>,
@@ -205,7 +205,7 @@ export default function LegalAgreementContent() {
         />
       </Section>
 
-      <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-white/50">
+      <div className="rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[#0C0B0A] p-4 text-xs text-[#706A60]">
         This document is provided for operational clarity and transparency. It is not legal advice.
       </div>
     </div>

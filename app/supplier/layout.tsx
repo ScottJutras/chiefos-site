@@ -13,8 +13,8 @@ function NavLink({ href, children }: { href: string; children: ReactNode }) {
       href={href}
       className={`text-sm font-medium transition-colors ${
         active
-          ? "text-white"
-          : "text-white/50 hover:text-white"
+          ? "text-[#D4A853]"
+          : "text-[#A8A090] hover:text-[#D4A853]"
       }`}
     >
       {children}
@@ -31,14 +31,14 @@ export default function SupplierLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       {/* Top navigation bar */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-[rgba(212,168,83,0.15)] bg-[#0C0B0A]/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           {/* Brand */}
           <Link href="/supplier/dashboard" className="flex items-center gap-2">
-            <span className="text-base font-bold tracking-tight text-white">ChiefOS</span>
-            <span className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-medium text-white/60">
+            <span className="text-base font-bold tracking-tight text-[#E8E2D8]">ChiefOS</span>
+            <span className="rounded border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.1)] px-1.5 py-0.5 text-xs font-medium text-[#D4A853]">
               Supplier Portal
             </span>
           </Link>
@@ -53,14 +53,14 @@ export default function SupplierLayout({ children }: { children: ReactNode }) {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="text-sm text-white/50 transition-colors hover:text-white"
+            className="text-sm text-[#A8A090] transition-colors hover:text-[#D4A853]"
           >
             Sign out
           </button>
         </div>
 
         {/* Mobile nav */}
-        <div className="flex items-center gap-4 border-t border-white/10 px-4 py-2 sm:hidden">
+        <div className="flex items-center gap-4 border-t border-[rgba(212,168,83,0.1)] px-4 py-2 sm:hidden">
           <NavLink href="/supplier/dashboard">Dashboard</NavLink>
           <NavLink href="/supplier/catalog">Catalog</NavLink>
           <NavLink href="/supplier/catalog/upload">Upload</NavLink>

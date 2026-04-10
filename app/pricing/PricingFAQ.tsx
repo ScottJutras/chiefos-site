@@ -17,19 +17,19 @@ function FAQRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5">
+    <div className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.04)]">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-4 p-5 text-left"
         aria-expanded={open}
       >
-        <div className="text-sm font-semibold text-white/90">{q}</div>
+        <div className="text-sm font-semibold text-[#E8E2D8]">{q}</div>
 
         <div
           className={[
             "inline-flex h-8 w-8 items-center justify-center rounded-xl",
-            "border border-white/10 bg-black/30 text-white/70 transition",
+            "border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.06)] text-[#A8A090] transition",
             open ? "rotate-45" : "",
           ].join(" ")}
           aria-hidden="true"
@@ -39,7 +39,7 @@ function FAQRow({
       </button>
 
       {open && (
-        <div className="px-5 pb-5 -mt-2 text-sm text-white/70 leading-relaxed">
+        <div className="px-5 pb-5 -mt-2 text-sm text-[#A8A090] leading-relaxed">
           {a}
         </div>
       )}

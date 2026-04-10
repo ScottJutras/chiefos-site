@@ -6,16 +6,16 @@ const PRIVACY_EMAIL = "privacy@usechiefos.com";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-white/70">{children}</div>
+    <section className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+      <h2 className="text-lg font-semibold text-[#E8E2D8]">{title}</h2>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-[#A8A090]">{children}</div>
     </section>
   );
 }
 
 function Bullets({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-white/70">
+    <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-[#A8A090]">
       {items.map((x, i) => (
         <li key={i}>{x}</li>
       ))}
@@ -25,18 +25,18 @@ function Bullets({ items }: { items: React.ReactNode[] }) {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6">
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/55">Legal</div>
+        <div className="rounded-[28px] border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+          <div className="text-xs tracking-[0.18em] uppercase text-[#706A60]">Legal</div>
 
-          <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-white/95">
+          <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[#E8E2D8]">
             Privacy Policy
           </h1>
 
-          <div className="mt-3 text-sm text-white/60">Last updated: {LAST_UPDATED}</div>
+          <div className="mt-3 text-sm text-[#706A60]">Last updated: {LAST_UPDATED}</div>
 
-          <div className="mt-4 text-sm text-white/70 leading-relaxed">
+          <div className="mt-4 text-sm text-[#A8A090] leading-relaxed">
             This Privacy Policy describes how {COMPANY} ("ChiefOS", "we", "us", "our") collects,
             uses, discloses, and protects personal information when you use our website, web portal,
             and messaging-based features (including WhatsApp ingestion). We are subject to the
@@ -45,17 +45,17 @@ export default function PrivacyPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link href="/terms" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <Link href="/terms" className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               Terms of Service
             </Link>
-            <a href={`mailto:${PRIVACY_EMAIL}`} className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <a href={`mailto:${PRIVACY_EMAIL}`} className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               {PRIVACY_EMAIL}
             </a>
           </div>
         </div>
 
         <Section title="1. What information we collect">
-          <div className="font-semibold text-white/85">Account information</div>
+          <div className="font-semibold text-[#E8E2D8]">Account information</div>
           <Bullets
             items={[
               <>Email address and authentication credentials used to create and access your account.</>,
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
               <>Business name and profile information you provide during onboarding.</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-3">Customer Data (business records)</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Customer Data (business records)</div>
           <Bullets
             items={[
               <>Receipts, invoices, and financial documents you submit by photo, file upload, or email.</>,
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
               <>Metadata associated with submitted records (file names, timestamps, source channels).</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-3">Usage and technical information</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Usage and technical information</div>
           <Bullets
             items={[
               <>Page views, feature interactions, and navigation activity within the platform.</>,
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
               <>Request timestamps, error logs, and security event logs.</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-3">Payment information</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Payment information</div>
           <Bullets
             items={[
               <>Billing status and subscription tier. Payments are processed by Stripe and we do not store full card numbers or CVV codes.</>,
@@ -140,28 +140,28 @@ export default function PrivacyPage() {
             We do not sell personal information. We share information only when necessary to operate
             the Service or comply with legal obligations.
           </div>
-          <div className="font-semibold text-white/85 mt-3">Service providers (subprocessors)</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Service providers (subprocessors)</div>
           <Bullets
             items={[
-              <><strong className="text-white/85">Supabase</strong> — authentication, database storage, and file storage.</>,
-              <><strong className="text-white/85">Vercel</strong> — application hosting and delivery.</>,
-              <><strong className="text-white/85">Twilio</strong> — messaging infrastructure for WhatsApp ingestion.</>,
-              <><strong className="text-white/85">Stripe</strong> — subscription billing and payment processing.</>,
-              <><strong className="text-white/85">OpenAI / Anthropic</strong> — AI model providers used to process submitted records and generate insights.</>,
-              <><strong className="text-white/85">SendGrid / Postmark</strong> — transactional email delivery.</>,
+              <><strong className="text-[#E8E2D8]">Supabase</strong> — authentication, database storage, and file storage.</>,
+              <><strong className="text-[#E8E2D8]">Vercel</strong> — application hosting and delivery.</>,
+              <><strong className="text-[#E8E2D8]">Twilio</strong> — messaging infrastructure for WhatsApp ingestion.</>,
+              <><strong className="text-[#E8E2D8]">Stripe</strong> — subscription billing and payment processing.</>,
+              <><strong className="text-[#E8E2D8]">OpenAI / Anthropic</strong> — AI model providers used to process submitted records and generate insights.</>,
+              <><strong className="text-[#E8E2D8]">SendGrid / Postmark</strong> — transactional email delivery.</>,
             ]}
           />
           <div>
             All service providers are bound by data processing agreements and are permitted to use
             your information only as needed to provide their services to us.
           </div>
-          <div className="font-semibold text-white/85 mt-3">Legal requirements</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Legal requirements</div>
           <div>
             We may disclose information if required to do so by law, court order, or lawful request
             from a government authority, or where we believe disclosure is necessary to protect the
             rights, property, or safety of ChiefOS, our users, or the public.
           </div>
-          <div className="font-semibold text-white/85 mt-3">Business transfers</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Business transfers</div>
           <div>
             If ChiefOS is involved in a merger, acquisition, or sale of assets, your information may
             be transferred as part of that transaction. We will provide notice before your information
@@ -174,11 +174,11 @@ export default function PrivacyPage() {
             Our website and portal use cookies and similar technologies to support authentication,
             remember your preferences, and understand how users navigate the platform.
           </div>
-          <div className="font-semibold text-white/85 mt-3">Types of cookies we use</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Types of cookies we use</div>
           <Bullets
             items={[
-              <><strong className="text-white/85">Essential cookies:</strong> Required for authentication and core platform functionality. Cannot be disabled.</>,
-              <><strong className="text-white/85">Analytics cookies:</strong> Help us understand usage patterns to improve the Service. You may decline these.</>,
+              <><strong className="text-[#E8E2D8]">Essential cookies:</strong> Required for authentication and core platform functionality. Cannot be disabled.</>,
+              <><strong className="text-[#E8E2D8]">Analytics cookies:</strong> Help us understand usage patterns to improve the Service. You may decline these.</>,
             ]}
           />
           <div>
@@ -247,12 +247,12 @@ export default function PrivacyPage() {
           </div>
           <Bullets
             items={[
-              <><strong className="text-white/85">Access:</strong> Request a copy of the personal information we hold about you.</>,
-              <><strong className="text-white/85">Correction:</strong> Request that inaccurate or incomplete information be corrected.</>,
-              <><strong className="text-white/85">Deletion:</strong> Request that we delete your personal information, subject to our legal retention obligations.</>,
-              <><strong className="text-white/85">Data portability:</strong> Request an export of your Customer Data in a machine-readable format.</>,
-              <><strong className="text-white/85">Withdrawal of consent:</strong> Where processing is based on consent, you may withdraw it at any time. This will not affect processing already carried out.</>,
-              <><strong className="text-white/85">Objection:</strong> Object to certain types of processing, including direct marketing.</>,
+              <><strong className="text-[#E8E2D8]">Access:</strong> Request a copy of the personal information we hold about you.</>,
+              <><strong className="text-[#E8E2D8]">Correction:</strong> Request that inaccurate or incomplete information be corrected.</>,
+              <><strong className="text-[#E8E2D8]">Deletion:</strong> Request that we delete your personal information, subject to our legal retention obligations.</>,
+              <><strong className="text-[#E8E2D8]">Data portability:</strong> Request an export of your Customer Data in a machine-readable format.</>,
+              <><strong className="text-[#E8E2D8]">Withdrawal of consent:</strong> Where processing is based on consent, you may withdraw it at any time. This will not affect processing already carried out.</>,
+              <><strong className="text-[#E8E2D8]">Objection:</strong> Object to certain types of processing, including direct marketing.</>,
             ]}
           />
           <div>
@@ -300,10 +300,10 @@ export default function PrivacyPage() {
             For privacy questions, access requests, or complaints, contact our privacy team:
           </div>
           <div className="mt-2">
-            <div className="text-white/85 font-semibold">ChiefOS Privacy</div>
+            <div className="text-[#E8E2D8] font-semibold">ChiefOS Privacy</div>
             <div>9839429 Canada Inc.</div>
             <div>
-              <a href={`mailto:${PRIVACY_EMAIL}`} className="underline hover:text-white transition">
+              <a href={`mailto:${PRIVACY_EMAIL}`} className="underline hover:text-[#D4A853] transition">
                 {PRIVACY_EMAIL}
               </a>
             </div>
@@ -311,13 +311,13 @@ export default function PrivacyPage() {
           <div>
             If you are not satisfied with our response, you may file a complaint with the Office of
             the Privacy Commissioner of Canada at{" "}
-            <a href="https://www.priv.gc.ca" className="underline hover:text-white transition" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.priv.gc.ca" className="underline hover:text-[#D4A853] transition" target="_blank" rel="noopener noreferrer">
               priv.gc.ca
             </a>.
           </div>
         </Section>
 
-        <div className="text-xs text-white/45">
+        <div className="text-xs text-[#706A60]">
           ChiefOS is a product of 9839429 Canada Inc. This policy is provided for transparency.
           It is not legal advice.
         </div>

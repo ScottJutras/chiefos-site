@@ -43,7 +43,7 @@ export default function SupplierDashboardPage() {
   if (gate.loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-sm text-white/40">Loading...</div>
+        <div className="text-sm text-[#706A60]">Loading...</div>
       </div>
     );
   }
@@ -63,8 +63,8 @@ export default function SupplierDashboardPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">{gate.supplierName}</h1>
-        <p className="mt-1 text-sm text-white/50">{gate.email}</p>
+        <h1 className="text-2xl font-bold text-[#E8E2D8]">{gate.supplierName}</h1>
+        <p className="mt-1 text-sm text-[#A8A090]">{gate.email}</p>
       </div>
 
       {gate.status === "active" && (
@@ -107,9 +107,9 @@ export default function SupplierDashboardPage() {
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs text-white/40">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-white">{value}</p>
+    <div className="rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-4">
+      <p className="text-xs text-[#706A60]">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-[#E8E2D8]">{value}</p>
     </div>
   );
 }
@@ -128,11 +128,11 @@ function ActionCard({
   return (
     <Link
       href={href}
-      className="group block rounded-xl border border-white/10 bg-white/5 p-5 transition hover:border-white/20 hover:bg-white/10"
+      className="group block rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-5 transition hover:border-[rgba(212,168,83,0.3)] hover:bg-[rgba(212,168,83,0.05)]"
     >
-      <h3 className="font-semibold text-white">{title}</h3>
-      <p className="mt-1 text-sm text-white/50">{description}</p>
-      <span className="mt-3 inline-block text-sm font-medium text-white/70 group-hover:text-white">
+      <h3 className="font-semibold text-[#E8E2D8]">{title}</h3>
+      <p className="mt-1 text-sm text-[#A8A090]">{description}</p>
+      <span className="mt-3 inline-block text-sm font-medium text-[#D4A853] group-hover:text-[#C49843]">
         {cta} →
       </span>
     </Link>

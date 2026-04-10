@@ -8,16 +8,16 @@ const LEGAL_EMAIL = "legal@usechiefos.com";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm text-white/70 leading-relaxed">{children}</div>
+    <section className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+      <h2 className="text-lg font-semibold text-[#E8E2D8]">{title}</h2>
+      <div className="mt-3 space-y-3 text-sm text-[#A8A090] leading-relaxed">{children}</div>
     </section>
   );
 }
 
 function Bullets({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="list-disc pl-5 space-y-2 text-sm text-white/70">
+    <ul className="list-disc pl-5 space-y-2 text-sm text-[#A8A090]">
       {items.map((x, i) => (
         <li key={i}>{x}</li>
       ))}
@@ -27,18 +27,18 @@ function Bullets({ items }: { items: React.ReactNode[] }) {
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6">
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/55">Legal</div>
+        <div className="rounded-[28px] border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] p-6">
+          <div className="text-xs tracking-[0.18em] uppercase text-[#706A60]">Legal</div>
 
-          <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-white/95">
+          <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-[#E8E2D8]">
             Terms of Service
           </h1>
 
-          <div className="mt-3 text-sm text-white/60">Last updated: {LAST_UPDATED}</div>
+          <div className="mt-3 text-sm text-[#706A60]">Last updated: {LAST_UPDATED}</div>
 
-          <div className="mt-4 text-sm text-white/70 leading-relaxed">
+          <div className="mt-4 text-sm text-[#A8A090] leading-relaxed">
             These Terms of Service ("Terms") govern your access to and use of the ChiefOS platform,
             including our website, web portal, and messaging-based features (collectively, the "Service"),
             operated by {COMPANY}. By creating an account or using the Service, you agree to these Terms.
@@ -47,13 +47,13 @@ export default function TermsPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link href="/privacy" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <Link href="/privacy" className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               Privacy Policy
             </Link>
-            <Link href="/legal/ai-policy" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <Link href="/legal/ai-policy" className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               AI Policy
             </Link>
-            <a href={`mailto:${LEGAL_EMAIL}`} className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <a href={`mailto:${LEGAL_EMAIL}`} className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               {LEGAL_EMAIL}
             </a>
           </div>
@@ -137,7 +137,7 @@ export default function TermsPage() {
             ChiefOS offers free and paid subscription plans. Paid plans are billed in advance on a monthly
             or annual basis. All amounts are in Canadian dollars unless stated otherwise.
           </div>
-          <div className="font-semibold text-white/85 mt-2">Billing cycles</div>
+          <div className="font-semibold text-[#E8E2D8] mt-2">Billing cycles</div>
           <Bullets
             items={[
               <>Monthly plans are billed on the same date each month.</>,
@@ -146,12 +146,12 @@ export default function TermsPage() {
               <>Subscription fees are non-refundable except as stated in Section 7.</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-2">Price changes</div>
+          <div className="font-semibold text-[#E8E2D8] mt-2">Price changes</div>
           <div>
             We may change subscription prices with at least 30 days' written notice. Continued use of a
             paid plan after a price change takes effect constitutes acceptance of the new price.
           </div>
-          <div className="font-semibold text-white/85 mt-2">Failed payments</div>
+          <div className="font-semibold text-[#E8E2D8] mt-2">Failed payments</div>
           <div>
             If a payment fails, we will attempt to retry the charge. Access to paid features may be
             suspended if payment remains unsuccessful after 7 days. You will be notified before suspension occurs.
@@ -159,7 +159,7 @@ export default function TermsPage() {
         </Section>
 
         <Section title="7. Cancellation and refunds">
-          <div className="font-semibold text-white/85">Cancellation</div>
+          <div className="font-semibold text-[#E8E2D8]">Cancellation</div>
           <Bullets
             items={[
               <>You may cancel your subscription at any time from your account settings or by contacting {SUPPORT_EMAIL}.</>,
@@ -168,7 +168,7 @@ export default function TermsPage() {
               <>Downgrading to a free plan is treated as a cancellation of your paid subscription.</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-3">Refunds</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Refunds</div>
           <Bullets
             items={[
               <>New subscribers on any paid plan may request a full refund within 14 days of their first payment if they are not satisfied. Contact {SUPPORT_EMAIL} with your account email and reason.</>,
@@ -178,7 +178,7 @@ export default function TermsPage() {
               <>ChiefOS reserves the right to deny refund requests that appear to abuse this policy (e.g., repeated refund requests).</>,
             ]}
           />
-          <div className="font-semibold text-white/85 mt-3">Beta and early-access plans</div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">Beta and early-access plans</div>
           <div>
             If you are participating in a beta or early-access programme at a discounted or no-cost rate,
             no monetary refund applies. We may modify or end beta programmes with reasonable notice.
@@ -257,12 +257,12 @@ export default function TermsPage() {
         </Section>
 
         <Section title="14. Termination">
-          <div className="font-semibold text-white/85">By you</div>
+          <div className="font-semibold text-[#E8E2D8]">By you</div>
           <div>
             You may stop using the Service and close your account at any time. Cancellation of a paid
             plan is governed by Section 7.
           </div>
-          <div className="font-semibold text-white/85 mt-2">By ChiefOS</div>
+          <div className="font-semibold text-[#E8E2D8] mt-2">By ChiefOS</div>
           <div>
             We may suspend or terminate your account if you violate these Terms, fail to pay fees, or
             engage in conduct that we reasonably believe harms the Service or other users. We will
@@ -318,9 +318,9 @@ export default function TermsPage() {
           />
         </Section>
 
-        <div className="text-xs text-white/45">
+        <div className="text-xs text-[#706A60]">
           ChiefOS is a product of {COMPANY}. Questions? Contact{" "}
-          <a href={`mailto:${LEGAL_EMAIL}`} className="underline">{LEGAL_EMAIL}</a>.
+          <a href={`mailto:${LEGAL_EMAIL}`} className="underline text-[#D4A853] hover:text-[#C49843]">{LEGAL_EMAIL}</a>.
         </div>
       </div>
     </main>

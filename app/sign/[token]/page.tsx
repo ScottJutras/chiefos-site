@@ -32,11 +32,11 @@ export default async function SignPage({
   // Already signed
   if (fileRec?.signed_at) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-[#0C0B0A] flex items-center justify-center p-8">
         <div className="max-w-md w-full text-center">
-          <div className="text-5xl mb-4">✓</div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Already signed</h1>
-          <p className="text-gray-500 text-sm">
+          <div className="text-5xl mb-4 text-[#D4A853]">✓</div>
+          <h1 className="text-2xl font-semibold text-[#E8E2D8] mb-2">Already signed</h1>
+          <p className="text-[#A8A090] text-sm">
             This document has already been signed. Thank you.
           </p>
         </div>
@@ -47,11 +47,11 @@ export default async function SignPage({
   // Invalid token
   if (!fileRec) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-[#0C0B0A] flex items-center justify-center p-8">
         <div className="max-w-md w-full text-center">
           <div className="text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Link not found</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-semibold text-[#E8E2D8] mb-2">Link not found</h1>
+          <p className="text-[#A8A090] text-sm">
             This signature link is invalid or has already been used. Contact your contractor for a new link.
           </p>
         </div>

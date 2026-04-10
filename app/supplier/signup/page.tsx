@@ -37,8 +37,8 @@ function passwordChecks(pw: string) {
 function CheckDot({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-white/20"}`} />
-      <span className={ok ? "text-white/70" : "text-white/30"}>{label}</span>
+      <span className={`h-1.5 w-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-[rgba(212,168,83,0.15)]"}`} />
+      <span className={ok ? "text-[#A8A090]" : "text-[#706A60]"}>{label}</span>
     </div>
   );
 }
@@ -64,18 +64,18 @@ function EyeIcon({ off }: { off?: boolean }) {
 // ─── Shared input styles ───────────────────────────────────────────────────────
 
 const inputCls =
-  "w-full rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20";
+  "w-full rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-sm text-[#E8E2D8] placeholder-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]";
 
 const selectCls =
-  "w-full rounded-lg border border-white/10 bg-[#1a1a1a] px-3 py-2 text-sm text-white outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 appearance-none";
+  "w-full rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-sm text-[#E8E2D8] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)] appearance-none";
 
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-white/70">
-        {label}{required && <span className="ml-0.5 text-white/30">*</span>}
+      <label className="mb-1.5 block text-sm font-medium text-[#A8A090]">
+        {label}{required && <span className="ml-0.5 text-[#706A60]">*</span>}
       </label>
       {children}
     </div>
@@ -102,7 +102,7 @@ function SelectField({ label, required, value, onChange, children }: {
         >
           {children}
         </select>
-        <svg className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#706A60]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M2 4l4 4 4-4" />
         </svg>
       </div>
@@ -204,12 +204,12 @@ export default function SupplierSignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black px-4 py-12">
+    <div className="min-h-screen bg-[#0C0B0A] px-4 py-12">
       <div className="mx-auto max-w-lg">
         <div className="mb-8">
-          <p className="text-sm font-medium text-white/50">ChiefOS Supplier Portal</p>
-          <h1 className="mt-1 text-2xl font-bold text-white">Apply to join</h1>
-          <p className="mt-1 text-sm text-white/50">
+          <p className="text-sm font-medium text-[#A8A090]">ChiefOS Supplier Portal</p>
+          <h1 className="mt-1 text-2xl font-bold text-[#E8E2D8]">Apply to join</h1>
+          <p className="mt-1 text-sm text-[#A8A090]">
             Submit your details — ChiefOS will review and approve your account.
           </p>
         </div>
@@ -217,8 +217,8 @@ export default function SupplierSignupPage() {
         <form onSubmit={onSubmit} className="space-y-5">
 
           {/* ── Company ── */}
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-white/30">Company</h2>
+          <section className="space-y-4 rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#706A60]">Company</h2>
 
             <Field label="Company name" required>
               <input
@@ -277,8 +277,8 @@ export default function SupplierSignupPage() {
           </section>
 
           {/* ── Primary contact ── */}
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-white/30">Primary contact</h2>
+          <section className="space-y-4 rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#706A60]">Primary contact</h2>
 
             <Field label="Full name" required>
               <input
@@ -306,8 +306,8 @@ export default function SupplierSignupPage() {
           </section>
 
           {/* ── Password ── */}
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-white/30">Account password</h2>
+          <section className="space-y-4 rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-[#706A60]">Account password</h2>
 
             <Field label="Password" required>
               <div className="relative">
@@ -322,7 +322,7 @@ export default function SupplierSignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#706A60] hover:text-[#D4A853] transition"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   <EyeIcon off={showPassword} />
@@ -354,7 +354,7 @@ export default function SupplierSignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#706A60] hover:text-[#D4A853] transition"
                   aria-label={showConfirm ? "Hide password" : "Show password"}
                 >
                   <EyeIcon off={showConfirm} />
@@ -391,15 +391,15 @@ export default function SupplierSignupPage() {
           <button
             type="submit"
             disabled={loading || !turnstileToken}
-            className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-40"
+            className="w-full rounded-[2px] bg-[#D4A853] px-4 py-2.5 text-sm font-semibold text-[#0C0B0A] transition hover:bg-[#C49843] disabled:opacity-40"
           >
             {loading ? "Submitting..." : "Submit application"}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-white/40">
+        <p className="mt-4 text-center text-sm text-[#706A60]">
           Already have an account?{" "}
-          <Link href="/supplier/login" className="text-white/70 underline hover:text-white">
+          <Link href="/supplier/login" className="text-[#D4A853] underline hover:text-[#C49843]">
             Sign in
           </Link>
         </p>

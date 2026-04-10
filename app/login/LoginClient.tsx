@@ -114,23 +114,23 @@ export default function LoginClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]" style={{ paddingTop: "var(--early-access-banner-h)" }}>
       <SiteHeader rightLabel="Create account" rightHref="/signup" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
-        <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
           Early access portal
         </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Log in</h1>
-        <p className="mt-2 text-gray-600">If you just signed up, confirm your email first — then log in.</p>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">Log in</h1>
+        <p className="mt-2 text-[#A8A090]">If you just signed up, confirm your email first — then log in.</p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="block text-sm font-medium">Email</label>
+            <label className="block text-sm font-medium text-[#A8A090]">Email</label>
             <input
-              className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+              className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -140,11 +140,11 @@ export default function LoginClient() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Password</label>
+            <label className="block text-sm font-medium text-[#A8A090]">Password</label>
 
             <div className="relative mt-1">
               <input
-                className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                className="w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 pr-11 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type={showPassword ? "text" : "password"}
@@ -155,7 +155,7 @@ export default function LoginClient() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-[#706A60] hover:text-[#D4A853] transition"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <EyeIcon off /> : <EyeIcon />}
@@ -163,10 +163,10 @@ export default function LoginClient() {
             </div>
 
             <div className="mt-2 flex items-center justify-between">
-              <a className="text-xs underline text-gray-700 hover:text-gray-900" href="/reset-password">
+              <a className="text-xs underline text-[#A8A090] hover:text-[#D4A853]" href="/reset-password">
                 Forgot password?
               </a>
-              <a className="text-xs underline text-gray-700 hover:text-gray-900" href="/signup">
+              <a className="text-xs underline text-[#A8A090] hover:text-[#D4A853]" href="/signup">
                 Create account
               </a>
             </div>
@@ -176,10 +176,10 @@ export default function LoginClient() {
             <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
           </div>
 
-          {err && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          {err && <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{err}</div>}
 
           <button
-            className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
+            className="w-full rounded-[2px] bg-[#D4A853] px-4 py-2 text-[#0C0B0A] font-semibold hover:bg-[#C49843] disabled:opacity-60 transition"
             disabled={loading}
             type="submit"
           >

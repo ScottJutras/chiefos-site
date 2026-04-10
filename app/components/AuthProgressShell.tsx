@@ -56,16 +56,16 @@ export default function AuthProgressShell({
   const pct = progressPercent(steps, activeStepKey, isError);
 
   return (
-    <main className="min-h-screen overflow-hidden bg-black text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.11),transparent_34%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.04),transparent_28%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/10" />
+    <main className="min-h-screen overflow-hidden bg-[#0C0B0A] text-[#E8E2D8]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(212,168,83,0.07),transparent_34%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(212,168,83,0.03),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[rgba(212,168,83,0.15)]" />
 
       <div className="relative mx-auto flex min-h-screen max-w-6xl items-center px-6 py-12 md:py-16">
         <div className="grid w-full gap-8 lg:grid-cols-[1.18fr_0.82fr] lg:gap-10">
           {/* Left */}
-          <section className="rounded-[30px] border border-white/10 bg-white/[0.05] p-6 shadow-[0_40px_140px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/70">
+          <section className="rounded-[30px] border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6 shadow-[0_40px_140px_rgba(0,0,0,0.45)] backdrop-blur-xl md:p-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.06)] px-3 py-1 text-xs text-[#A8A090]">
               <span
                 className={[
                   "h-2.5 w-2.5 rounded-full",
@@ -75,32 +75,32 @@ export default function AuthProgressShell({
               {eyebrow}
             </div>
 
-            <h1 className="mt-6 text-3xl font-semibold tracking-tight leading-tight md:text-4xl">
+            <h1 className="mt-6 text-3xl font-semibold tracking-tight leading-tight text-[#E8E2D8] md:text-4xl">
               {title}
             </h1>
 
             <p
               className={[
                 "mt-4 max-w-2xl text-base leading-relaxed md:text-lg",
-                isError ? "text-red-200/90" : "text-white/70",
+                isError ? "text-red-300/90" : "text-[#A8A090]",
               ].join(" ")}
             >
               {status}
             </p>
 
-            <div className="mt-7 rounded-2xl border border-white/10 bg-black/30 p-4">
+            <div className="mt-7 rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0C0B0A] p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-white/50">
+                <div className="text-xs text-[#706A60]">
                   {isError ? "Setup paused" : "Secure setup in progress"}
                 </div>
-                <div className="text-xs text-white/40">{Math.round(pct)}%</div>
+                <div className="text-xs text-[#706A60]">{Math.round(pct)}%</div>
               </div>
 
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[rgba(212,168,83,0.1)]">
                 <div
                   className={[
                     "h-full rounded-full transition-all duration-500",
-                    isError ? "bg-red-400/80" : "bg-white",
+                    isError ? "bg-red-400/80" : "bg-[#D4A853]",
                   ].join(" ")}
                   style={{ width: `${pct}%` }}
                 />
@@ -117,12 +117,12 @@ export default function AuthProgressShell({
                     className={[
                       "rounded-2xl border px-4 py-4 transition",
                       state === "done"
-                        ? "border-white/10 bg-white/[0.06]"
+                        ? "border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.05)]"
                         : state === "active"
-                          ? "border-white/20 bg-white/[0.09] ring-1 ring-white/10"
+                          ? "border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.08)] ring-1 ring-[rgba(212,168,83,0.15)]"
                           : state === "error"
                             ? "border-red-400/20 bg-red-500/10"
-                            : "border-white/10 bg-black/25",
+                            : "border-[rgba(212,168,83,0.1)] bg-[#0C0B0A]",
                     ].join(" ")}
                   >
                     <div className="flex items-start gap-3">
@@ -130,12 +130,12 @@ export default function AuthProgressShell({
                         className={[
                           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold",
                           state === "done"
-                            ? "border-white/20 bg-white text-black"
+                            ? "border-[rgba(212,168,83,0.3)] bg-[#D4A853] text-[#0C0B0A]"
                             : state === "active"
-                              ? "border-white/20 bg-white/10 text-white"
+                              ? "border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] text-[#D4A853]"
                               : state === "error"
                                 ? "border-red-400/30 bg-red-500/20 text-red-100"
-                                : "border-white/10 bg-white/5 text-white/45",
+                                : "border-[rgba(212,168,83,0.1)] bg-[#0F0E0C] text-[#706A60]",
                         ].join(" ")}
                       >
                         {state === "done" ? "✓" : state === "error" ? "!" : ""}
@@ -145,7 +145,7 @@ export default function AuthProgressShell({
                         <div
                           className={[
                             "text-sm font-semibold",
-                            state === "upcoming" ? "text-white/55" : "text-white/90",
+                            state === "upcoming" ? "text-[#706A60]" : "text-[#E8E2D8]",
                           ].join(" ")}
                         >
                           {step.label}
@@ -155,7 +155,7 @@ export default function AuthProgressShell({
                           <div
                             className={[
                               "mt-1 text-xs leading-relaxed",
-                              state === "upcoming" ? "text-white/40" : "text-white/55",
+                              state === "upcoming" ? "text-[#706A60]" : "text-[#A8A090]",
                             ].join(" ")}
                           >
                             {step.description}
@@ -172,36 +172,36 @@ export default function AuthProgressShell({
           </section>
 
           {/* Right */}
-          <aside className="rounded-[30px] border border-white/10 bg-black/40 p-6 backdrop-blur-xl md:p-8">
-            <div className="text-xs uppercase tracking-[0.18em] text-white/45">
+          <aside className="rounded-[30px] border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6 backdrop-blur-xl md:p-8">
+            <div className="text-xs uppercase tracking-[0.18em] text-[#706A60]">
               What ChiefOS is doing
             </div>
 
-            <div className="mt-4 space-y-4 text-sm leading-relaxed text-white/70">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="mt-4 space-y-4 text-sm leading-relaxed text-[#A8A090]">
+              <div className="rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[rgba(212,168,83,0.04)] p-4">
                 Verifying your account and resolving the correct workspace for this session.
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[rgba(212,168,83,0.04)] p-4">
                 Preserving tenant-safe setup before you enter the app.
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+              <div className="rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[rgba(212,168,83,0.04)] p-4">
                 Preparing the operating center so your first actions feel clear instead of chaotic.
               </div>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="text-xs text-white/45">Trust-first note</div>
-              <div className="mt-2 text-sm leading-relaxed text-white/65">
+            <div className="mt-8 rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.04)] p-4">
+              <div className="text-xs text-[#706A60]">Trust-first note</div>
+              <div className="mt-2 text-sm leading-relaxed text-[#A8A090]">
                 ChiefOS does not skip required setup steps behind the scenes. If your workspace
                 needs to be created or linked safely, that happens before you enter.
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 p-4">
-              <div className="text-xs text-white/45">Why this matters</div>
-              <div className="mt-2 text-sm leading-relaxed text-white/65">
+            <div className="mt-6 rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[#0C0B0A] p-4">
+              <div className="text-xs text-[#706A60]">Why this matters</div>
+              <div className="mt-2 text-sm leading-relaxed text-[#A8A090]">
                 This is the handoff from account creation into your operating system. The goal is
                 not speed at any cost — it is clean setup, durable trust, and a calmer first entry.
               </div>

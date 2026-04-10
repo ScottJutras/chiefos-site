@@ -5,16 +5,16 @@ const PRIVACY_EMAIL = "privacy@usechiefos.com";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 text-sm text-white/70 space-y-3 leading-relaxed">{children}</div>
+    <section className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+      <h2 className="text-lg font-semibold text-[#E8E2D8]">{title}</h2>
+      <div className="mt-3 text-sm text-[#A8A090] space-y-3 leading-relaxed">{children}</div>
     </section>
   );
 }
 
 function Bullets({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul className="list-disc pl-5 space-y-2 text-sm text-white/70">
+    <ul className="list-disc pl-5 space-y-2 text-sm text-[#A8A090]">
       {items.map((x, i) => (
         <li key={i}>{x}</li>
       ))}
@@ -24,28 +24,28 @@ function Bullets({ items }: { items: React.ReactNode[] }) {
 
 export default function AIUsagePolicyPage() {
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6">
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-xs tracking-[0.18em] uppercase text-white/55">Legal</div>
+        <div className="rounded-[28px] border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+          <div className="text-xs tracking-[0.18em] uppercase text-[#706A60]">Legal</div>
 
-          <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-white/95">
+          <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-[#E8E2D8]">
             AI Usage Policy
           </h1>
 
-          <div className="mt-3 text-sm text-white/60">Last updated: {LAST_UPDATED}</div>
+          <div className="mt-3 text-sm text-[#706A60]">Last updated: {LAST_UPDATED}</div>
 
-          <div className="mt-4 text-sm text-white/70 leading-relaxed">
+          <div className="mt-4 text-sm text-[#A8A090] leading-relaxed">
             This policy explains how ChiefOS uses artificial intelligence and automated systems
             within the Service — what we use them for, which providers we rely on, how your data
             is handled, and what the known limitations are.
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
-            <Link href="/privacy" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <Link href="/privacy" className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-white/85 hover:bg-white/[0.09]">
+            <Link href="/terms" className="rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-2 text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition">
               Terms of Service
             </Link>
           </div>
@@ -67,13 +67,13 @@ export default function AIUsagePolicyPage() {
           <div>AI systems are used for the following functions within ChiefOS:</div>
           <Bullets
             items={[
-              <><strong className="text-white/85">Receipt and document parsing:</strong> Extracting amounts, vendors, dates, and line items from photos and files you submit.</>,
-              <><strong className="text-white/85">Transaction categorization:</strong> Classifying submitted expenses and revenue into categories relevant to your business.</>,
-              <><strong className="text-white/85">Job intelligence:</strong> Summarizing job-level financial activity including expenses, revenue, labour, and margin.</>,
-              <><strong className="text-white/85">Ask Chief (conversational insights):</strong> Answering natural language questions about your business data using your actual records as context.</>,
-              <><strong className="text-white/85">Anomaly detection:</strong> Identifying unusual patterns in submitted data (e.g. vendor spikes, margin drops) and surfacing them proactively.</>,
-              <><strong className="text-white/85">Voice and message transcription:</strong> Converting voice notes and text messages into structured business records.</>,
-              <><strong className="text-white/85">Proactive summaries:</strong> Generating weekly digests, job updates, and cash flow projections from your real data.</>,
+              <><strong className="text-[#E8E2D8]">Receipt and document parsing:</strong> Extracting amounts, vendors, dates, and line items from photos and files you submit.</>,
+              <><strong className="text-[#E8E2D8]">Transaction categorization:</strong> Classifying submitted expenses and revenue into categories relevant to your business.</>,
+              <><strong className="text-[#E8E2D8]">Job intelligence:</strong> Summarizing job-level financial activity including expenses, revenue, labour, and margin.</>,
+              <><strong className="text-[#E8E2D8]">Ask Chief (conversational insights):</strong> Answering natural language questions about your business data using your actual records as context.</>,
+              <><strong className="text-[#E8E2D8]">Anomaly detection:</strong> Identifying unusual patterns in submitted data (e.g. vendor spikes, margin drops) and surfacing them proactively.</>,
+              <><strong className="text-[#E8E2D8]">Voice and message transcription:</strong> Converting voice notes and text messages into structured business records.</>,
+              <><strong className="text-[#E8E2D8]">Proactive summaries:</strong> Generating weekly digests, job updates, and cash flow projections from your real data.</>,
             ]}
           />
         </Section>
@@ -84,8 +84,8 @@ export default function AIUsagePolicyPage() {
           </div>
           <Bullets
             items={[
-              <><strong className="text-white/85">OpenAI</strong> — Used for receipt parsing, document OCR, transaction categorization, and structured data extraction. Data sent to OpenAI is governed by OpenAI's API data usage policies.</>,
-              <><strong className="text-white/85">Anthropic</strong> — Used for financial reasoning, complex queries via Ask Chief, and analysis tasks requiring deeper contextual understanding.</>,
+              <><strong className="text-[#E8E2D8]">OpenAI</strong> — Used for receipt parsing, document OCR, transaction categorization, and structured data extraction. Data sent to OpenAI is governed by OpenAI's API data usage policies.</>,
+              <><strong className="text-[#E8E2D8]">Anthropic</strong> — Used for financial reasoning, complex queries via Ask Chief, and analysis tasks requiring deeper contextual understanding.</>,
             ]}
           />
           <div>
@@ -119,11 +119,11 @@ export default function AIUsagePolicyPage() {
           </div>
           <Bullets
             items={[
-              <><strong className="text-white/85">Inaccuracies:</strong> AI-generated outputs may contain errors, misclassifications, or omissions. Always verify important figures independently.</>,
-              <><strong className="text-white/85">Not professional advice:</strong> Nothing generated by ChiefOS constitutes accounting, tax, legal, or financial advice. Consult qualified professionals for decisions in those areas.</>,
-              <><strong className="text-white/85">Context limitations:</strong> AI outputs are only as accurate as the data you submit. Incomplete or incorrect records will produce less reliable insights.</>,
-              <><strong className="text-white/85">Hallucinations:</strong> AI models can occasionally generate plausible-sounding but incorrect information. Treat AI outputs as a starting point, not a final answer.</>,
-              <><strong className="text-white/85">Receipt parsing variability:</strong> Complex or unclear receipts may be parsed incorrectly. Review extracted data before confirming records.</>,
+              <><strong className="text-[#E8E2D8]">Inaccuracies:</strong> AI-generated outputs may contain errors, misclassifications, or omissions. Always verify important figures independently.</>,
+              <><strong className="text-[#E8E2D8]">Not professional advice:</strong> Nothing generated by ChiefOS constitutes accounting, tax, legal, or financial advice. Consult qualified professionals for decisions in those areas.</>,
+              <><strong className="text-[#E8E2D8]">Context limitations:</strong> AI outputs are only as accurate as the data you submit. Incomplete or incorrect records will produce less reliable insights.</>,
+              <><strong className="text-[#E8E2D8]">Hallucinations:</strong> AI models can occasionally generate plausible-sounding but incorrect information. Treat AI outputs as a starting point, not a final answer.</>,
+              <><strong className="text-[#E8E2D8]">Receipt parsing variability:</strong> Complex or unclear receipts may be parsed incorrectly. Review extracted data before confirming records.</>,
             ]}
           />
         </Section>
@@ -190,7 +190,7 @@ export default function AIUsagePolicyPage() {
           </div>
         </Section>
 
-        <div className="text-xs text-white/45">
+        <div className="text-xs text-[#706A60]">
           Questions about how AI is used in ChiefOS? Contact{" "}
           <a href={`mailto:${PRIVACY_EMAIL}`} className="underline">{PRIVACY_EMAIL}</a>.
         </div>

@@ -61,8 +61,8 @@ function passwordChecks(pw: string) {
 function CheckRow({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className={["h-2 w-2 rounded-full", ok ? "bg-emerald-500" : "bg-gray-300"].join(" ")} />
-      <span className={ok ? "text-gray-800" : "text-gray-500"}>{label}</span>
+      <span className={["h-2 w-2 rounded-full", ok ? "bg-emerald-500" : "bg-[#706A60]"].join(" ")} />
+      <span className={ok ? "text-[#D4A853]" : "text-[#706A60]"}>{label}</span>
     </div>
   );
 }
@@ -208,16 +208,16 @@ export default function SignupClient() {
 
   return (
     <>
-      <main className="min-h-screen bg-white text-gray-900" style={{ paddingTop: "var(--early-access-banner-h)" }}>
+      <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]" style={{ paddingTop: "var(--early-access-banner-h)" }}>
         <SiteHeader rightLabel="Log in" rightHref="/login" />
 
         <div className="max-w-md mx-auto px-6 pt-24 pb-20">
-          <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.03] px-3 py-1 text-xs text-black/70">
-            <span className="h-2 w-2 rounded-full bg-black/50" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
+            <span className="h-2 w-2 rounded-full bg-[#D4A853]" />
             {signupMode === "tester" ? "Starter tester account" : "Owner account"}
           </div>
 
-          <h1 className="mt-6 text-3xl font-bold tracking-tight">
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">
             {sent
               ? "Success!!"
               : signupMode === "tester"
@@ -225,7 +225,7 @@ export default function SignupClient() {
                 : "Create your account"}
           </h1>
 
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-[#A8A090]">
             {sent
               ? "Check your email to confirm your account and finish setup."
               : signupMode === "tester"
@@ -234,14 +234,14 @@ export default function SignupClient() {
           </p>
 
           {sent ? (
-            <div className="mt-8 rounded-2xl border bg-gray-50 p-4">
-              <p className="font-medium">Check your email</p>
-              <p className="mt-2 text-sm text-gray-600">
+            <div className="mt-8 rounded-2xl border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] p-4">
+              <p className="font-medium text-[#E8E2D8]">Check your email</p>
+              <p className="mt-2 text-sm text-[#A8A090]">
                 We sent you a confirmation link. Click it to finish creating your account.
               </p>
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-[#A8A090]">
                 Already confirmed?{" "}
-                <a className="underline" href="/login">
+                <a className="underline text-[#D4A853] hover:text-[#C49843]" href="/login">
                   Log in
                 </a>
               </p>
@@ -249,11 +249,11 @@ export default function SignupClient() {
           ) : (
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
               <div>
-                <label className="block text-sm font-medium">Company name</label>
+                <label className="block text-sm font-medium text-[#A8A090]">Company name</label>
                 <input
                   id="companyName"
                   name="companyName"
-                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Mission Exteriors (or your company)"
@@ -262,7 +262,7 @@ export default function SignupClient() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Where are you based?</label>
+                <label className="block text-sm font-medium text-[#A8A090]">Where are you based?</label>
                 <div className="mt-1 flex gap-2">
                   {([
                     { code: "CA", flag: "🇨🇦", label: "Canada" },
@@ -275,8 +275,8 @@ export default function SignupClient() {
                       className={[
                         "flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
                         country === code
-                          ? "border-black bg-black text-white"
-                          : "border-black/10 bg-white text-gray-700 hover:bg-black/[0.03]",
+                          ? "border-[rgba(212,168,83,0.5)] bg-[rgba(212,168,83,0.15)] text-[#D4A853]"
+                          : "border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] text-[#A8A090] hover:border-[rgba(212,168,83,0.3)]",
                       ].join(" ")}
                     >
                       <span>{flag}</span>
@@ -285,7 +285,7 @@ export default function SignupClient() {
                   ))}
                 </div>
                 {!country ? (
-                  <p className="mt-1.5 text-xs text-gray-500">
+                  <p className="mt-1.5 text-xs text-[#706A60]">
                     This determines tax labels, mileage rates, and export formats for your accountant.
                   </p>
                 ) : null}
@@ -293,11 +293,12 @@ export default function SignupClient() {
 
               {country === "CA" && (
                 <div>
-                  <label className="block text-sm font-medium">Province</label>
+                  <label className="block text-sm font-medium text-[#A8A090]">Province</label>
                   <select
                     value={province}
                     onChange={(e) => setProvince(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10 text-sm"
+                    className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)] text-sm"
+                    style={{ colorScheme: "dark" }}
                   >
                     <option value="">— Select province —</option>
                     <option value="AB">Alberta</option>
@@ -319,11 +320,12 @@ export default function SignupClient() {
 
               {country === "US" && (
                 <div>
-                  <label className="block text-sm font-medium">State</label>
+                  <label className="block text-sm font-medium text-[#A8A090]">State</label>
                   <select
                     value={province}
                     onChange={(e) => setProvince(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10 text-sm"
+                    className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)] text-sm"
+                    style={{ colorScheme: "dark" }}
                   >
                     <option value="">— Select state —</option>
                     <option value="AL">Alabama</option>
@@ -382,11 +384,11 @@ export default function SignupClient() {
               )}
 
               <div>
-                <label className="block text-sm font-medium">Email</label>
+                <label className="block text-sm font-medium text-[#A8A090]">Email</label>
                 <input
                   id="email"
                   name="email"
-                  className="mt-1 w-full rounded-md border border-black/10 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/10"
+                  className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
@@ -397,12 +399,12 @@ export default function SignupClient() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Password</label>
+                <label className="block text-sm font-medium text-[#A8A090]">Password</label>
                 <div className="relative mt-1">
                   <input
                     id="password"
                     name="password"
-                    className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                    className="w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 pr-11 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     type={showPassword ? "text" : "password"}
@@ -412,7 +414,7 @@ export default function SignupClient() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-[#706A60] hover:text-[#D4A853] transition"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeIcon off /> : <EyeIcon />}
@@ -429,12 +431,12 @@ export default function SignupClient() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Confirm password</label>
+                <label className="block text-sm font-medium text-[#A8A090]">Confirm password</label>
                 <div className="relative mt-1">
                   <input
                     id="confirmPassword"
                     name="confirmPassword"
-                    className="w-full rounded-md border border-black/10 bg-white px-3 py-2 pr-11 outline-none focus:ring-2 focus:ring-black/10"
+                    className="w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 pr-11 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     type={showConfirm ? "text" : "password"}
@@ -444,7 +446,7 @@ export default function SignupClient() {
                   <button
                     type="button"
                     onClick={() => setShowConfirm((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-black/60 hover:text-black hover:bg-black/5 transition"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-[#706A60] hover:text-[#D4A853] transition"
                     aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
                   >
                     {showConfirm ? <EyeIcon off /> : <EyeIcon />}
@@ -452,21 +454,21 @@ export default function SignupClient() {
                 </div>
 
                 {confirmPassword.length > 0 && !matchOk ? (
-                  <div className="mt-2 text-xs text-red-700">Passwords don’t match.</div>
+                  <div className="mt-2 text-xs text-red-400">Passwords don’t match.</div>
                 ) : null}
               </div>
 
-              <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4">
+              <div className="rounded-xl border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.05)] p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-sm font-medium text-gray-900">Legal agreement package</div>
-                    <p className="mt-2 text-sm text-gray-700 leading-relaxed">
+                    <div className="text-sm font-medium text-[#E8E2D8]">Legal agreement package</div>
+                    <p className="mt-2 text-sm text-[#A8A090] leading-relaxed">
                       Review the Terms of Service, Privacy Policy, AI Usage Policy, and Data Processing Agreement in one place before creating your account.
                     </p>
                   </div>
 
                   {agreeLegal ? (
-                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
                       Accepted
                     </span>
                   ) : null}
@@ -476,13 +478,13 @@ export default function SignupClient() {
                   <button
                     type="button"
                     onClick={() => setLegalModalOpen(true)}
-                    className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-black/[0.03] transition"
+                    className="inline-flex items-center justify-center rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-4 py-3 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition"
                   >
                     {agreeLegal ? "Review again" : "Review and accept"}
                   </button>
                 </div>
 
-                <p className="mt-3 text-xs leading-relaxed text-gray-500">
+                <p className="mt-3 text-xs leading-relaxed text-[#706A60]">
                   Acceptance is stored with your pending signup and finalized during secure workspace setup.
                 </p>
               </div>
@@ -491,19 +493,19 @@ export default function SignupClient() {
                 <TurnstileBox resetKey={turnstileResetKey} onToken={(t) => setTurnstileToken(t)} />
               </div>
 
-              {err ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div> : null}
+              {err ? <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">{err}</div> : null}
 
               <button
-                className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-900 disabled:opacity-60"
+                className="w-full rounded-[2px] bg-[#D4A853] px-4 py-2 text-[#0C0B0A] font-semibold hover:bg-[#C49843] disabled:opacity-60 transition"
                 disabled={loading || !turnstileToken || !agreeLegal}
                 type="submit"
               >
                 {loading ? "Sending link..." : "Sign up"}
               </button>
 
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-[#A8A090]">
                 Already have an account?{" "}
-                <a className="underline" href="/login">
+                <a className="underline text-[#D4A853] hover:text-[#C49843]" href="/login">
                   Log in
                 </a>
               </p>

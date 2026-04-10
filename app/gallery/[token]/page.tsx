@@ -45,25 +45,25 @@ export default function GalleryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white/50 text-sm">Loading…</div>
+      <div className="min-h-screen bg-[#0C0B0A] flex items-center justify-center">
+        <div className="text-[#706A60] text-sm">Loading…</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[#0C0B0A] flex items-center justify-center px-6">
         <div className="text-center">
-          <div className="text-white/60 text-sm mb-2">{error}</div>
-          <div className="text-white/30 text-xs">This link may have expired or been removed.</div>
+          <div className="text-[#A8A090] text-sm mb-2">{error}</div>
+          <div className="text-[#706A60] text-xs">This link may have expired or been removed.</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       {/* Lightbox */}
       {selected && (
         <div
@@ -78,13 +78,13 @@ export default function GalleryPage() {
               className="w-full max-h-[80vh] object-contain rounded-xl"
             />
             {selected.description && (
-              <div className="mt-3 text-sm text-white/70 text-center">{selected.description}</div>
+              <div className="mt-3 text-sm text-[#A8A090] text-center">{selected.description}</div>
             )}
             <div className="mt-3 flex justify-center gap-3">
               <a
                 href={selected.public_url}
                 download
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+                className="rounded-[2px] bg-[#D4A853] px-4 py-2 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
                 onClick={(e) => e.stopPropagation()}
               >
                 Download
@@ -92,7 +92,7 @@ export default function GalleryPage() {
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition"
+                className="rounded-[2px] border border-[rgba(212,168,83,0.3)] px-4 py-2 text-sm text-[#A8A090] hover:text-[#D4A853] hover:border-[rgba(212,168,83,0.5)] transition"
               >
                 Close
               </button>
@@ -104,18 +104,18 @@ export default function GalleryPage() {
       <div className="mx-auto max-w-4xl px-4 py-10">
         {/* Header */}
         <div className="mb-8">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/35 mb-1">ChiefOS</div>
-          <h1 className="text-2xl font-semibold text-white/95">{jobName}</h1>
-          <div className="mt-1 text-sm text-white/45">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-[#706A60] mb-1">ChiefOS</div>
+          <h1 className="text-2xl font-semibold text-[#E8E2D8]">{jobName}</h1>
+          <div className="mt-1 text-sm text-[#A8A090]">
             {photos.length} photo{photos.length !== 1 ? "s" : ""}
             {expiresAt && (
-              <span className="ml-2 text-white/30">· Link valid until {fmtDate(expiresAt)}</span>
+              <span className="ml-2 text-[#706A60]">· Link valid until {fmtDate(expiresAt)}</span>
             )}
           </div>
         </div>
 
         {photos.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-sm text-white/40">
+          <div className="rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[#0F0E0C] p-10 text-center text-sm text-[#706A60]">
             No photos in this gallery yet.
           </div>
         ) : (
@@ -125,7 +125,7 @@ export default function GalleryPage() {
                 key={p.id}
                 type="button"
                 onClick={() => setSelected(p)}
-                className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] hover:border-white/25 transition"
+                className="group relative aspect-square overflow-hidden rounded-2xl border border-[rgba(212,168,83,0.12)] bg-[#0F0E0C] hover:border-[rgba(212,168,83,0.3)] transition"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -149,12 +149,12 @@ export default function GalleryPage() {
         {/* Download all */}
         {photos.length > 0 && (
           <div className="mt-8 flex flex-col items-center gap-3">
-            <div className="text-xs text-white/30">Click any photo to view full size and download</div>
+            <div className="text-xs text-[#706A60]">Click any photo to view full size and download</div>
           </div>
         )}
 
-        <div className="mt-12 border-t border-white/8 pt-6 text-center">
-          <div className="text-[11px] text-white/20">Powered by ChiefOS</div>
+        <div className="mt-12 border-t border-[rgba(212,168,83,0.1)] pt-6 text-center">
+          <div className="text-[11px] text-[#706A60]">Powered by ChiefOS</div>
         </div>
       </div>
     </div>

@@ -125,14 +125,14 @@ export default function SupplierUploadPage() {
   }
 
   if (gate.loading) {
-    return <div className="py-12 text-center text-sm text-white/40">Loading...</div>;
+    return <div className="py-12 text-center text-sm text-[#706A60]">Loading...</div>;
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-white">Upload price list</h1>
-        <a href="/supplier/catalog" className="text-sm text-white/40 hover:text-white">
+        <h1 className="text-2xl font-bold text-[#E8E2D8]">Upload price list</h1>
+        <a href="/supplier/catalog" className="text-sm text-[#A8A090] hover:text-[#D4A853]">
           ← Back to catalog
         </a>
       </div>
@@ -141,8 +141,8 @@ export default function SupplierUploadPage() {
       <div className="flex items-center gap-2 text-sm">
         {(["upload", "preview", "done"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            {i > 0 && <span className="text-white/20">→</span>}
-            <span className={step === s ? "text-white font-medium" : "text-white/30"}>
+            {i > 0 && <span className="text-[#706A60]">→</span>}
+            <span className={step === s ? "text-[#D4A853] font-medium" : "text-[#706A60]"}>
               {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
             </span>
           </div>
@@ -162,16 +162,16 @@ export default function SupplierUploadPage() {
             }}
             onClick={() => fileRef.current?.click()}
             className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-12 text-center transition ${
-              dragOver ? "border-white/40 bg-white/10" : "border-white/10 bg-white/5 hover:border-white/20"
+              dragOver ? "border-[rgba(212,168,83,0.5)] bg-[rgba(212,168,83,0.1)]" : "border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] hover:border-[rgba(212,168,83,0.35)]"
             }`}
           >
-            <svg className="mb-3 h-8 w-8 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mb-3 h-8 w-8 text-[#D4A853]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
             </svg>
-            <p className="text-sm font-medium text-white/70">
+            <p className="text-sm font-medium text-[#A8A090]">
               {file ? file.name : "Drop your spreadsheet here or click to browse"}
             </p>
-            <p className="mt-1 text-xs text-white/30">.xlsx or .csv</p>
+            <p className="mt-1 text-xs text-[#706A60]">.xlsx or .csv</p>
           </div>
 
           <input
@@ -189,7 +189,7 @@ export default function SupplierUploadPage() {
           <button
             onClick={parsefile}
             disabled={!file || parsing}
-            className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black disabled:opacity-40"
+            className="w-full rounded-[2px] bg-[#D4A853] px-4 py-2.5 text-sm font-semibold text-[#0C0B0A] disabled:opacity-40 hover:bg-[#C49843] transition"
           >
             {parsing ? "Parsing..." : "Parse spreadsheet"}
           </button>
@@ -225,13 +225,13 @@ export default function SupplierUploadPage() {
           )}
 
           <div className="flex gap-3">
-            <button onClick={reset} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white">
+            <button onClick={reset} className="rounded-lg border border-[rgba(212,168,83,0.2)] px-4 py-2 text-sm text-[#A8A090] hover:text-[#D4A853] transition">
               Cancel
             </button>
             <button
               onClick={applyUpload}
               disabled={applying}
-              className="flex-1 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+              className="flex-1 rounded-[2px] bg-[#D4A853] px-4 py-2 text-sm font-semibold text-[#0C0B0A] disabled:opacity-50 hover:bg-[#C49843] transition"
             >
               {applying ? "Applying..." : `Apply changes (${preview.added + preview.updated} rows)`}
             </button>
@@ -250,12 +250,12 @@ export default function SupplierUploadPage() {
           </div>
 
           <div className="flex gap-3">
-            <button onClick={reset} className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white">
+            <button onClick={reset} className="flex-1 rounded-lg border border-[rgba(212,168,83,0.2)] px-4 py-2 text-sm text-[#A8A090] hover:text-[#D4A853] transition">
               Upload another
             </button>
             <a
               href="/supplier/catalog"
-              className="flex-1 rounded-lg bg-white px-4 py-2 text-center text-sm font-semibold text-black"
+              className="flex-1 rounded-[2px] bg-[#D4A853] px-4 py-2 text-center text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
             >
               View catalog
             </a>
@@ -266,36 +266,36 @@ export default function SupplierUploadPage() {
       {/* Upload history */}
       {history.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-white/50">Upload history</h2>
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <h2 className="text-sm font-semibold text-[#A8A090]">Upload history</h2>
+          <div className="overflow-x-auto rounded-xl border border-[rgba(212,168,83,0.15)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 bg-white/5">
-                  <th className="px-4 py-2 text-left text-xs text-white/40">Date</th>
-                  <th className="px-4 py-2 text-left text-xs text-white/40">File</th>
-                  <th className="px-4 py-2 text-left text-xs text-white/40">Status</th>
-                  <th className="px-4 py-2 text-left text-xs text-white/40">Added</th>
-                  <th className="px-4 py-2 text-left text-xs text-white/40">Updated</th>
-                  <th className="px-4 py-2 text-left text-xs text-white/40">Errors</th>
+                <tr className="border-b border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.05)]">
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">Date</th>
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">File</th>
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">Status</th>
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">Added</th>
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">Updated</th>
+                  <th className="px-4 py-2 text-left text-xs text-[#706A60]">Errors</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((h) => (
-                  <tr key={h.id} className="border-b border-white/5">
-                    <td className="px-4 py-2 text-white/50">{new Date(h.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-2 text-white/70">{h.filename || "—"}</td>
+                  <tr key={h.id} className="border-b border-[rgba(212,168,83,0.08)]">
+                    <td className="px-4 py-2 text-[#A8A090]">{new Date(h.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-2 text-[#E8E2D8]">{h.filename || "—"}</td>
                     <td className="px-4 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs ${
                         h.status === "complete" ? "bg-emerald-500/20 text-emerald-400" :
                         h.status === "error" ? "bg-red-500/20 text-red-400" :
-                        "bg-white/10 text-white/40"
+                        "bg-[rgba(212,168,83,0.08)] text-[#706A60]"
                       }`}>
                         {h.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-white/50">{h.rows_added}</td>
-                    <td className="px-4 py-2 text-white/50">{h.rows_updated}</td>
-                    <td className="px-4 py-2 text-white/50">{h.rows_errored}</td>
+                    <td className="px-4 py-2 text-[#A8A090]">{h.rows_added}</td>
+                    <td className="px-4 py-2 text-[#A8A090]">{h.rows_updated}</td>
+                    <td className="px-4 py-2 text-[#A8A090]">{h.rows_errored}</td>
                   </tr>
                 ))}
               </tbody>
@@ -312,7 +312,7 @@ function PreviewStat({ label, value, color }: { label: string; value: number; co
     emerald: "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
     blue: "border-blue-500/20 bg-blue-500/10 text-blue-400",
     red: "border-red-500/20 bg-red-500/10 text-red-400",
-    default: "border-white/10 bg-white/5 text-white/70",
+    default: "border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] text-[#A8A090]",
   }[color];
 
   return (

@@ -145,23 +145,23 @@ export default function SupplierCatalogPage() {
   }
 
   if (gate.loading) {
-    return <div className="py-12 text-center text-sm text-white/40">Loading...</div>;
+    return <div className="py-12 text-center text-sm text-[#706A60]">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Catalog</h1>
+        <h1 className="text-2xl font-bold text-[#E8E2D8]">Catalog</h1>
         <div className="flex gap-2">
           <a
             href="/supplier/catalog/categories"
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/60 transition hover:text-white"
+            className="rounded-lg border border-[rgba(212,168,83,0.2)] px-3 py-1.5 text-sm text-[#A8A090] transition hover:text-[#D4A853]"
           >
             Categories
           </a>
           <button
             onClick={openAdd}
-            className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-black transition hover:bg-white/90"
+            className="rounded-[2px] bg-[#D4A853] px-3 py-1.5 text-sm font-semibold text-[#0C0B0A] transition hover:bg-[#C49843]"
           >
             + Add product
           </button>
@@ -175,12 +175,13 @@ export default function SupplierCatalogPage() {
           placeholder="Search products..."
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOffset(0); }}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/20 focus:ring-1 focus:ring-white/10"
+          className="rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-1.5 text-sm text-[#E8E2D8] placeholder-[#706A60] outline-none focus:border-[rgba(212,168,83,0.4)]"
         />
         <select
           value={filterCat}
           onChange={(e) => { setFilterCat(e.target.value); setOffset(0); }}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white outline-none"
+          className="rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-1.5 text-sm text-[#E8E2D8] outline-none"
+          style={{ colorScheme: "dark" }}
         >
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -194,10 +195,10 @@ export default function SupplierCatalogPage() {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="overflow-x-auto rounded-xl border border-[rgba(212,168,83,0.15)]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 bg-white/5">
+            <tr className="border-b border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.05)]">
               <Th>SKU</Th>
               <Th>Name</Th>
               <Th>Category</Th>
@@ -211,11 +212,11 @@ export default function SupplierCatalogPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-white/30">Loading...</td>
+                <td colSpan={8} className="py-8 text-center text-[#706A60]">Loading...</td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-white/30">No products found.</td>
+                <td colSpan={8} className="py-8 text-center text-[#706A60]">No products found.</td>
               </tr>
             ) : (
               products.map((p) => {
@@ -223,18 +224,18 @@ export default function SupplierCatalogPage() {
                 return (
                   <tr
                     key={p.id}
-                    className="border-b border-white/5 transition hover:bg-white/5"
+                    className="border-b border-[rgba(212,168,83,0.08)] transition hover:bg-[rgba(212,168,83,0.04)]"
                   >
                     <Td>{p.sku}</Td>
                     <Td>{p.name}</Td>
-                    <Td>{cat?.name ?? <span className="text-white/30">—</span>}</Td>
+                    <Td>{cat?.name ?? <span className="text-[#706A60]">—</span>}</Td>
                     <Td>${(p.unit_price / 100).toFixed(2)}</Td>
                     <Td>{p.uom}</Td>
                     <Td>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         p.is_active
                           ? "bg-emerald-500/20 text-emerald-400"
-                          : "bg-white/10 text-white/40"
+                          : "bg-[rgba(212,168,83,0.08)] text-[#706A60]"
                       }`}>
                         {p.is_active ? "Active" : "Inactive"}
                       </span>
@@ -244,7 +245,7 @@ export default function SupplierCatalogPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openEdit(p)}
-                          className="text-xs text-white/50 hover:text-white"
+                          className="text-xs text-[#A8A090] hover:text-[#D4A853]"
                         >
                           Edit
                         </button>
@@ -268,20 +269,20 @@ export default function SupplierCatalogPage() {
 
       {/* Pagination */}
       {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between text-sm text-white/50">
+        <div className="flex items-center justify-between text-sm text-[#A8A090]">
           <span>Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}</span>
           <div className="flex gap-2">
             <button
               disabled={offset === 0}
               onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              className="rounded border border-white/10 px-3 py-1 disabled:opacity-30 hover:text-white"
+              className="rounded border border-[rgba(212,168,83,0.2)] px-3 py-1 disabled:opacity-30 hover:text-[#D4A853] transition"
             >
               Prev
             </button>
             <button
               disabled={offset + PAGE_SIZE >= total}
               onClick={() => setOffset((o) => o + PAGE_SIZE)}
-              className="rounded border border-white/10 px-3 py-1 disabled:opacity-30 hover:text-white"
+              className="rounded border border-[rgba(212,168,83,0.2)] px-3 py-1 disabled:opacity-30 hover:text-[#D4A853] transition"
             >
               Next
             </button>
@@ -292,8 +293,8 @@ export default function SupplierCatalogPage() {
       {/* Add / Edit modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
-            <h2 className="mb-4 text-lg font-bold text-white">
+          <div className="w-full max-w-md rounded-2xl border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] p-6 shadow-2xl">
+            <h2 className="mb-4 text-lg font-bold text-[#E8E2D8]">
               {editId ? "Edit product" : "Add product"}
             </h2>
 
@@ -325,10 +326,10 @@ export default function SupplierCatalogPage() {
             )}
 
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setModalOpen(false)} className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white">
+              <button onClick={() => setModalOpen(false)} className="rounded-lg border border-[rgba(212,168,83,0.2)] px-4 py-2 text-sm text-[#A8A090] hover:text-[#D4A853] transition">
                 Cancel
               </button>
-              <button onClick={saveProduct} disabled={saving} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
+              <button onClick={saveProduct} disabled={saving} className="rounded-[2px] bg-[#D4A853] px-4 py-2 text-sm font-semibold text-[#0C0B0A] disabled:opacity-50 hover:bg-[#C49843] transition">
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>
@@ -339,18 +340,18 @@ export default function SupplierCatalogPage() {
   );
 }
 
-const iCls = "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-white/30";
+const iCls = "w-full rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] px-3 py-2 text-sm text-[#E8E2D8] placeholder-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)]";
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">{children}</th>;
+  return <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-[#706A60]">{children}</th>;
 }
 function Td({ children }: { children?: React.ReactNode }) {
-  return <td className="px-4 py-3 text-white/70">{children}</td>;
+  return <td className="px-4 py-3 text-[#A8A090]">{children}</td>;
 }
 function MiniField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-white/50">{label}{required && "*"}</label>
+      <label className="mb-1 block text-xs font-medium text-[#A8A090]">{label}{required && "*"}</label>
       {children}
     </div>
   );

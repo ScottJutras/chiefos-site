@@ -7,8 +7,8 @@ import PricingFAQ from "@/app/pricing/PricingFAQ";
 
 function Check() {
   return (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 bg-white/5">
-      <span className="h-2 w-2 rounded-full bg-white/70" />
+    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.1)]">
+      <span className="h-2 w-2 rounded-full bg-[#D4A853]" />
     </span>
   );
 }
@@ -48,9 +48,9 @@ function PricingCard({
   badge?: string;
 }) {
   const btnBase =
-    "mt-6 inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold transition h-11";
-  const btnPrimary = "bg-white text-black hover:bg-white/90";
-  const btnSecondary = "border border-white/15 bg-white/5 text-white hover:bg-white/10";
+    "mt-6 inline-flex w-full items-center justify-center rounded-[2px] px-4 py-3 text-sm font-semibold transition h-11";
+  const btnPrimary = "bg-[#D4A853] text-[#0C0B0A] hover:bg-[#C49843]";
+  const btnSecondary = "border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)]";
   const buttonClass = [btnBase, highlighted ? btnPrimary : btnSecondary].join(" ");
 
   return (
@@ -58,24 +58,24 @@ function PricingCard({
       className={[
         "relative rounded-[28px] border p-6 md:p-7",
         highlighted
-          ? "border-white/20 bg-white/7 shadow-[0_30px_120px_rgba(0,0,0,0.45)]"
-          : "border-white/10 bg-white/5",
+          ? "border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.06)] shadow-[0_30px_120px_rgba(0,0,0,0.45)]"
+          : "border-[rgba(212,168,83,0.15)] bg-[#0F0E0C]",
       ].join(" ")}
     >
       {(badge || highlighted) && (
-        <div className="absolute -top-3 left-6 rounded-full border border-white/15 bg-black/70 px-3 py-1 text-xs text-white/70 backdrop-blur">
+        <div className="absolute -top-3 left-6 rounded-full border border-[rgba(212,168,83,0.3)] bg-[#0C0B0A] px-3 py-1 text-xs text-[#D4A853] backdrop-blur">
           {badge || "Most popular"}
         </div>
       )}
 
-      <div className="text-sm font-semibold text-white/90">{name}</div>
+      <div className="text-sm font-semibold text-[#E8E2D8]">{name}</div>
 
       <div className="mt-2 flex items-end gap-2">
-        <div className="text-4xl font-bold tracking-tight">{price}</div>
-        <div className="pb-1 text-sm text-white/60">/ month</div>
+        <div className="text-4xl font-bold tracking-tight text-[#E8E2D8]">{price}</div>
+        <div className="pb-1 text-sm text-[#A8A090]">/ month</div>
       </div>
 
-      <p className="mt-3 text-sm text-white/70 leading-relaxed">{blurb}</p>
+      <p className="mt-3 text-sm text-[#A8A090] leading-relaxed">{blurb}</p>
 
       {/* ✅ single CTA per card */}
       {paidPlan ? (
@@ -90,7 +90,7 @@ function PricingCard({
 
       <div className="mt-6 space-y-3">
         {features.map((f) => (
-          <div key={f} className="flex items-start gap-3 text-sm text-white/70">
+          <div key={f} className="flex items-start gap-3 text-sm text-[#A8A090]">
             <Check />
             <div className="leading-relaxed">{f}</div>
           </div>
@@ -112,19 +112,19 @@ function FAQRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5">
+    <div className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.04)]">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-4 p-5 text-left"
         aria-expanded={open}
       >
-        <div className="text-sm font-semibold text-white/90">{q}</div>
+        <div className="text-sm font-semibold text-[#E8E2D8]">{q}</div>
 
         <div
           className={[
             "inline-flex h-8 w-8 items-center justify-center rounded-xl",
-            "border border-white/10 bg-black/30 text-white/80 text-lg font-semibold",
+            "border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.06)] text-[#A8A090] text-lg font-semibold",
           ].join(" ")}
           aria-hidden="true"
         >
@@ -133,7 +133,7 @@ function FAQRow({
       </button>
 
       {open && (
-        <div className="px-5 pb-5 -mt-2 text-sm text-white/70 leading-relaxed">
+        <div className="px-5 pb-5 -mt-2 text-sm text-[#A8A090] leading-relaxed">
           {a}
         </div>
       )}
@@ -177,30 +177,30 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
   const openIndex = 0;
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <SiteHeader />
 
       {/* ✅ Intent-only sticky bar (only when /pricing?plan=pro|starter) */}
       {hasPlanIntent && (
-        <div className="sticky top-0 z-40 border-b border-white/10 bg-black/70 backdrop-blur">
+        <div className="sticky top-0 z-40 border-b border-[rgba(212,168,83,0.15)] bg-[#0C0B0A]/90 backdrop-blur">
           <div className="mx-auto max-w-6xl px-6 py-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-white/80">
+              <div className="text-sm text-[#A8A090]">
                 Selected{" "}
-                <span className="text-white font-semibold">{selectedLabel}</span>{" "}
-                <span className="text-white/50">({selectedPrice})</span>
+                <span className="text-[#E8E2D8] font-semibold">{selectedLabel}</span>{" "}
+                <span className="text-[#706A60]">({selectedPrice})</span>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <CheckoutButton
                   plan={selectedPlan}
                   phone={phone}
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
+                  className="inline-flex items-center justify-center rounded-[2px] bg-[#D4A853] px-4 py-2 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
                 >
                   Continue to checkout
                 </CheckoutButton>
 
-                <a href="#plans" className="text-xs text-white/60 hover:text-white underline">
+                <a href="#plans" className="text-xs text-[#A8A090] hover:text-[#D4A853] underline">
                   Change
                 </a>
               </div>
@@ -212,17 +212,17 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
       {/* HERO (no big CTAs; keep it clean) */}
       <Section className="pt-20 md:pt-24 pb-10 md:pb-12">
         <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
             Plans
           </div>
 
-          <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
+          <h1 className="mt-6 text-4xl md:text-6xl font-bold tracking-tight leading-[1.05] text-[#E8E2D8]">
             Pick the plan that matches
             <br />
             how you run work.
           </h1>
 
-          <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
+          <p className="mt-4 text-lg md:text-xl text-[#A8A090] leading-relaxed">
             Capture first. Upgrade when you want more speed, structure, and control.
           </p>
         </div>
@@ -288,15 +288,13 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
         {/* FAQ (interactive accordion) */}
       <Section className="pb-16 md:pb-20">
         <div className="max-w-3xl">
-          <div className="text-sm font-semibold text-white/90">FAQ</div>
-          <div className="mt-2 text-sm text-white/70 leading-relaxed">
-                    </div>
+          <div className="text-sm font-semibold text-[#E8E2D8]">FAQ</div>
 
           <div className="mt-6">
             <PricingFAQ items={faqs} defaultOpenIndex={0} />
           </div>
 
-           <p className="mt-4 text-lg md:text-xl text-white/70 leading-relaxed">
+           <p className="mt-4 text-lg md:text-xl text-[#A8A090] leading-relaxed">
             Still unsure? Don't be. Make more money every single hour with ChiefOS.
           </p>
         </div>

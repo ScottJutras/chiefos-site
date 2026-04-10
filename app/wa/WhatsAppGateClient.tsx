@@ -91,23 +91,23 @@ export default function WhatsAppGateClient() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <div className="mx-auto max-w-2xl px-6 pt-28 pb-16">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
           Quick check → then we open WhatsApp
         </div>
 
-        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight">
+        <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight text-[#E8E2D8]">
           Start on WhatsApp
         </h1>
 
-        <p className="mt-3 text-white/70 leading-relaxed">
+        <p className="mt-3 text-[#A8A090] leading-relaxed">
           ChiefOS runs on WhatsApp. This quick check prevents bot scraping and spam.
         </p>
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="text-sm font-semibold text-white/90">One quick step</div>
-          <p className="mt-2 text-sm text-white/70">
+        <div className="mt-8 rounded-2xl border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] p-6">
+          <div className="text-sm font-semibold text-[#E8E2D8]">One quick step</div>
+          <p className="mt-2 text-sm text-[#A8A090]">
             Complete the check below, then we’ll open your chat with Chief.
           </p>
 
@@ -131,20 +131,20 @@ export default function WhatsAppGateClient() {
           </div>
 
           {err && (
-            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
               {err}
             </div>
           )}
 
           {/* Shows after API returns a url/message (especially for short-link mode) */}
           {starterMessage ? (
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="text-sm font-semibold text-white/90">Starter message</div>
-              <div className="mt-2 text-sm text-white/70">
+            <div className="mt-4 rounded-2xl border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] p-4">
+              <div className="text-sm font-semibold text-[#E8E2D8]">Starter message</div>
+              <div className="mt-2 text-sm text-[#A8A090]">
                 If WhatsApp doesn’t prefill automatically, copy this:
               </div>
 
-              <div className="mt-3 rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-white/85">
+              <div className="mt-3 rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-3 text-sm text-[#E8E2D8]">
                 {starterMessage}
               </div>
 
@@ -158,7 +158,7 @@ export default function WhatsAppGateClient() {
                       // no-op
                     }
                   }}
-                  className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                  className="inline-flex items-center justify-center rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-transparent px-4 py-3 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.08)] transition"
                 >
                   Copy message
                 </button>
@@ -166,14 +166,14 @@ export default function WhatsAppGateClient() {
                 {redirectUrl ? (
                   <a
                     href={redirectUrl}
-                    className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+                    className="inline-flex items-center justify-center rounded-[2px] bg-[#D4A853] px-4 py-3 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
                   >
                     Open WhatsApp
                   </a>
                 ) : null}
               </div>
 
-              <div className="mt-2 text-xs text-white/45">
+              <div className="mt-2 text-xs text-[#706A60]">
                 This flow protects the number from being scraped.
               </div>
             </div>
@@ -183,20 +183,20 @@ export default function WhatsAppGateClient() {
             <button
               onClick={openWhatsApp}
               disabled={status === "verifying" || !token}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-[2px] bg-[#D4A853] px-5 py-3 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition disabled:opacity-60"
             >
               {status === "verifying" ? "Opening…" : "Open WhatsApp"}
             </button>
 
             <Link
               href="/"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+              className="inline-flex items-center justify-center rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-transparent px-5 py-3 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.08)] transition"
             >
               Back to home
             </Link>
           </div>
 
-          <p className="mt-4 text-xs text-white/45">
+          <p className="mt-4 text-xs text-[#706A60]">
             On desktop, WhatsApp Web will open (or you’ll be prompted).
           </p>
         </div>

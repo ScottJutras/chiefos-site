@@ -123,26 +123,26 @@ export default function EarlyAccessClient() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
       <SiteHeader rightLabel="Sign in" rightHref="/login" />
 
       <div className="max-w-md mx-auto px-6 pt-24 pb-20">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-black/5 px-3 py-1 text-xs font-medium text-black">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs font-medium text-[#D4A853]">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Starter Tester Access
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold tracking-tight">
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-[#E8E2D8]">
               Start Testing ChiefOS
             </h1>
 
-            <p className="mt-2 text-gray-600">
+            <p className="mt-2 text-[#A8A090]">
               Create your tester account and jump in right away. No approval needed.
             </p>
 
-            <p className="mt-3 text-sm text-gray-500">
+            <p className="mt-3 text-sm text-[#706A60]">
               You’ll get Starter tester access for beta testing.
             </p>
           </div>
@@ -150,9 +150,9 @@ export default function EarlyAccessClient() {
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="block text-sm font-medium">Name *</label>
+            <label className="block text-sm font-medium text-[#A8A090]">Name *</label>
             <input
-              className="mt-1 w-full rounded-md border px-3 py-2"
+              className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -161,9 +161,9 @@ export default function EarlyAccessClient() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Email *</label>
+            <label className="block text-sm font-medium text-[#A8A090]">Email *</label>
             <input
-              className="mt-1 w-full rounded-md border px-3 py-2"
+              className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -173,9 +173,9 @@ export default function EarlyAccessClient() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Phone (optional)</label>
+            <label className="block text-sm font-medium text-[#A8A090]">Phone (optional)</label>
             <input
-              className="mt-1 w-full rounded-md border px-3 py-2"
+              className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+1 555 555 5555"
@@ -191,20 +191,20 @@ export default function EarlyAccessClient() {
           </div>
 
           {err && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
               {err}
             </div>
           )}
 
           <button
-            className="w-full rounded-md bg-black px-4 py-2 text-white font-medium hover:bg-gray-800 disabled:opacity-60"
+            className="w-full rounded-[2px] bg-[#D4A853] px-4 py-2 text-[#0C0B0A] font-semibold hover:bg-[#C49843] disabled:opacity-60 transition"
             disabled={loading}
             type="submit"
           >
             {loading ? "Starting tester access..." : "Get Tester Access"}
           </button>
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[#706A60]">
             By continuing, you’re starting Tester access to ChiefOS.
           </p>
         </form>

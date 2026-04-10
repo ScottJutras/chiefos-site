@@ -4,9 +4,9 @@ const LAST_UPDATED = "March 8, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-      <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm text-white/70 leading-relaxed">
+    <section className="rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-6">
+      <h2 className="text-lg font-semibold text-[#E8E2D8]">{title}</h2>
+      <div className="mt-3 space-y-3 text-sm text-[#A8A090] leading-relaxed">
         {children}
       </div>
     </section>
@@ -15,29 +15,29 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function DPAPage() {
   return (
-    <main className="space-y-6">
+    <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]">
+      <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6">
 
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-      <div className="mx-auto max-w-5xl px-6 py-16 md:py-20 space-y-6"></div>
-        <div className="text-xs tracking-[0.18em] uppercase text-white/55">
+      <div className="rounded-[28px] border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] p-6">
+        <div className="text-xs tracking-[0.18em] uppercase text-[#706A60]">
           Legal
         </div>
 
-        <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-white/95">
+        <h1 className="mt-3 text-2xl md:text-3xl font-semibold text-[#E8E2D8]">
           Data Processing Agreement (DPA)
         </h1>
 
-        <div className="mt-3 text-sm text-white/60">
+        <div className="mt-3 text-sm text-[#706A60]">
           Last updated: {LAST_UPDATED}
         </div>
 
-        <div className="mt-4 text-sm text-white/70">
+        <div className="mt-4 text-sm text-[#A8A090]">
           This Data Processing Agreement explains how ChiefOS processes
           customer data on behalf of users of the Service.
         </div>
 
         <div className="mt-5">
-          <Link href="/privacy" className="underline text-white/80">
+          <Link href="/privacy" className="underline text-[#D4A853] hover:text-[#C49843]">
             Privacy Policy
           </Link>
         </div>
@@ -105,6 +105,7 @@ export default function DPAPage() {
         </div>
       </Section>
 
+      </div>
     </main>
   );
 }

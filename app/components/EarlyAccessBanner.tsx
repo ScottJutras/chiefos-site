@@ -98,24 +98,24 @@ export default function EarlyAccessBanner() {
 
   const badgeClass =
     banner.kind === "tester"
-      ? "bg-white/10 text-white"
+      ? "border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] text-[#D4A853]"
       : banner.kind === "app"
         ? "border border-emerald-400/20 bg-emerald-500/15 text-emerald-200"
-        : "bg-white/10 text-white";
+        : "border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] text-[#D4A853]";
 
   return (
     <div
       ref={ref}
-      className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/80 backdrop-blur"
+      className="sticky top-0 z-50 w-full border-b border-[rgba(212,168,83,0.15)] bg-[#0C0B0A]/90 backdrop-blur"
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 text-xs text-white/80">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 text-xs text-[#A8A090]">
         <div className="flex min-w-0 items-center gap-2">
           <span className={`shrink-0 rounded px-2 py-1 text-[11px] tracking-wide ${badgeClass}`}>
             {banner.badge}
           </span>
           <span className="hidden truncate sm:inline">{banner.message}</span>
         </div>
-        <div className="shrink-0 text-white/60">ChiefOS</div>
+        <div className="shrink-0 text-[#706A60]">ChiefOS</div>
       </div>
     </div>
   );

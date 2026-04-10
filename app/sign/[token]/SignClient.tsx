@@ -53,7 +53,7 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
     lastPos.current = { x, y };
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.strokeStyle = "#000";
+    ctx.strokeStyle = "#D4A853";
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -137,11 +137,11 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
 
   if (done) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-[#0C0B0A] flex items-center justify-center p-8">
         <div className="max-w-md w-full text-center">
-          <div className="text-5xl mb-4">✓</div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">Signed successfully</h1>
-          <p className="text-gray-500 text-sm">
+          <div className="text-5xl mb-4 text-[#D4A853]">✓</div>
+          <h1 className="text-2xl font-semibold text-[#E8E2D8] mb-2">Signed successfully</h1>
+          <p className="text-[#A8A090] text-sm">
             Your signature has been saved. Your contractor has been notified.
           </p>
         </div>
@@ -150,22 +150,22 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#0C0B0A]">
       <div className="max-w-2xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="mb-8">
-          <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">ChiefOS</div>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <div className="text-xs uppercase tracking-widest text-[#706A60] mb-1">ChiefOS</div>
+          <h1 className="text-2xl font-semibold text-[#E8E2D8]">
             {label || kindLabel}: {jobName}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-[#A8A090] mt-1">
             Please review the document below, then sign in the box provided.
           </p>
         </div>
 
         {/* PDF Preview */}
         {pdfUrl ? (
-          <div className="mb-8 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+          <div className="mb-8 rounded-2xl overflow-hidden border border-[rgba(212,168,83,0.15)]">
             <iframe
               src={pdfUrl}
               className="w-full"
@@ -174,27 +174,27 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
             />
           </div>
         ) : (
-          <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-100 p-8 text-center text-sm text-gray-400">
+          <div className="mb-8 rounded-2xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-8 text-center text-sm text-[#706A60]">
             Document preview not available.
           </div>
         )}
 
         {/* Signature pad */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-6">
+        <div className="bg-[#0F0E0C] rounded-2xl border border-[rgba(212,168,83,0.15)] p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-gray-700">Your signature</label>
+            <label className="text-sm font-medium text-[#A8A090]">Your signature</label>
             {hasSig && (
               <button
                 type="button"
                 onClick={clearSig}
-                className="text-xs text-gray-400 hover:text-gray-600 transition"
+                className="text-xs text-[#706A60] hover:text-[#D4A853] transition"
               >
                 Clear
               </button>
             )}
           </div>
 
-          <div className="relative rounded-xl border-2 border-dashed border-gray-200 overflow-hidden bg-gray-50"
+          <div className="relative rounded-xl border-2 border-dashed border-[rgba(212,168,83,0.2)] overflow-hidden bg-[#0C0B0A]"
             style={{ touchAction: "none" }}>
             <canvas
               ref={canvasRef}
@@ -209,19 +209,19 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
               onTouchEnd={stopDraw}
             />
             {!hasSig && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-gray-300">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-[#706A60]">
                 Draw your signature here
               </div>
             )}
           </div>
 
-          <p className="mt-3 text-xs text-gray-400">
+          <p className="mt-3 text-xs text-[#706A60]">
             By signing, you agree to the scope of work and terms in this {kindLabel.toLowerCase()}.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -230,7 +230,7 @@ export default function SignClient({ token, kind, label, pdfUrl, jobName }: Prop
           type="button"
           onClick={submit}
           disabled={!hasSig || submitting}
-          className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full rounded-[2px] bg-[#D4A853] text-[#0C0B0A] py-3 text-sm font-semibold hover:bg-[#C49843] transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {submitting ? "Saving signature…" : `Sign ${kindLabel}`}
         </button>

@@ -98,7 +98,7 @@ export default function SupplierCategoriesPage() {
   }
 
   if (gate.loading) {
-    return <div className="py-12 text-center text-sm text-white/40">Loading...</div>;
+    return <div className="py-12 text-center text-sm text-[#706A60]">Loading...</div>;
   }
 
   // Separate top-level and children for display
@@ -108,8 +108,8 @@ export default function SupplierCategoriesPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-bold text-white">Categories</h1>
-        <a href="/supplier/catalog" className="text-sm text-white/40 hover:text-white">
+        <h1 className="text-2xl font-bold text-[#E8E2D8]">Categories</h1>
+        <a href="/supplier/catalog" className="text-sm text-[#A8A090] hover:text-[#D4A853]">
           ← Back to catalog
         </a>
       </div>
@@ -119,8 +119,8 @@ export default function SupplierCategoriesPage() {
       )}
 
       {/* Add category */}
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-white/60">Add category</h2>
+      <div className="rounded-xl border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] p-4">
+        <h2 className="mb-3 text-sm font-semibold text-[#A8A090]">Add category</h2>
         <div className="flex flex-wrap gap-2">
           <input
             type="text"
@@ -128,12 +128,13 @@ export default function SupplierCategoriesPage() {
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addCategory(); }}
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-white/20"
+            className="flex-1 rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] px-3 py-2 text-sm text-[#E8E2D8] placeholder-[#706A60] outline-none focus:border-[rgba(212,168,83,0.4)]"
           />
           <select
             value={addParent}
             onChange={(e) => setAddParent(e.target.value)}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none"
+            className="rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] px-3 py-2 text-sm text-[#E8E2D8] outline-none"
+            style={{ colorScheme: "dark" }}
           >
             <option value="">Top level</option>
             {roots.map((r) => (
@@ -143,7 +144,7 @@ export default function SupplierCategoriesPage() {
           <button
             onClick={addCategory}
             disabled={adding || !addName.trim()}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
+            className="rounded-[2px] bg-[#D4A853] px-4 py-2 text-sm font-semibold text-[#0C0B0A] disabled:opacity-40 hover:bg-[#C49843] transition"
           >
             {adding ? "Adding..." : "Add"}
           </button>
@@ -152,11 +153,11 @@ export default function SupplierCategoriesPage() {
       </div>
 
       {/* Category list */}
-      <div className="rounded-xl border border-white/10 overflow-hidden">
+      <div className="rounded-xl border border-[rgba(212,168,83,0.15)] overflow-hidden">
         {loading ? (
-          <div className="py-8 text-center text-sm text-white/30">Loading...</div>
+          <div className="py-8 text-center text-sm text-[#706A60]">Loading...</div>
         ) : categories.length === 0 ? (
-          <div className="py-8 text-center text-sm text-white/30">No categories yet.</div>
+          <div className="py-8 text-center text-sm text-[#706A60]">No categories yet.</div>
         ) : (
           <ul className="divide-y divide-white/5">
             {roots.map((cat) => (
@@ -222,7 +223,7 @@ function CategoryRow({
   const isEditing = editId === cat.id;
 
   return (
-    <li className={`flex items-center gap-3 px-4 py-3 ${indent ? "pl-10 bg-white/[0.02]" : ""}`}>
+    <li className={`flex items-center gap-3 px-4 py-3 ${indent ? "pl-10 bg-[rgba(212,168,83,0.03)]" : ""}`}>
       {isEditing ? (
         <input
           autoFocus
@@ -233,14 +234,14 @@ function CategoryRow({
             if (e.key === "Enter") onSaveEdit(cat.id);
             if (e.key === "Escape") onCancelEdit();
           }}
-          className="flex-1 rounded border border-white/20 bg-white/5 px-2 py-1 text-sm text-white outline-none"
+          className="flex-1 rounded border border-[rgba(212,168,83,0.3)] bg-[#0C0B0A] px-2 py-1 text-sm text-[#E8E2D8] outline-none"
         />
       ) : (
-        <span className="flex-1 text-sm text-white">{cat.name}</span>
+        <span className="flex-1 text-sm text-[#E8E2D8]">{cat.name}</span>
       )}
 
       {cat.product_count !== undefined && (
-        <span className="text-xs text-white/30">{cat.product_count} products</span>
+        <span className="text-xs text-[#706A60]">{cat.product_count} products</span>
       )}
 
       {isEditing ? (
@@ -252,7 +253,7 @@ function CategoryRow({
           >
             Save
           </button>
-          <button onClick={onCancelEdit} className="text-xs text-white/40 hover:text-white">
+          <button onClick={onCancelEdit} className="text-xs text-[#A8A090] hover:text-[#D4A853]">
             Cancel
           </button>
         </div>
@@ -260,7 +261,7 @@ function CategoryRow({
         <div className="flex gap-2">
           <button
             onClick={() => onStartEdit(cat)}
-            className="text-xs text-white/40 hover:text-white"
+            className="text-xs text-[#A8A090] hover:text-[#D4A853]"
           >
             Edit
           </button>

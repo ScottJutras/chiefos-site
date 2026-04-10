@@ -34,7 +34,7 @@ export default function TurnstileBox(props: {
   if (!mounted) {
     return (
       <div className={className}>
-        <div className="rounded-md border border-black/10 bg-black/[0.03] px-3 py-2 text-xs text-black/70">
+        <div className="rounded-md border border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] px-3 py-2 text-xs text-[#706A60]">
           Loading bot check…
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function TurnstileBox(props: {
   if (!siteKey) {
     return (
       <div className={className}>
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <div className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
           Turnstile misconfigured: missing <b>NEXT_PUBLIC_TURNSTILE_SITE_KEY</b>
         </div>
       </div>

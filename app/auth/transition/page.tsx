@@ -142,13 +142,13 @@ function AuthTransitionInner() {
         <div className="flex flex-col sm:flex-row gap-3">
           <a
             href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
-            className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
+            className="inline-flex items-center justify-center rounded-[2px] bg-[#D4A853] px-5 py-3 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
           >
             Back to login
           </a>
           <a
             href="/signup"
-            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+            className="inline-flex items-center justify-center rounded-[2px] border border-[rgba(212,168,83,0.3)] px-5 py-3 text-sm font-semibold text-[#A8A090] hover:text-[#D4A853] hover:border-[rgba(212,168,83,0.5)] transition"
           >
             Create account again
           </a>
