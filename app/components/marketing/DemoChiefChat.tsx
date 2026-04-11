@@ -17,17 +17,37 @@ const C = {
 };
 
 const SESSION_LIMIT = 10;
+const SOFT_UPSELL_AT = 7; // show upsell nudge when ≤ this many questions remain
 
-const STARTER_QUESTIONS = [
-  "Show me a job P&L breakdown",
-  "How does WhatsApp logging work?",
-  "What's on the free plan?",
-  "Can my crew log time by text?",
-  "How would Chief answer 'Am I making money this month?'",
-  "What happens to receipt photos I send?",
-  "How is ChiefOS different from QuickBooks?",
-  "Walk me through a typical work day with ChiefOS",
+// ─── Categorised starter questions ────────────────────────────────────────────
+const CATEGORIES = [
+  {
+    label: "Financial Intelligence",
+    questions: [
+      "Show me a job P&L breakdown",
+      "How would Chief answer 'Am I making money this month?'",
+      "How is ChiefOS different from QuickBooks?",
+    ],
+  },
+  {
+    label: "How It Works",
+    questions: [
+      "How does WhatsApp logging work?",
+      "Can my crew log time by text?",
+      "What happens to receipt photos I send?",
+    ],
+  },
+  {
+    label: "Getting Started",
+    questions: [
+      "What's on the free plan?",
+      "Walk me through a typical work day with ChiefOS",
+    ],
+  },
 ];
+
+// Initially show 2 from Financial, 1 from How It Works, 1 from Getting Started
+const INITIAL_VISIBLE: Record<number, number> = { 0: 2, 1: 1, 2: 1 };
 
 type ChatMessage = {
   id: string;
@@ -44,14 +64,14 @@ function UserBubble({ content }: { content: string }) {
       <div style={{
         maxWidth: "80%",
         background: "rgba(212,168,83,0.09)",
-        border: "1px solid rgba(212,168,83,0.2)",
+        border: "1px solid rgba(212,168,83,0.22)",
         borderRadius: "12px 12px 2px 12px",
         padding: "9px 13px",
         fontSize: "13px",
         color: C.textLight,
         lineHeight: 1.6,
         whiteSpace: "pre-wrap",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
       }}>
         {content}
       </div>
@@ -67,10 +87,8 @@ function ChiefAvatar() {
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: "10px", fontFamily: "'Space Mono', monospace", fontWeight: 700,
       color: "#0A0900", marginTop: "1px",
-      boxShadow: "0 0 10px rgba(212,168,83,0.28), 0 0 0 1px rgba(212,168,83,0.35), 0 2px 6px rgba(0,0,0,0.4)",
-    }}>
-      C
-    </div>
+      boxShadow: "0 0 10px rgba(212,168,83,0.3), 0 0 0 1px rgba(212,168,83,0.38), 0 2px 6px rgba(0,0,0,0.4)",
+    }}>C</div>
   );
 }
 
@@ -80,9 +98,9 @@ function ChiefBubble({ content, streaming, error }: { content: string; streaming
       <ChiefAvatar />
       <div style={{
         flex: 1,
-        background: error ? "rgba(180,60,60,0.06)" : "rgba(212,168,83,0.04)",
-        border: `1px solid ${error ? "rgba(180,60,60,0.2)" : "rgba(212,168,83,0.13)"}`,
-        borderLeft: error ? "2px solid rgba(180,60,60,0.45)" : "2px solid rgba(212,168,83,0.4)",
+        background: error ? "rgba(180,60,60,0.06)" : "rgba(212,168,83,0.045)",
+        border: `1px solid ${error ? "rgba(180,60,60,0.22)" : "rgba(212,168,83,0.16)"}`,
+        borderLeft: error ? "2px solid rgba(180,60,60,0.5)" : "2px solid rgba(212,168,83,0.45)",
         borderRadius: "0 12px 12px 12px",
         padding: "10px 13px",
         fontSize: "13px",
@@ -90,7 +108,7 @@ function ChiefBubble({ content, streaming, error }: { content: string; streaming
         lineHeight: 1.7,
         whiteSpace: "pre-wrap",
         minHeight: "36px",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+        boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
       }}>
         {content || (streaming ? "" : "…")}
         {streaming && (
@@ -98,7 +116,7 @@ function ChiefBubble({ content, streaming, error }: { content: string; streaming
             display: "inline-block", width: "2px", height: "13px",
             background: C.gold, marginLeft: "2px", verticalAlign: "text-bottom",
             animation: "chief-cursor-blink 0.8s step-end infinite",
-            boxShadow: "0 0 6px rgba(212,168,83,0.7)",
+            boxShadow: "0 0 7px rgba(212,168,83,0.75)",
           }} />
         )}
       </div>
@@ -111,13 +129,13 @@ function TypingIndicator() {
     <div style={{ display: "flex", gap: "9px", marginBottom: "14px", alignItems: "flex-start" }}>
       <ChiefAvatar />
       <div style={{
-        background: "rgba(212,168,83,0.04)",
-        border: "1px solid rgba(212,168,83,0.13)",
-        borderLeft: "2px solid rgba(212,168,83,0.4)",
+        background: "rgba(212,168,83,0.045)",
+        border: "1px solid rgba(212,168,83,0.16)",
+        borderLeft: "2px solid rgba(212,168,83,0.45)",
         borderRadius: "0 12px 12px 12px",
         padding: "12px 16px",
         display: "flex", gap: "5px", alignItems: "center",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+        boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
       }}>
         {[0, 180, 360].map((delay) => (
           <span key={delay} style={{
@@ -132,6 +150,44 @@ function TypingIndicator() {
   );
 }
 
+// ─── Chip button ──────────────────────────────────────────────────────────────
+function Chip({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "6px 12px",
+        background: "rgba(212,168,83,0.06)",
+        border: "1px solid rgba(212,168,83,0.28)",
+        borderRadius: "14px",
+        color: C.textMuted,
+        fontSize: "11.5px",
+        fontFamily: "'DM Sans', sans-serif",
+        cursor: "pointer",
+        transition: "all 0.15s ease",
+        lineHeight: 1.4,
+        textAlign: "left" as const,
+      }}
+      onMouseEnter={(e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        b.style.color = C.gold;
+        b.style.borderColor = "rgba(212,168,83,0.55)";
+        b.style.background = "rgba(212,168,83,0.11)";
+        b.style.boxShadow = "0 0 14px rgba(212,168,83,0.12)";
+      }}
+      onMouseLeave={(e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        b.style.color = C.textMuted;
+        b.style.borderColor = "rgba(212,168,83,0.28)";
+        b.style.background = "rgba(212,168,83,0.06)";
+        b.style.boxShadow = "none";
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ─── Main floating widget ─────────────────────────────────────────────────────
 export default function DemoChiefChat() {
   const [open, setOpen] = useState(false);
@@ -143,6 +199,7 @@ export default function DemoChiefChat() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [unread, setUnread] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [chipsExpanded, setChipsExpanded] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -260,7 +317,6 @@ export default function DemoChiefChat() {
         }
       }
 
-      // Flush any remaining buffered tokens before marking done
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
       if (tokenBufferRef.current) {
         const remaining = tokenBufferRef.current;
@@ -304,6 +360,7 @@ export default function DemoChiefChat() {
 
   const hasMessages = messages.length > 0;
   const questionsLeft = SESSION_LIMIT - messageCount;
+  const showSoftUpsell = hasMessages && questionsLeft <= SOFT_UPSELL_AT && questionsLeft > 0 && !showUpgrade;
 
   return (
     <>
@@ -341,6 +398,10 @@ export default function DemoChiefChat() {
           from{opacity:0;transform:translateY(6px)}
           to{opacity:1;transform:translateY(0)}
         }
+        @keyframes chief-upsell-in {
+          from{opacity:0;transform:translateY(4px)}
+          to{opacity:1;transform:translateY(0)}
+        }
       `}</style>
 
       {/* ── Floating panel ── */}
@@ -353,22 +414,40 @@ export default function DemoChiefChat() {
           width: "420px",
           maxWidth: "calc(100vw - 32px)",
           zIndex: 9999,
-          background: "linear-gradient(160deg, #141209 0%, #0F0E0C 45%, #0C0B0A 100%)",
-          border: "1px solid rgba(212,168,83,0.22)",
-          borderTop: "1px solid rgba(212,168,83,0.45)",
-          borderRadius: "16px",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.72), 0 0 0 1px rgba(212,168,83,0.05), 0 0 60px rgba(212,168,83,0.07)",
+          /* Frosted glass base */
+          background: "linear-gradient(160deg, #17140C 0%, #111009 30%, #0D0C0A 65%, #0A0908 100%)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(212,168,83,0.24)",
+          borderTop: "1px solid rgba(212,168,83,0.5)",
+          borderRadius: "18px",
+          /* Layered shadow: deep lift + gold outer glow + inner edge vignette */
+          boxShadow: [
+            "0 40px 100px rgba(0,0,0,0.82)",
+            "0 0 0 1px rgba(212,168,83,0.06)",
+            "0 0 80px rgba(212,168,83,0.08)",
+            "inset 0 0 60px rgba(0,0,0,0.4)",
+            "inset 0 1px 0 rgba(212,168,83,0.12)",
+          ].join(", "),
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
           animation: "chief-widget-in 0.32s cubic-bezier(0.16,1,0.3,1)",
-          maxHeight: "560px",
+          maxHeight: "580px",
         }}>
+
+          {/* Edge vignette overlay — darkens corners for depth */}
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+            background: "radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,0.45) 100%)",
+            borderRadius: "18px",
+          }} />
 
           {/* Top shimmer bar */}
           <div style={{
+            position: "relative", zIndex: 1,
             height: "2px",
-            background: "linear-gradient(90deg, transparent 0%, rgba(212,168,83,0.6) 25%, #D4A853 50%, rgba(212,168,83,0.6) 75%, transparent 100%)",
+            background: "linear-gradient(90deg, transparent 0%, rgba(212,168,83,0.5) 20%, #D4A853 50%, rgba(212,168,83,0.5) 80%, transparent 100%)",
             backgroundSize: "200% 100%",
             animation: "chief-shimmer 3.5s linear infinite",
             flexShrink: 0,
@@ -390,57 +469,46 @@ export default function DemoChiefChat() {
 
           {/* Header */}
           <div style={{
+            position: "relative", zIndex: 1,
             display: "flex", alignItems: "center", gap: "11px",
             padding: "14px 16px 13px",
-            borderBottom: "1px solid rgba(212,168,83,0.09)",
-            background: "linear-gradient(135deg, rgba(212,168,83,0.08) 0%, rgba(212,168,83,0.02) 100%)",
+            borderBottom: "1px solid rgba(212,168,83,0.1)",
+            background: "linear-gradient(135deg, rgba(212,168,83,0.09) 0%, rgba(212,168,83,0.02) 100%)",
             flexShrink: 0,
           }}>
-            {/* Avatar */}
             <div style={{
               flexShrink: 0, width: "34px", height: "34px", borderRadius: "50%",
               background: "linear-gradient(135deg, #D4A853 0%, #C49840 55%, #9A7220 100%)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "13px", fontFamily: "'Space Mono', monospace",
-              fontWeight: 700, color: "#09080600",
-              boxShadow: "0 0 0 1px rgba(212,168,83,0.35), 0 0 18px rgba(212,168,83,0.22), 0 3px 10px rgba(0,0,0,0.45)",
-            }}>
-              <span style={{ color: "#0A0900" }}>C</span>
-            </div>
+              fontWeight: 700, color: "#0A0900",
+              boxShadow: "0 0 0 1px rgba(212,168,83,0.38), 0 0 20px rgba(212,168,83,0.25), 0 3px 10px rgba(0,0,0,0.5)",
+            }}>C</div>
 
             <div style={{ flex: 1 }}>
               <div style={{
                 fontSize: "14px", fontWeight: 700, color: C.textLight,
                 fontFamily: "'DM Sans', sans-serif", letterSpacing: "-0.1px",
-              }}>
-                Ask Chief
-              </div>
+              }}>Ask Chief</div>
               <div style={{
                 fontSize: "10px", color: C.textFaint,
                 fontFamily: "'Space Mono', monospace", letterSpacing: "0.8px", marginTop: "1px",
-              }}>
-                CHIEFOS INTELLIGENCE
-              </div>
+              }}>CONTRACTOR-GRADE INTELLIGENCE</div>
             </div>
 
-            {/* Live indicator */}
             <div style={{ display: "flex", alignItems: "center", gap: "5px", marginRight: "6px" }}>
               <span style={{
                 width: "6px", height: "6px", borderRadius: "50%",
-                background: "#4ADE80",
-                display: "inline-block",
+                background: "#4ADE80", display: "inline-block",
                 animation: "chief-live-pulse 2.2s ease-in-out infinite",
               }} />
-              <span style={{
-                fontSize: "10px", color: "#4ADE80",
-                fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px",
-              }}>LIVE</span>
+              <span style={{ fontSize: "10px", color: "#4ADE80", fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px" }}>LIVE</span>
             </div>
 
             <button
               onClick={() => setOpen(false)}
               style={{
-                background: "rgba(212,168,83,0.07)", border: "1px solid rgba(212,168,83,0.15)",
+                background: "rgba(212,168,83,0.07)", border: "1px solid rgba(212,168,83,0.16)",
                 cursor: "pointer", color: C.textFaint, padding: "5px",
                 borderRadius: "7px", lineHeight: 1,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -466,61 +534,81 @@ export default function DemoChiefChat() {
 
           {/* Messages */}
           <div style={{
+            position: "relative", zIndex: 1,
             flex: 1, overflowY: "auto", padding: "16px 14px 0",
-            scrollbarWidth: "thin", scrollbarColor: "rgba(212,168,83,0.12) transparent",
+            scrollbarWidth: "thin", scrollbarColor: "rgba(212,168,83,0.14) transparent",
           }}>
             {!hasMessages && (
               <div style={{ marginBottom: "16px" }}>
+                {/* Chief intro */}
                 <div style={{
-                  background: "rgba(212,168,83,0.04)",
-                  border: "1px solid rgba(212,168,83,0.12)",
-                  borderLeft: "2px solid rgba(212,168,83,0.4)",
-                  borderRadius: "0 10px 10px 10px",
-                  padding: "11px 14px",
-                  marginBottom: "14px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
+                  background: "rgba(212,168,83,0.05)",
+                  border: "1px solid rgba(212,168,83,0.18)",
+                  borderLeft: "2px solid rgba(212,168,83,0.5)",
+                  borderRadius: "0 12px 12px 12px",
+                  padding: "13px 15px",
+                  marginBottom: "18px",
+                  boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
                 }}>
+                  <p style={{ fontSize: "13px", color: C.text, margin: "0 0 6px", lineHeight: 1.65, fontWeight: 600 }}>
+                    I'm Chief — your AI business operator.
+                  </p>
                   <p style={{ fontSize: "12.5px", color: C.textMuted, margin: 0, lineHeight: 1.65 }}>
-                    I have full visibility into your jobs, expenses, crew hours, and cash flow — ask me anything.
+                    I turn WhatsApp messages into a full operating picture — jobs, expenses, crew hours, and cash flow — then answer your hardest business questions in real time. No new apps. No accountant required.
                   </p>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
-                  {STARTER_QUESTIONS.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => handleSend(q)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "rgba(212,168,83,0.04)",
-                        border: "1px solid rgba(212,168,83,0.18)",
-                        borderRadius: "14px",
-                        color: C.textMuted,
-                        fontSize: "11.5px",
-                        fontFamily: "'DM Sans', sans-serif",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease",
-                        lineHeight: 1.4,
-                        textAlign: "left" as const,
-                      }}
-                      onMouseEnter={(e) => {
-                        const b = e.currentTarget as HTMLButtonElement;
-                        b.style.color = C.gold;
-                        b.style.borderColor = "rgba(212,168,83,0.45)";
-                        b.style.background = "rgba(212,168,83,0.08)";
-                        b.style.boxShadow = "0 0 12px rgba(212,168,83,0.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        const b = e.currentTarget as HTMLButtonElement;
-                        b.style.color = C.textMuted;
-                        b.style.borderColor = "rgba(212,168,83,0.18)";
-                        b.style.background = "rgba(212,168,83,0.04)";
-                        b.style.boxShadow = "none";
-                      }}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
+
+                {/* Categorised chips */}
+                {CATEGORIES.map((cat, catIdx) => {
+                  const visibleCount = chipsExpanded ? cat.questions.length : (INITIAL_VISIBLE[catIdx] ?? 0);
+                  if (visibleCount === 0) return null;
+                  return (
+                    <div key={cat.label} style={{ marginBottom: "12px" }}>
+                      <div style={{
+                        fontSize: "9.5px", color: C.textFaint,
+                        fontFamily: "'Space Mono', monospace", letterSpacing: "1px",
+                        marginBottom: "7px", textTransform: "uppercase",
+                      }}>
+                        {cat.label}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
+                        {cat.questions.slice(0, visibleCount).map((q) => (
+                          <Chip key={q} label={q} onClick={() => handleSend(q)} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Expand / collapse */}
+                <button
+                  onClick={() => setChipsExpanded((v) => !v)}
+                  style={{
+                    marginTop: "4px",
+                    padding: "5px 12px",
+                    background: "transparent",
+                    border: "1px solid rgba(212,168,83,0.2)",
+                    borderRadius: "12px",
+                    color: C.textFaint,
+                    fontSize: "11px",
+                    fontFamily: "'Space Mono', monospace",
+                    letterSpacing: "0.4px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    const b = e.currentTarget as HTMLButtonElement;
+                    b.style.color = C.gold;
+                    b.style.borderColor = "rgba(212,168,83,0.42)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const b = e.currentTarget as HTMLButtonElement;
+                    b.style.color = C.textFaint;
+                    b.style.borderColor = "rgba(212,168,83,0.2)";
+                  }}
+                >
+                  {chipsExpanded ? "↑ Fewer questions" : "+ More questions"}
+                </button>
               </div>
             )}
 
@@ -543,29 +631,72 @@ export default function DemoChiefChat() {
                   color: C.bg, borderRadius: "4px",
                   fontSize: "12px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
                   letterSpacing: "1.2px", textTransform: "uppercase", textDecoration: "none",
-                  boxShadow: "0 4px 20px rgba(212,168,83,0.3)",
+                  boxShadow: "0 4px 20px rgba(212,168,83,0.32)",
                 }}>Start Free</a>
               </div>
             )}
             <div ref={bottomRef} style={{ height: "16px" }} />
           </div>
 
+          {/* Soft upsell strip — appears at ≤ 7 questions remaining */}
+          {showSoftUpsell && (
+            <div style={{
+              position: "relative", zIndex: 1,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              gap: "10px", flexWrap: "wrap",
+              padding: "9px 14px",
+              borderTop: "1px solid rgba(212,168,83,0.1)",
+              background: "linear-gradient(135deg, rgba(212,168,83,0.06) 0%, rgba(212,168,83,0.02) 100%)",
+              animation: "chief-upsell-in 0.3s ease",
+            }}>
+              <span style={{ fontSize: "11px", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+                {questionsLeft <= 3 ? "Almost out of questions —" : "Liking Chief?"}
+              </span>
+              <a
+                href="/signup"
+                style={{
+                  fontSize: "11px", fontWeight: 600, color: C.gold,
+                  fontFamily: "'DM Sans', sans-serif",
+                  textDecoration: "none", borderBottom: "1px solid rgba(212,168,83,0.35)",
+                  paddingBottom: "1px", transition: "border-color 0.15s ease",
+                }}
+              >
+                Sign up free →
+              </a>
+              <span style={{ fontSize: "11px", color: C.textFaint, fontFamily: "'DM Sans', sans-serif" }}>or</span>
+              <a
+                href="https://wa.me/12316802664"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: "11px", fontWeight: 600, color: "#4ADE80",
+                  fontFamily: "'DM Sans', sans-serif",
+                  textDecoration: "none", borderBottom: "1px solid rgba(74,222,128,0.35)",
+                  paddingBottom: "1px",
+                }}
+              >
+                Add Chief on WhatsApp
+              </a>
+            </div>
+          )}
+
           {/* Input */}
           {!showUpgrade && (
             <div style={{
-              padding: "10px 12px 12px",
-              borderTop: "1px solid rgba(212,168,83,0.09)",
+              position: "relative", zIndex: 1,
+              padding: "10px 12px 0",
+              borderTop: showSoftUpsell ? "none" : "1px solid rgba(212,168,83,0.1)",
               background: "rgba(212,168,83,0.02)",
               flexShrink: 0,
             }}>
               <div style={{
                 display: "flex", alignItems: "center", gap: "8px",
-                background: inputFocused ? "rgba(212,168,83,0.07)" : "rgba(212,168,83,0.03)",
-                border: `1px solid ${inputFocused ? "rgba(212,168,83,0.32)" : "rgba(212,168,83,0.13)"}`,
+                background: inputFocused ? "rgba(212,168,83,0.08)" : "rgba(212,168,83,0.04)",
+                border: `1px solid ${inputFocused ? "rgba(212,168,83,0.35)" : "rgba(212,168,83,0.16)"}`,
                 borderRadius: "9px", padding: "8px 10px",
                 transition: "all 0.2s ease",
                 boxShadow: inputFocused
-                  ? "0 0 0 3px rgba(212,168,83,0.07), 0 0 20px rgba(212,168,83,0.07)"
+                  ? "0 0 0 3px rgba(212,168,83,0.08), 0 0 22px rgba(212,168,83,0.08)"
                   : "none",
               }}>
                 <input
@@ -591,7 +722,7 @@ export default function DemoChiefChat() {
                     background: isStreaming || !input.trim()
                       ? "transparent"
                       : "linear-gradient(135deg, #D4A853, #C49840)",
-                    border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.15)" : "transparent"}`,
+                    border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.16)" : "transparent"}`,
                     borderRadius: "5px",
                     color: isStreaming || !input.trim() ? C.textFaint : C.bg,
                     fontSize: "12px", fontWeight: 700,
@@ -599,21 +730,53 @@ export default function DemoChiefChat() {
                     cursor: isStreaming || !input.trim() ? "not-allowed" : "pointer",
                     transition: "all 0.15s ease",
                     letterSpacing: "0.3px",
-                    boxShadow: isStreaming || !input.trim() ? "none" : "0 2px 12px rgba(212,168,83,0.28)",
+                    boxShadow: isStreaming || !input.trim() ? "none" : "0 2px 14px rgba(212,168,83,0.3)",
                   }}
                 >
                   {isStreaming ? "···" : "Ask"}
                 </button>
               </div>
-              {!hasMessages && (
+
+              {/* Question counter + branding footer */}
+              <div style={{
+                padding: "9px 0 11px",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
+              }}>
+                {/* Counter — prominent, centered */}
                 <div style={{
-                  marginTop: "8px", fontSize: "10px", color: C.textFaint,
-                  fontFamily: "'Space Mono', monospace", letterSpacing: "0.4px",
-                  textAlign: "center",
+                  display: "flex", alignItems: "center", gap: "6px",
                 }}>
-                  AI-POWERED · DEMO MODE · {questionsLeft} QUESTIONS REMAINING
+                  <div style={{
+                    display: "flex", gap: "3px",
+                  }}>
+                    {Array.from({ length: SESSION_LIMIT }).map((_, i) => (
+                      <span key={i} style={{
+                        width: "5px", height: "5px", borderRadius: "50%",
+                        background: i < messageCount
+                          ? "rgba(212,168,83,0.35)"
+                          : "rgba(212,168,83,0.7)",
+                        transition: "background 0.3s ease",
+                        boxShadow: i < messageCount ? "none" : "0 0 4px rgba(212,168,83,0.3)",
+                      }} />
+                    ))}
+                  </div>
+                  <span style={{
+                    fontSize: "11px", fontWeight: 600,
+                    fontFamily: "'DM Sans', sans-serif",
+                    color: questionsLeft <= 3 ? C.gold : C.textMuted,
+                    transition: "color 0.3s ease",
+                  }}>
+                    {questionsLeft} question{questionsLeft !== 1 ? "s" : ""} remaining
+                  </span>
                 </div>
-              )}
+                {/* Branding */}
+                <div style={{
+                  fontSize: "10px", color: C.textFaint,
+                  fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px",
+                }}>
+                  Powered by ChiefOS · Demo Mode
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -631,7 +794,6 @@ export default function DemoChiefChat() {
         alignItems: "center",
         gap: "10px",
       }}>
-        {/* "Ask Chief" label pill — visible when closed, stacked above FAB */}
         {!open && (
           <div
             style={{
@@ -650,9 +812,7 @@ export default function DemoChiefChat() {
               fontFamily: "'DM Sans', sans-serif",
               color: C.textLight, letterSpacing: "0.1px",
               whiteSpace: "nowrap",
-            }}>
-              Ask Chief
-            </span>
+            }}>Ask Chief</span>
             <span style={{
               marginLeft: "8px", fontSize: "11px",
               fontFamily: "'Space Mono', monospace",
@@ -661,21 +821,14 @@ export default function DemoChiefChat() {
           </div>
         )}
 
-        {/* FAB button with pulsing rings */}
         <div style={{ position: "relative", width: "60px", height: "60px" }}>
-          {/* Pulsing rings — only when panel is closed */}
           {!open && [0, 900, 1800].map((delay) => (
-            <div
-              key={delay}
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                border: "1px solid rgba(212,168,83,0.45)",
-                animation: `chief-ring-pulse 2.7s ease-out ${delay}ms infinite`,
-                pointerEvents: "none",
-              }}
-            />
+            <div key={delay} style={{
+              position: "absolute", inset: 0, borderRadius: "50%",
+              border: "1px solid rgba(212,168,83,0.45)",
+              animation: `chief-ring-pulse 2.7s ease-out ${delay}ms infinite`,
+              pointerEvents: "none",
+            }} />
           ))}
 
           <button
@@ -683,8 +836,7 @@ export default function DemoChiefChat() {
             aria-label={open ? "Close Chief chat" : "Ask Chief"}
             style={{
               position: "relative", zIndex: 1,
-              width: "60px", height: "60px",
-              borderRadius: "50%",
+              width: "60px", height: "60px", borderRadius: "50%",
               background: open
                 ? "rgba(15,14,12,0.98)"
                 : "radial-gradient(circle at 38% 38%, #1C1910, #0C0B0A)",
@@ -704,24 +856,19 @@ export default function DemoChiefChat() {
               </svg>
             ) : (
               <span style={{
-                fontFamily: "'Space Mono', monospace",
-                fontWeight: 700,
-                fontSize: "20px",
-                color: C.gold,
-                lineHeight: 1,
+                fontFamily: "'Space Mono', monospace", fontWeight: 700,
+                fontSize: "20px", color: C.gold, lineHeight: 1,
                 textShadow: "0 0 14px rgba(212,168,83,0.65)",
               }}>C</span>
             )}
           </button>
 
-          {/* Unread badge */}
           {unread && !open && (
             <span style={{
               position: "absolute", top: "2px", right: "2px",
               width: "13px", height: "13px", borderRadius: "50%",
               background: C.gold, border: `2px solid ${C.bg}`,
-              animation: "chief-badge-pop 0.3s ease",
-              zIndex: 2,
+              animation: "chief-badge-pop 0.3s ease", zIndex: 2,
             }} />
           )}
         </div>
