@@ -234,54 +234,83 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
           <PricingCard
             name="Free — Field Capture"
             price="$0"
-            blurb="Step into conversational bookkeeping"
+            blurb="No credit card required. Start capturing."
             features={[
-              "1 Owner",
-              "3 Jobs",
-              "Text",
-              "Full suite of integrated tool",
-              "Exports",
+              "Web & WhatsApp portals (iOS & Android app — late Spring 2026)",
+              "Conversational logging: text only",
+              "Ask Chief: 3 questions / month",
+              "Up to 3 active jobs",
+              "Up to 3 employees",
+              "Expense & revenue logging",
+              "Time clock & labour hours tracking",
+              "Tasks & reminders",
+              "Mileage tracking",
+              "Overhead & recurring expense tracking",
+              "CSV export",
+              "90-day rolling history",
             ]}
           />
 
           <PricingCard
             name="Starter — Owner Mode"
             price="$59"
-            blurb="State of the art conversational bookkeeping"
+            blurb="Capture faster. Start understanding."
             paidPlan="starter"
             phone={phone}
             highlighted={selectedPlan === "starter"}
             features={[
-              "1 Owner", 
-              "Track up to 10 Employees",
-              "25 Jobs",
-              "Text, Voice, Images",
-              "Full suite of integrated tools",
-              "Ask Chief",
-              "Exports",
+              "Web & WhatsApp portals",
+              "Conversational logging: text & audio",
+              "Ask Chief: 250 questions / month",
+              "Up to 25 active jobs",
+              "Up to 10 employees",
+              "Everything in Free, plus:",
+              "Receipt scanner (OCR)",
+              "Documents builder — quotes, contracts, change orders, invoices, receipts",
+              "Job site photo storage & notes",
+              "Bulk receipt uploads",
+              "Payroll documents",
+              "Exports: PDF, CSV, XLS",
+              "3-year history",
             ]}
           />
 
           <PricingCard
             name="Pro — Crew + Control"
             price="$149"
-            blurb="State of the art conversational Financial Management"
+            blurb="Give the crew tools. Keep control."
             paidPlan="pro"
             phone={phone}
             highlighted={selectedPlan === "pro"}
             badge="Crew + Control"
             features={[
-              "1 Owner",
-              "Track up to 150 Employees: Log capabilities",
-              "Up to 25 Board Members: Log + Approve + Edit capabilities",
-              "Unlimited Jobs",
-              "Text, Voice, Images",
-              "Ask Chief",
-              "Approvals + full audit trail",
-              "Priority onboarding (white glove setup)",
-              "Exports",
+              "Web & WhatsApp portals",
+              "Conversational logging: text & audio",
+              "Ask Chief: 2,000 questions / month",
+              "Unlimited jobs",
+              "Up to 50 employees",
+              "Up to 5 board members*",
+              "Everything in Starter, plus:",
+              "Forecasting",
+              "Crew self-logging via WhatsApp",
+              "Time approvals & edit requests",
+              "Exports: PDF, CSV, XLS",
+              "7-year history",
             ]}
           />
+        </div>
+
+        {/* Footnotes */}
+        <div className="mt-8 space-y-2 max-w-2xl">
+          <p className="text-xs text-[#706A60] leading-relaxed">
+            * Board Members do not have access to the financial intelligence layer (Ask Chief), but can use all other OS features. This keeps sensitive business and financial data visible only to the owner.
+          </p>
+          <p className="text-xs text-[#706A60] leading-relaxed">
+            ** The ChiefOS iOS &amp; Android apps will go live in late Spring 2026 and will be included in all subscription tiers — Free, Starter, and Pro.
+          </p>
+          <p className="text-xs text-[#706A60] leading-relaxed">
+            All plans: Your data is yours. Export anytime, on any tier. No lock-in.
+          </p>
         </div>
       </Section>
 

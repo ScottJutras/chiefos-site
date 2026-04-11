@@ -53,39 +53,47 @@ const SCRIPTED_ANSWERS: Record<string, string> = {
   "Do I need to download an app?":
     "No app needed to get started. ChiefOS runs on desktop (PC and Mac) through your browser, and our WhatsApp-based field logging tool lets you create jobs, send quotes, log expenses, track revenue, clock in your crew, and more — right from the app you already have on your phone. Just text, snap a photo, or send a voice message. The dedicated iOS and Android apps are coming later this spring. For now, everything you need is already in your pocket.",
   "What's free vs. paid?":
-`ChiefOS has three plans. Start free, upgrade when you're ready.
+`ChiefOS has three plans. Start with Free, upgrade when you're ready.
 
-FREE — Field Capture
-Start capturing. No pressure.
-• Up to 3 active jobs
-• Text-based expense & revenue logging
-• Time clock (owner logs for crew)
-• Task management
-• Up to 3 employee records
-• 90-day rolling history
-✗ No OCR, voice, exports, or Ask Chief
+FREE — Field Capture · $0/mo
+No credit card required.
+• Web & WhatsApp portals
+• Conversational logging: text only
+• Ask Chief: 3 questions / month
+• Up to 3 active jobs · up to 3 employees
+• Expense & revenue logging
+• Time clock & labour hours tracking
+• Tasks, reminders & mileage tracking
+• Overhead & recurring expense tracking
+• CSV export · 90-day rolling history
 
-STARTER — Owner Mode · $59 USD/mo
+STARTER — Owner Mode · $59/mo
 Capture faster. Start understanding.
-• Up to 25 active jobs
+• Web & WhatsApp portals
+• Conversational logging: text & audio
+• Ask Chief: 250 questions / month
+• Up to 25 active jobs · up to 10 employees
 • Everything in Free, plus:
-• Receipt scanning (OCR)
-• Voice message logging
-• Ask Chief — financial intelligence (owner-only)
-• Exports (PDF & spreadsheet)
-• Up to 10 employee records
-• 3-year history
+• Receipt scanner (OCR)
+• Documents builder — quotes, contracts, change orders, invoices, receipts
+• Job site photo storage & notes
+• Bulk receipt uploads & payroll documents
+• Exports: PDF, CSV, XLS · 3-year history
 
-PRO — Crew + Control · $149 USD/mo
+PRO — Crew + Control · $149/mo
 Give the crew tools. Keep control.
-• Unlimited jobs
+• Web & WhatsApp portals
+• Conversational logging: text & audio
+• Ask Chief: 2,000 questions / month
+• Unlimited jobs · up to 50 employees
+• Up to 5 board members*
 • Everything in Starter, plus:
+• Forecasting
 • Crew self-logging via WhatsApp
 • Time approvals & edit requests
-• Board member access (up to 25)
-• Up to 150 employee records
-• Higher OCR, voice & Ask Chief quotas
-• 7-year history
+• Exports: PDF, CSV, XLS · 7-year history
+
+* Board members can use all OS features but do not have access to Ask Chief — keeping your financial intelligence owner-only.
 
 All plans: Your data is yours. Export anytime, on any tier. No lock-in.`,
 };

@@ -36,27 +36,38 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 
 ## Features by Plan
 
-**Free Plan ($0/month)**
-- WhatsApp logging (expenses, revenue, time, tasks)
-- Job management (create and track jobs)
-- Basic dashboard
-- Full data export (CSV, PDF, images, voice)
-- 1 user
+**Free Plan ($0/month — Field Capture)**
+- Web & WhatsApp portals (iOS/Android app coming late Spring 2026)
+- Conversational logging: text only
+- Ask Chief: 3 questions/month
+- Up to 3 active jobs
+- Up to 3 employees
+- Expense & revenue logging, time clock, tasks, reminders, mileage tracking, overhead & recurring expense tracking
+- CSV export
+- 90-day rolling history
 
-**Starter Plan ($59/month)**
-- Everything in Free
-- Ask Chief AI (unlimited questions about your business data)
-- Job P&L reports
-- Crew time tracking (up to 5 crew members)
-- Receipt photo parsing
-- Voice note logging
+**Starter Plan ($59/month — Owner Mode)**
+- Web & WhatsApp portals
+- Conversational logging: text & audio
+- Ask Chief: 250 questions/month
+- Up to 25 active jobs
+- Up to 10 employees
+- Everything in Free, plus: receipt scanner (OCR), documents builder (quotes, contracts, change orders, invoices, receipts), job site photo storage & notes, bulk receipt uploads, payroll documents
+- Exports: PDF, CSV, XLS
+- 3-year history
 
-**Pro Plan ($149/month)**
-- Everything in Starter
-- Unlimited crew members
-- Advanced reporting and trends
-- Priority support
-- Multi-job overhead allocation
+**Pro Plan ($149/month — Crew + Control)**
+- Web & WhatsApp portals
+- Conversational logging: text & audio
+- Ask Chief: 2,000 questions/month
+- Unlimited jobs
+- Up to 50 employees
+- Up to 5 board members (no access to financial intelligence — keeps sensitive data owner-only)
+- Everything in Starter, plus: forecasting, crew self-logging via WhatsApp, time approvals & edit requests
+- Exports: PDF, CSV, XLS
+- 7-year history
+
+All plans: data is fully exportable at any tier. No lock-in.
 
 ## Time Tracking
 Crew text in or voice-note clock-in/out events through WhatsApp. No app to download. Times are recorded against specific jobs automatically. Owners see hours by job, by crew member, by week.

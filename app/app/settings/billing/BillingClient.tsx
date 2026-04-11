@@ -35,19 +35,19 @@ const PLAN_UI = {
     label: "Free",
     badge: "Field Capture",
     price: "$0",
-    highlights: ["Text capture in WhatsApp", "Up to 3 jobs", "90-day history", "No exports"],
+    highlights: ["Text logging via WhatsApp", "Up to 3 jobs · 3 employees", "Ask Chief: 3 questions/month", "CSV export · 90-day history"],
   },
   starter: {
     label: "Starter",
     badge: "Owner Mode",
     price: "$59/mo",
-    highlights: ["7 days free — no charge until day 8", "Receipt photos + voice capture", "Ask Chief (owner-only)", "Up to 25 jobs", "Exports (CSV / XLS / PDF)"],
+    highlights: ["Text & audio logging", "Receipt scanner (OCR) · documents builder", "Ask Chief: 250 questions/month", "Up to 25 jobs · 10 employees", "PDF, CSV & XLS exports · 3-year history"],
   },
   pro: {
     label: "Pro",
     badge: "Crew + Control",
     price: "$149/mo",
-    highlights: ["Crew self-logging from their own phones", "Approvals + audit trail", "Unlimited jobs", "Board seats (bookkeeper/advisor access)"],
+    highlights: ["Crew self-logging via WhatsApp", "Ask Chief: 2,000 questions/month", "Unlimited jobs · 50 employees · 5 board members", "Forecasting · time approvals", "7-year history"],
   },
 } as const;
 
