@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 
-// ─── Design tokens (matches HomepageClient) ───────────────────────────────────
+// ─── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
   bg: "#0C0B0A",
   bgAlt: "#0F0E0C",
@@ -43,14 +43,15 @@ function UserBubble({ content }: { content: string }) {
     <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
       <div style={{
         maxWidth: "80%",
-        background: C.goldDim,
-        border: `1px solid ${C.goldBorder}`,
+        background: "rgba(212,168,83,0.09)",
+        border: "1px solid rgba(212,168,83,0.2)",
         borderRadius: "12px 12px 2px 12px",
         padding: "9px 13px",
         fontSize: "13px",
         color: C.textLight,
         lineHeight: 1.6,
         whiteSpace: "pre-wrap",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
       }}>
         {content}
       </div>
@@ -58,36 +59,46 @@ function UserBubble({ content }: { content: string }) {
   );
 }
 
+function ChiefAvatar() {
+  return (
+    <div style={{
+      flexShrink: 0, width: "26px", height: "26px", borderRadius: "50%",
+      background: "linear-gradient(135deg, #D4A853 0%, #C49840 55%, #9A7220 100%)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: "10px", fontFamily: "'Space Mono', monospace", fontWeight: 700,
+      color: "#0A0900", marginTop: "1px",
+      boxShadow: "0 0 10px rgba(212,168,83,0.28), 0 0 0 1px rgba(212,168,83,0.35), 0 2px 6px rgba(0,0,0,0.4)",
+    }}>
+      C
+    </div>
+  );
+}
+
 function ChiefBubble({ content, streaming, error }: { content: string; streaming?: boolean; error?: boolean }) {
   return (
-    <div style={{ display: "flex", gap: "8px", marginBottom: "12px", alignItems: "flex-start" }}>
-      <div style={{
-        flexShrink: 0, width: "24px", height: "24px", borderRadius: "50%",
-        background: `linear-gradient(135deg, ${C.gold}, rgba(212,168,83,0.5))`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "10px", fontFamily: "'Space Mono', monospace", fontWeight: 700,
-        color: C.bg, marginTop: "1px",
-      }}>
-        C
-      </div>
+    <div style={{ display: "flex", gap: "9px", marginBottom: "14px", alignItems: "flex-start" }}>
+      <ChiefAvatar />
       <div style={{
         flex: 1,
-        background: error ? "rgba(180,60,60,0.06)" : "rgba(212,168,83,0.05)",
-        border: `1px solid ${error ? "rgba(180,60,60,0.2)" : C.goldBorder}`,
-        borderRadius: "2px 12px 12px 12px",
-        padding: "9px 12px",
+        background: error ? "rgba(180,60,60,0.06)" : "rgba(212,168,83,0.04)",
+        border: `1px solid ${error ? "rgba(180,60,60,0.2)" : "rgba(212,168,83,0.13)"}`,
+        borderLeft: error ? "2px solid rgba(180,60,60,0.45)" : "2px solid rgba(212,168,83,0.4)",
+        borderRadius: "0 12px 12px 12px",
+        padding: "10px 13px",
         fontSize: "13px",
         color: error ? "#B45A5A" : C.text,
-        lineHeight: 1.65,
+        lineHeight: 1.7,
         whiteSpace: "pre-wrap",
         minHeight: "36px",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
       }}>
         {content || (streaming ? "" : "…")}
         {streaming && (
           <span style={{
-            display: "inline-block", width: "2px", height: "12px",
+            display: "inline-block", width: "2px", height: "13px",
             background: C.gold, marginLeft: "2px", verticalAlign: "text-bottom",
-            animation: "chief-cursor-blink 1s step-end infinite",
+            animation: "chief-cursor-blink 0.8s step-end infinite",
+            boxShadow: "0 0 6px rgba(212,168,83,0.7)",
           }} />
         )}
       </div>
@@ -97,26 +108,23 @@ function ChiefBubble({ content, streaming, error }: { content: string; streaming
 
 function TypingIndicator() {
   return (
-    <div style={{ display: "flex", gap: "8px", marginBottom: "12px", alignItems: "flex-start" }}>
+    <div style={{ display: "flex", gap: "9px", marginBottom: "14px", alignItems: "flex-start" }}>
+      <ChiefAvatar />
       <div style={{
-        flexShrink: 0, width: "24px", height: "24px", borderRadius: "50%",
-        background: `linear-gradient(135deg, ${C.gold}, rgba(212,168,83,0.5))`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "10px", fontFamily: "'Space Mono', monospace", fontWeight: 700,
-        color: C.bg,
+        background: "rgba(212,168,83,0.04)",
+        border: "1px solid rgba(212,168,83,0.13)",
+        borderLeft: "2px solid rgba(212,168,83,0.4)",
+        borderRadius: "0 12px 12px 12px",
+        padding: "12px 16px",
+        display: "flex", gap: "5px", alignItems: "center",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
       }}>
-        C
-      </div>
-      <div style={{
-        background: "rgba(212,168,83,0.05)", border: `1px solid ${C.goldBorder}`,
-        borderRadius: "2px 12px 12px 12px", padding: "12px 14px",
-        display: "flex", gap: "4px", alignItems: "center",
-      }}>
-        {[0, 150, 300].map((delay) => (
+        {[0, 180, 360].map((delay) => (
           <span key={delay} style={{
             width: "5px", height: "5px", borderRadius: "50%",
-            background: C.gold, opacity: 0.5,
-            animation: `chief-dot-bounce 1.2s ease-in-out ${delay}ms infinite`,
+            background: C.gold, opacity: 0.6,
+            animation: `chief-dot-bounce 1.4s ease-in-out ${delay}ms infinite`,
+            boxShadow: "0 0 5px rgba(212,168,83,0.5)",
           }} />
         ))}
       </div>
@@ -134,22 +142,22 @@ export default function DemoChiefChat() {
   const [messageCount, setMessageCount] = useState(0);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [unread, setUnread] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const tokenBufferRef = useRef<string>("");
+  const rafRef = useRef<number | null>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, awaitingFirstToken, open]);
 
-  // Focus input when panel opens
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 80);
   }, [open]);
 
-  // Clear unread badge when opened
   useEffect(() => {
     if (open) setUnread(false);
   }, [open]);
@@ -202,6 +210,19 @@ export default function DemoChiefChat() {
       setMessages((prev) => [...prev, { id: chiefMsgId, role: "chief", content: "", streaming: true }]);
       setAwaitingFirstToken(false);
 
+      tokenBufferRef.current = "";
+
+      const flushTokens = () => {
+        const chunk = tokenBufferRef.current;
+        if (chunk) {
+          tokenBufferRef.current = "";
+          setMessages((prev) => prev.map((m) =>
+            m.id === chiefMsgId ? { ...m, content: m.content + chunk } : m
+          ));
+        }
+        rafRef.current = null;
+      };
+
       const reader = r.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -222,11 +243,14 @@ export default function DemoChiefChat() {
           try { evt = JSON.parse(raw); } catch { continue; }
 
           if (typeof evt.token === "string") {
-            setMessages((prev) => prev.map((m) =>
-              m.id === chiefMsgId ? { ...m, content: m.content + evt.token } : m
-            ));
+            tokenBufferRef.current += evt.token;
+            if (!rafRef.current) {
+              rafRef.current = requestAnimationFrame(flushTokens);
+            }
           }
           if (evt.error) {
+            if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+            tokenBufferRef.current = "";
             setMessages((prev) => prev.map((m) =>
               m.id === chiefMsgId
                 ? { ...m, content: evt.message || "Something went wrong.", streaming: false, error: true }
@@ -236,12 +260,24 @@ export default function DemoChiefChat() {
         }
       }
 
+      // Flush any remaining buffered tokens before marking done
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      if (tokenBufferRef.current) {
+        const remaining = tokenBufferRef.current;
+        tokenBufferRef.current = "";
+        setMessages((prev) => prev.map((m) =>
+          m.id === chiefMsgId ? { ...m, content: m.content + remaining } : m
+        ));
+      }
+
       setMessages((prev) => prev.map((m) =>
         m.id === chiefMsgId ? { ...m, streaming: false } : m
       ));
       if (!open) setUnread(true);
 
     } catch (err: any) {
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      tokenBufferRef.current = "";
       if (err?.name === "AbortError") return;
       setAwaitingFirstToken(false);
       const hasPlaceholder = messages.some((m) => m.id === chiefMsgId);
@@ -267,107 +303,219 @@ export default function DemoChiefChat() {
   }
 
   const hasMessages = messages.length > 0;
+  const questionsLeft = SESSION_LIMIT - messageCount;
 
   return (
     <>
       <style>{`
         @keyframes chief-cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes chief-dot-bounce { 0%,60%,100%{transform:translateY(0);opacity:.5} 30%{transform:translateY(-5px);opacity:1} }
-        @keyframes chief-widget-in { from{opacity:0;transform:translateY(16px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes chief-dot-bounce { 0%,60%,100%{transform:translateY(0);opacity:.5} 30%{transform:translateY(-6px);opacity:1} }
+        @keyframes chief-widget-in {
+          from{opacity:0;transform:translateY(22px) scale(0.94);filter:blur(3px)}
+          to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+        }
         @keyframes chief-badge-pop { 0%{transform:scale(0)} 70%{transform:scale(1.2)} 100%{transform:scale(1)} }
+        @keyframes chief-ring-pulse {
+          0%{transform:scale(1);opacity:0.55}
+          100%{transform:scale(2.5);opacity:0}
+        }
+        @keyframes chief-glow-breathe {
+          0%,100%{box-shadow:0 0 0 1.5px rgba(212,168,83,0.3),0 0 18px rgba(212,168,83,0.12),0 10px 40px rgba(0,0,0,0.65)}
+          50%{box-shadow:0 0 0 1.5px rgba(212,168,83,0.55),0 0 38px rgba(212,168,83,0.28),0 10px 40px rgba(0,0,0,0.65)}
+        }
+        @keyframes chief-shimmer {
+          0%{background-position:200% center}
+          100%{background-position:-200% center}
+        }
+        @keyframes chief-scan {
+          0%{transform:translateX(-120%);opacity:0}
+          8%{opacity:1}
+          92%{opacity:1}
+          100%{transform:translateX(500px);opacity:0}
+        }
+        @keyframes chief-live-pulse {
+          0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(74,222,128,0.5)}
+          50%{opacity:0.7;box-shadow:0 0 0 4px rgba(74,222,128,0)}
+        }
+        @keyframes chief-label-in {
+          from{opacity:0;transform:translateX(10px)}
+          to{opacity:1;transform:translateX(0)}
+        }
       `}</style>
 
       {/* ── Floating panel ── */}
       {open && (
         <div style={{
           position: "fixed",
-          bottom: "88px",
+          bottom: "96px",
           right: "24px",
-          width: "360px",
+          width: "384px",
           maxWidth: "calc(100vw - 32px)",
           zIndex: 9999,
-          background: C.bgAlt,
-          border: `1px solid ${C.goldBorderStrong}`,
-          borderRadius: "12px",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,168,83,0.08)",
+          background: "linear-gradient(160deg, #141209 0%, #0F0E0C 45%, #0C0B0A 100%)",
+          border: "1px solid rgba(212,168,83,0.22)",
+          borderTop: "1px solid rgba(212,168,83,0.45)",
+          borderRadius: "16px",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.72), 0 0 0 1px rgba(212,168,83,0.05), 0 0 60px rgba(212,168,83,0.07)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          animation: "chief-widget-in 0.25s ease",
-          maxHeight: "520px",
+          animation: "chief-widget-in 0.32s cubic-bezier(0.16,1,0.3,1)",
+          maxHeight: "560px",
         }}>
+
+          {/* Top shimmer bar */}
+          <div style={{
+            height: "2px",
+            background: "linear-gradient(90deg, transparent 0%, rgba(212,168,83,0.6) 25%, #D4A853 50%, rgba(212,168,83,0.6) 75%, transparent 100%)",
+            backgroundSize: "200% 100%",
+            animation: "chief-shimmer 3.5s linear infinite",
+            flexShrink: 0,
+          }} />
+
+          {/* Streaming scan line */}
+          {isStreaming && (
+            <div style={{
+              position: "absolute", top: "2px", left: 0, right: 0,
+              height: "1px", overflow: "hidden", zIndex: 10, pointerEvents: "none",
+            }}>
+              <div style={{
+                width: "55%", height: "100%",
+                background: "linear-gradient(90deg, transparent, rgba(212,168,83,0.9), transparent)",
+                animation: "chief-scan 2s ease-in-out infinite",
+              }} />
+            </div>
+          )}
+
           {/* Header */}
           <div style={{
-            display: "flex", alignItems: "center", gap: "10px",
-            padding: "14px 16px",
-            borderBottom: `1px solid ${C.goldBorder}`,
-            background: "rgba(212,168,83,0.04)",
+            display: "flex", alignItems: "center", gap: "11px",
+            padding: "14px 16px 13px",
+            borderBottom: "1px solid rgba(212,168,83,0.09)",
+            background: "linear-gradient(135deg, rgba(212,168,83,0.08) 0%, rgba(212,168,83,0.02) 100%)",
             flexShrink: 0,
           }}>
+            {/* Avatar */}
             <div style={{
-              width: "30px", height: "30px", borderRadius: "50%",
-              background: `linear-gradient(135deg, ${C.gold}, rgba(212,168,83,0.5))`,
+              flexShrink: 0, width: "34px", height: "34px", borderRadius: "50%",
+              background: "linear-gradient(135deg, #D4A853 0%, #C49840 55%, #9A7220 100%)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "12px", fontFamily: "'Space Mono', monospace",
-              fontWeight: 700, color: C.bg, flexShrink: 0,
-            }}>C</div>
+              fontSize: "13px", fontFamily: "'Space Mono', monospace",
+              fontWeight: 700, color: "#09080600",
+              boxShadow: "0 0 0 1px rgba(212,168,83,0.35), 0 0 18px rgba(212,168,83,0.22), 0 3px 10px rgba(0,0,0,0.45)",
+            }}>
+              <span style={{ color: "#0A0900" }}>C</span>
+            </div>
+
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: C.textLight, fontFamily: "'DM Sans', sans-serif" }}>
+              <div style={{
+                fontSize: "14px", fontWeight: 700, color: C.textLight,
+                fontFamily: "'DM Sans', sans-serif", letterSpacing: "-0.1px",
+              }}>
                 Ask Chief
               </div>
-              <div style={{ fontSize: "11px", color: C.textFaint, fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px" }}>
-                CHIEFOS DEMO
+              <div style={{
+                fontSize: "10px", color: C.textFaint,
+                fontFamily: "'Space Mono', monospace", letterSpacing: "0.8px", marginTop: "1px",
+              }}>
+                CHIEFOS INTELLIGENCE
               </div>
             </div>
+
+            {/* Live indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", marginRight: "6px" }}>
+              <span style={{
+                width: "6px", height: "6px", borderRadius: "50%",
+                background: "#4ADE80",
+                display: "inline-block",
+                animation: "chief-live-pulse 2.2s ease-in-out infinite",
+              }} />
+              <span style={{
+                fontSize: "10px", color: "#4ADE80",
+                fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px",
+              }}>LIVE</span>
+            </div>
+
             <button
               onClick={() => setOpen(false)}
               style={{
-                background: "transparent", border: "none", cursor: "pointer",
-                color: C.textFaint, padding: "4px", lineHeight: 1,
+                background: "rgba(212,168,83,0.07)", border: "1px solid rgba(212,168,83,0.15)",
+                cursor: "pointer", color: C.textFaint, padding: "5px",
+                borderRadius: "7px", lineHeight: 1,
                 display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.background = "rgba(212,168,83,0.14)";
+                b.style.color = C.textMuted;
+              }}
+              onMouseLeave={(e) => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.background = "rgba(212,168,83,0.07)";
+                b.style.color = C.textFaint;
               }}
               aria-label="Close"
             >
-              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 3l10 10M13 3L3 13" strokeLinecap="round" />
               </svg>
             </button>
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px 0" }}>
+          <div style={{
+            flex: 1, overflowY: "auto", padding: "16px 14px 0",
+            scrollbarWidth: "thin", scrollbarColor: "rgba(212,168,83,0.12) transparent",
+          }}>
             {!hasMessages && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ fontSize: "12px", color: C.textMuted, marginBottom: "12px", lineHeight: 1.6 }}>
-                  Ask me anything about ChiefOS — how it works, pricing, or see a live demo answer.
-                </p>
+                <div style={{
+                  background: "rgba(212,168,83,0.04)",
+                  border: "1px solid rgba(212,168,83,0.12)",
+                  borderLeft: "2px solid rgba(212,168,83,0.4)",
+                  borderRadius: "0 10px 10px 10px",
+                  padding: "11px 14px",
+                  marginBottom: "14px",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
+                }}>
+                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: 0, lineHeight: 1.65 }}>
+                    I have full visibility into your jobs, expenses, crew hours, and cash flow — ask me anything.
+                  </p>
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
                   {STARTER_QUESTIONS.map((q) => (
-                    <button key={q} onClick={() => handleSend(q)} style={{
-                      padding: "6px 12px",
-                      background: "transparent",
-                      border: `1px solid rgba(212,168,83,0.22)`,
-                      borderRadius: "14px",
-                      color: C.textMuted,
-                      fontSize: "11.5px",
-                      fontFamily: "'DM Sans', sans-serif",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      lineHeight: 1.4,
-                      textAlign: "left" as const,
-                    }}
-                    onMouseEnter={(e) => {
-                      const b = e.currentTarget as HTMLButtonElement;
-                      b.style.color = C.gold;
-                      b.style.borderColor = "rgba(212,168,83,0.45)";
-                      b.style.background = "rgba(212,168,83,0.04)";
-                    }}
-                    onMouseLeave={(e) => {
-                      const b = e.currentTarget as HTMLButtonElement;
-                      b.style.color = C.textMuted;
-                      b.style.borderColor = "rgba(212,168,83,0.22)";
-                      b.style.background = "transparent";
-                    }}>
+                    <button
+                      key={q}
+                      onClick={() => handleSend(q)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "rgba(212,168,83,0.04)",
+                        border: "1px solid rgba(212,168,83,0.18)",
+                        borderRadius: "14px",
+                        color: C.textMuted,
+                        fontSize: "11.5px",
+                        fontFamily: "'DM Sans', sans-serif",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        lineHeight: 1.4,
+                        textAlign: "left" as const,
+                      }}
+                      onMouseEnter={(e) => {
+                        const b = e.currentTarget as HTMLButtonElement;
+                        b.style.color = C.gold;
+                        b.style.borderColor = "rgba(212,168,83,0.45)";
+                        b.style.background = "rgba(212,168,83,0.08)";
+                        b.style.boxShadow = "0 0 12px rgba(212,168,83,0.1)";
+                      }}
+                      onMouseLeave={(e) => {
+                        const b = e.currentTarget as HTMLButtonElement;
+                        b.style.color = C.textMuted;
+                        b.style.borderColor = "rgba(212,168,83,0.18)";
+                        b.style.background = "rgba(212,168,83,0.04)";
+                        b.style.boxShadow = "none";
+                      }}
+                    >
                       {q}
                     </button>
                   ))}
@@ -384,15 +532,17 @@ export default function DemoChiefChat() {
 
             {showUpgrade && (
               <div style={{ padding: "12px 0 8px", textAlign: "center" }}>
-                <p style={{ fontSize: "12px", color: C.textMuted, marginBottom: "12px", lineHeight: 1.6 }}>
+                <p style={{ fontSize: "12px", color: C.textMuted, marginBottom: "14px", lineHeight: 1.65 }}>
                   Demo limit reached. Sign up free to ask Chief about{" "}
                   <em style={{ color: C.text }}>your real data</em>.
                 </p>
                 <a href="/signup" style={{
                   display: "inline-block", padding: "10px 28px",
-                  background: C.gold, color: C.bg, borderRadius: "2px",
-                  fontSize: "12px", fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
-                  letterSpacing: "1px", textTransform: "uppercase", textDecoration: "none",
+                  background: "linear-gradient(135deg, #D4A853, #C49840)",
+                  color: C.bg, borderRadius: "4px",
+                  fontSize: "12px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                  letterSpacing: "1.2px", textTransform: "uppercase", textDecoration: "none",
+                  boxShadow: "0 4px 20px rgba(212,168,83,0.3)",
                 }}>Start Free</a>
               </div>
             )}
@@ -402,93 +552,177 @@ export default function DemoChiefChat() {
           {/* Input */}
           {!showUpgrade && (
             <div style={{
-              display: "flex", alignItems: "center", gap: "8px",
-              padding: "10px 12px",
-              borderTop: `1px solid ${C.goldBorder}`,
+              padding: "10px 12px 12px",
+              borderTop: "1px solid rgba(212,168,83,0.09)",
+              background: "rgba(212,168,83,0.02)",
               flexShrink: 0,
             }}>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={hasMessages ? "Ask a follow-up…" : "Ask anything…"}
-                disabled={isStreaming}
-                style={{
-                  flex: 1, background: "transparent", border: "none", outline: "none",
-                  fontSize: "13px", fontFamily: "'DM Sans', sans-serif",
-                  color: C.text, caretColor: C.gold,
-                }}
-              />
-              <button
-                onClick={() => handleSend()}
-                disabled={isStreaming || !input.trim()}
-                style={{
-                  flexShrink: 0, padding: "7px 14px",
-                  background: isStreaming || !input.trim() ? "transparent" : C.gold,
-                  border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.2)" : C.gold}`,
-                  borderRadius: "2px",
-                  color: isStreaming || !input.trim() ? C.textFaint : C.bg,
-                  fontSize: "12px", fontWeight: 600,
-                  fontFamily: "'DM Sans', sans-serif",
-                  cursor: isStreaming || !input.trim() ? "not-allowed" : "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {isStreaming ? "···" : "Ask"}
-              </button>
+              <div style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                background: inputFocused ? "rgba(212,168,83,0.07)" : "rgba(212,168,83,0.03)",
+                border: `1px solid ${inputFocused ? "rgba(212,168,83,0.32)" : "rgba(212,168,83,0.13)"}`,
+                borderRadius: "9px", padding: "8px 10px",
+                transition: "all 0.2s ease",
+                boxShadow: inputFocused
+                  ? "0 0 0 3px rgba(212,168,83,0.07), 0 0 20px rgba(212,168,83,0.07)"
+                  : "none",
+              }}>
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder={hasMessages ? "Ask a follow-up…" : "Ask Chief anything…"}
+                  disabled={isStreaming}
+                  style={{
+                    flex: 1, background: "transparent", border: "none", outline: "none",
+                    fontSize: "13px", fontFamily: "'DM Sans', sans-serif",
+                    color: C.text, caretColor: C.gold,
+                  }}
+                />
+                <button
+                  onClick={() => handleSend()}
+                  disabled={isStreaming || !input.trim()}
+                  style={{
+                    flexShrink: 0, padding: "6px 14px",
+                    background: isStreaming || !input.trim()
+                      ? "transparent"
+                      : "linear-gradient(135deg, #D4A853, #C49840)",
+                    border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.15)" : "transparent"}`,
+                    borderRadius: "5px",
+                    color: isStreaming || !input.trim() ? C.textFaint : C.bg,
+                    fontSize: "12px", fontWeight: 700,
+                    fontFamily: "'DM Sans', sans-serif",
+                    cursor: isStreaming || !input.trim() ? "not-allowed" : "pointer",
+                    transition: "all 0.15s ease",
+                    letterSpacing: "0.3px",
+                    boxShadow: isStreaming || !input.trim() ? "none" : "0 2px 12px rgba(212,168,83,0.28)",
+                  }}
+                >
+                  {isStreaming ? "···" : "Ask"}
+                </button>
+              </div>
+              {!hasMessages && (
+                <div style={{
+                  marginTop: "8px", fontSize: "10px", color: C.textFaint,
+                  fontFamily: "'Space Mono', monospace", letterSpacing: "0.4px",
+                  textAlign: "center",
+                }}>
+                  AI-POWERED · DEMO MODE · {questionsLeft} QUESTIONS REMAINING
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* ── FAB toggle button ── */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close Chief chat" : "Ask Chief"}
-        style={{
-          position: "fixed",
-          bottom: "24px",
-          right: "24px",
-          zIndex: 9999,
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          background: open ? C.bgAlt : C.gold,
-          border: `2px solid ${open ? C.goldBorderStrong : C.gold}`,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,168,83,0.15)",
-          transition: "background 0.2s ease, transform 0.15s ease",
-          color: open ? C.gold : C.bg,
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.08)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}
-      >
-        {open ? (
-          /* X icon when open */
-          <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M4 4l12 12M16 4L4 16" strokeLinecap="round" />
-          </svg>
-        ) : (
-          /* Chat bubble icon when closed */
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.03 2 11c0 2.7 1.22 5.12 3.17 6.83L4 22l4.42-1.47A10.6 10.6 0 0 0 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2Z" />
-          </svg>
+      {/* ── FAB + label ── */}
+      <div style={{
+        position: "fixed",
+        bottom: "24px",
+        right: "24px",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+      }}>
+        {/* "Ask Chief" label pill — visible when closed */}
+        {!open && (
+          <div
+            style={{
+              background: "rgba(13,12,10,0.96)",
+              border: "1px solid rgba(212,168,83,0.28)",
+              borderRadius: "20px",
+              padding: "8px 16px",
+              animation: "chief-label-in 0.4s ease",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(212,168,83,0.05)",
+              cursor: "pointer",
+            }}
+            onClick={() => setOpen(true)}
+          >
+            <span style={{
+              fontSize: "12px", fontWeight: 600,
+              fontFamily: "'DM Sans', sans-serif",
+              color: C.textLight, letterSpacing: "0.1px",
+              whiteSpace: "nowrap",
+            }}>
+              Ask Chief
+            </span>
+            <span style={{
+              marginLeft: "7px", fontSize: "11px",
+              fontFamily: "'Space Mono', monospace",
+              color: C.gold,
+            }}>→</span>
+          </div>
         )}
 
-        {/* Unread badge */}
-        {unread && !open && (
-          <span style={{
-            position: "absolute", top: "2px", right: "2px",
-            width: "12px", height: "12px", borderRadius: "50%",
-            background: "#D4A853", border: `2px solid ${C.bg}`,
-            animation: "chief-badge-pop 0.3s ease",
-          }} />
-        )}
-      </button>
+        {/* FAB button with pulsing rings */}
+        <div style={{ position: "relative", width: "60px", height: "60px" }}>
+          {/* Pulsing rings — only when panel is closed */}
+          {!open && [0, 900, 1800].map((delay) => (
+            <div
+              key={delay}
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "50%",
+                border: "1px solid rgba(212,168,83,0.45)",
+                animation: `chief-ring-pulse 2.7s ease-out ${delay}ms infinite`,
+                pointerEvents: "none",
+              }}
+            />
+          ))}
+
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Close Chief chat" : "Ask Chief"}
+            style={{
+              position: "relative", zIndex: 1,
+              width: "60px", height: "60px",
+              borderRadius: "50%",
+              background: open
+                ? "rgba(15,14,12,0.98)"
+                : "radial-gradient(circle at 38% 38%, #1C1910, #0C0B0A)",
+              border: `1.5px solid ${open ? "rgba(212,168,83,0.35)" : "rgba(212,168,83,0.55)"}`,
+              cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: open ? "none" : "chief-glow-breathe 3.2s ease-in-out infinite",
+              transition: "transform 0.15s ease, background 0.2s ease",
+              color: C.gold,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.09)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)"; }}
+          >
+            {open ? (
+              <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M4 4l12 12M16 4L4 16" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <span style={{
+                fontFamily: "'Space Mono', monospace",
+                fontWeight: 700,
+                fontSize: "20px",
+                color: C.gold,
+                lineHeight: 1,
+                textShadow: "0 0 14px rgba(212,168,83,0.65)",
+              }}>C</span>
+            )}
+          </button>
+
+          {/* Unread badge */}
+          {unread && !open && (
+            <span style={{
+              position: "absolute", top: "2px", right: "2px",
+              width: "13px", height: "13px", borderRadius: "50%",
+              background: C.gold, border: `2px solid ${C.bg}`,
+              animation: "chief-badge-pop 0.3s ease",
+              zIndex: 2,
+            }} />
+          )}
+        </div>
+      </div>
     </>
   );
 }
