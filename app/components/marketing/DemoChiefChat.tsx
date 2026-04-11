@@ -52,6 +52,42 @@ const SCRIPTED_ANSWERS: Record<string, string> = {
     "Everything in ChiefOS starts with a conversation. Text me a receipt photo and I'll scan it, extract the details, and attach it to the right job. Tell me 'clock in Mike on the Henderson job' and I'll start his shift. Say 'build a quote for the Thompson deck' and I'll walk you through it step by step. Voice messages work too — tell me what happened on the job and I'll log it. No forms, no menus, no data entry. Just tell me what's happening and I'll handle the rest.",
   "Do I need to download an app?":
     "No app needed to get started. ChiefOS runs on desktop (PC and Mac) through your browser, and our WhatsApp-based field logging tool lets you create jobs, send quotes, log expenses, track revenue, clock in your crew, and more — right from the app you already have on your phone. Just text, snap a photo, or send a voice message. The dedicated iOS and Android apps are coming later this spring. For now, everything you need is already in your pocket.",
+  "What's free vs. paid?":
+`ChiefOS has three plans. Start free, upgrade when you're ready.
+
+FREE — Field Capture
+Start capturing. No pressure.
+• Up to 3 active jobs
+• Text-based expense & revenue logging
+• Time clock (owner logs for crew)
+• Task management
+• Up to 3 employee records
+• 90-day rolling history
+✗ No OCR, voice, exports, or Ask Chief
+
+STARTER — Owner Mode · $59 USD/mo
+Capture faster. Start understanding.
+• Up to 25 active jobs
+• Everything in Free, plus:
+• Receipt scanning (OCR)
+• Voice message logging
+• Ask Chief — financial intelligence (owner-only)
+• Exports (PDF & spreadsheet)
+• Up to 10 employee records
+• 3-year history
+
+PRO — Crew + Control · $149 USD/mo
+Give the crew tools. Keep control.
+• Unlimited jobs
+• Everything in Starter, plus:
+• Crew self-logging via WhatsApp
+• Time approvals & edit requests
+• Board member access (up to 25)
+• Up to 150 employee records
+• Higher OCR, voice & Ask Chief quotas
+• 7-year history
+
+All plans: Your data is yours. Export anytime, on any tier. No lock-in.`,
 };
 
 type ChatMessage = {
@@ -259,16 +295,17 @@ export default function DemoChiefChat() {
         setMessages((prev) => [...prev, { id: chiefMsgId, role: "chief", content: "", streaming: true }]);
         setAwaitingFirstToken(false);
 
-        // Stream 3 words at a time every 28ms for a smooth cascade
+        // Longer answers stream in bigger chunks so they don't drag on
         const words = scripted.split(" ");
+        const chunkSize = words.length > 80 ? 6 : 3;
         let i = 0;
         while (i < words.length) {
           if (abortRef.current?.signal.aborted) break;
-          const chunk = words.slice(i, i + 3).join(" ") + (i + 3 < words.length ? " " : "");
+          const chunk = words.slice(i, i + chunkSize).join(" ") + (i + chunkSize < words.length ? " " : "");
           setMessages((prev) => prev.map((m) =>
             m.id === chiefMsgId ? { ...m, content: m.content + chunk } : m
           ));
-          i += 3;
+          i += chunkSize;
           await new Promise<void>((res) => setTimeout(res, 28));
         }
 
