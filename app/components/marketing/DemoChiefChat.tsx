@@ -311,8 +311,8 @@ export default function DemoChiefChat() {
         @keyframes chief-cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes chief-dot-bounce { 0%,60%,100%{transform:translateY(0);opacity:.5} 30%{transform:translateY(-6px);opacity:1} }
         @keyframes chief-widget-in {
-          from{opacity:0;transform:translateY(22px) scale(0.94);filter:blur(3px)}
-          to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+          from{opacity:0;transform:translate(-50%,-50%) scale(0.93);filter:blur(4px)}
+          to{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}
         }
         @keyframes chief-badge-pop { 0%{transform:scale(0)} 70%{transform:scale(1.2)} 100%{transform:scale(1)} }
         @keyframes chief-ring-pulse {
@@ -338,8 +338,8 @@ export default function DemoChiefChat() {
           50%{opacity:0.7;box-shadow:0 0 0 4px rgba(74,222,128,0)}
         }
         @keyframes chief-label-in {
-          from{opacity:0;transform:translateX(10px)}
-          to{opacity:1;transform:translateX(0)}
+          from{opacity:0;transform:translateY(6px)}
+          to{opacity:1;transform:translateY(0)}
         }
       `}</style>
 
@@ -347,9 +347,10 @@ export default function DemoChiefChat() {
       {open && (
         <div style={{
           position: "fixed",
-          bottom: "96px",
-          right: "24px",
-          width: "384px",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "420px",
           maxWidth: "calc(100vw - 32px)",
           zIndex: 9999,
           background: "linear-gradient(160deg, #141209 0%, #0F0E0C 45%, #0C0B0A 100%)",
@@ -621,21 +622,23 @@ export default function DemoChiefChat() {
       {/* ── FAB + label ── */}
       <div style={{
         position: "fixed",
-        bottom: "24px",
-        right: "24px",
+        bottom: "32px",
+        left: "50%",
+        transform: "translateX(-50%)",
         zIndex: 9999,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         gap: "10px",
       }}>
-        {/* "Ask Chief" label pill — visible when closed */}
+        {/* "Ask Chief" label pill — visible when closed, stacked above FAB */}
         {!open && (
           <div
             style={{
               background: "rgba(13,12,10,0.96)",
               border: "1px solid rgba(212,168,83,0.28)",
               borderRadius: "20px",
-              padding: "8px 16px",
+              padding: "8px 20px",
               animation: "chief-label-in 0.4s ease",
               boxShadow: "0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(212,168,83,0.05)",
               cursor: "pointer",
@@ -643,7 +646,7 @@ export default function DemoChiefChat() {
             onClick={() => setOpen(true)}
           >
             <span style={{
-              fontSize: "12px", fontWeight: 600,
+              fontSize: "13px", fontWeight: 600,
               fontFamily: "'DM Sans', sans-serif",
               color: C.textLight, letterSpacing: "0.1px",
               whiteSpace: "nowrap",
@@ -651,7 +654,7 @@ export default function DemoChiefChat() {
               Ask Chief
             </span>
             <span style={{
-              marginLeft: "7px", fontSize: "11px",
+              marginLeft: "8px", fontSize: "11px",
               fontFamily: "'Space Mono', monospace",
               color: C.gold,
             }}>→</span>
