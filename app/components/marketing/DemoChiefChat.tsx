@@ -24,30 +24,35 @@ const CATEGORIES = [
   {
     label: "Financial Intelligence",
     questions: [
-      "Show me a job P&L breakdown",
-      "How would Chief answer 'Am I making money this month?'",
-      "How is ChiefOS different from QuickBooks?",
+      "How much did I actually make on my last job?",
+      "How much do I need to make to cover payroll and bills this month?",
     ],
   },
   {
-    label: "How It Works",
+    label: "Conversational Logging",
     questions: [
-      "How does WhatsApp logging work?",
-      "Can my crew log time by text?",
-      "What happens to receipt photos I send?",
+      "How do I log expenses, build quotes, and more — just by texting?",
+      "Do I need to download an app?",
     ],
   },
   {
     label: "Getting Started",
     questions: [
-      "What's on the free plan?",
-      "Walk me through a typical work day with ChiefOS",
+      "What's free vs. paid?",
     ],
   },
 ];
 
-// Initially show 2 from Financial, 1 from How It Works, 1 from Getting Started
-const INITIAL_VISIBLE: Record<number, number> = { 0: 2, 1: 1, 2: 1 };
+// Initially show 1 from each category (3 total), expand reveals the rest
+const INITIAL_VISIBLE: Record<number, number> = { 0: 1, 1: 1, 2: 1 };
+
+// ─── Pre-built scripted answers (streamed locally, no API call) ───────────────
+const SCRIPTED_ANSWERS: Record<string, string> = {
+  "How do I log expenses, build quotes, and more — just by texting?":
+    "Everything in ChiefOS starts with a conversation. Text me a receipt photo and I'll scan it, extract the details, and attach it to the right job. Tell me 'clock in Mike on the Henderson job' and I'll start his shift. Say 'build a quote for the Thompson deck' and I'll walk you through it step by step. Voice messages work too — tell me what happened on the job and I'll log it. No forms, no menus, no data entry. Just tell me what's happening and I'll handle the rest.",
+  "Do I need to download an app?":
+    "No app needed to get started. ChiefOS runs on desktop (PC and Mac) through your browser, and our WhatsApp-based field logging tool lets you create jobs, send quotes, log expenses, track revenue, clock in your crew, and more — right from the app you already have on your phone. Just text, snap a photo, or send a voice message. The dedicated iOS and Android apps are coming later this spring. For now, everything you need is already in your pocket.",
+};
 
 type ChatMessage = {
   id: string;
@@ -242,6 +247,43 @@ export default function DemoChiefChat() {
 
     abortRef.current = new AbortController();
     const chiefMsgId = crypto.randomUUID();
+
+    // ── Scripted fast path — no API call needed ──────────────────────────────
+    const scripted = SCRIPTED_ANSWERS[trimmed];
+    if (scripted) {
+      try {
+        // Brief thinking pause so it doesn't feel instant
+        await new Promise<void>((res) => setTimeout(res, 550));
+        if (abortRef.current?.signal.aborted) return;
+
+        setMessages((prev) => [...prev, { id: chiefMsgId, role: "chief", content: "", streaming: true }]);
+        setAwaitingFirstToken(false);
+
+        // Stream 3 words at a time every 28ms for a smooth cascade
+        const words = scripted.split(" ");
+        let i = 0;
+        while (i < words.length) {
+          if (abortRef.current?.signal.aborted) break;
+          const chunk = words.slice(i, i + 3).join(" ") + (i + 3 < words.length ? " " : "");
+          setMessages((prev) => prev.map((m) =>
+            m.id === chiefMsgId ? { ...m, content: m.content + chunk } : m
+          ));
+          i += 3;
+          await new Promise<void>((res) => setTimeout(res, 28));
+        }
+
+        setMessages((prev) => prev.map((m) =>
+          m.id === chiefMsgId ? { ...m, streaming: false } : m
+        ));
+        if (!open) setUnread(true);
+      } finally {
+        setIsStreaming(false);
+        setAwaitingFirstToken(false);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     try {
       const r = await fetch("/api/demo-chief", {
@@ -551,16 +593,43 @@ export default function DemoChiefChat() {
                   boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
                 }}>
                   <p style={{ fontSize: "13px", color: C.text, margin: "0 0 10px", lineHeight: 1.65, fontWeight: 600 }}>
-                    I'm Chief — the operating system your business has been missing.
+                    I'm Chief — welcome to ChiefOS, the operating system your business has been missing.
                   </p>
-                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: "0 0 10px", lineHeight: 1.75 }}>
-                    Receipt scanner. Time clock. Job costing. Quote builder. Signature capture. Job photo storage. Task management. Crew logging. Reminders. Expense tracking. Revenue tracking — tools that used to take a dozen apps, integrated into one system with a financial intelligence layer once reserved for enterprise-level companies.
+                  <p style={{ fontSize: "12px", color: C.textMuted, margin: "0 0 8px", lineHeight: 1.6 }}>
+                    Here's what's included:
                   </p>
-                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: "0 0 10px", lineHeight: 1.75 }}>
-                    Every receipt, every hour, every dollar — connected to the job it belongs to. So when you ask <em style={{ color: C.text }}>"Did that job make money?"</em> you get a real answer, based on your real data.
+                  <ul style={{ margin: "0 0 10px", paddingLeft: "16px", listStyle: "none" }}>
+                    {[
+                      "Receipt Scanner & OCR",
+                      "Time Clock & Crew Logging",
+                      "Job Costing & Profitability",
+                      "Quote, Invoice & Receipt Builder with Signature Capture",
+                      "Expense & Revenue Tracking",
+                      "Task Management & Reminders",
+                      "Media Storage — job site photos & documents",
+                      "Financial Intelligence (Ask Chief)",
+                    ].map((feature) => (
+                      <li key={feature} style={{
+                        fontSize: "12px", color: C.textMuted, lineHeight: 1.65,
+                        marginBottom: "4px", display: "flex", alignItems: "flex-start", gap: "7px",
+                      }}>
+                        <span style={{ color: C.gold, flexShrink: 0, marginTop: "1px", fontSize: "10px" }}>◆</span>
+                        {feature}
+                      </li>
+                    ))}
+                    <li style={{
+                      fontSize: "12px", color: C.text, lineHeight: 1.65,
+                      marginTop: "6px", display: "flex", alignItems: "flex-start", gap: "7px",
+                    }}>
+                      <span style={{ color: C.gold, flexShrink: 0, marginTop: "1px", fontSize: "10px" }}>◆</span>
+                      All integrated into one OS powered by Conversation — send a text, audio message, or photo to log, track, and talk directly to your business's financial data.
+                    </li>
+                  </ul>
+                  <p style={{ fontSize: "11px", color: C.textFaint, margin: "0 0 10px", lineHeight: 1.6, fontStyle: "italic", paddingLeft: "3px" }}>
+                    ▸ More features rolling out Summer 2026
                   </p>
-                  <p style={{ fontSize: "12.5px", color: C.gold, margin: 0, lineHeight: 1.65, fontWeight: 600 }}>
-                    No setup fees. No waiting for a salesperson to book a product demo. Start now — this is the operating system your business has been waiting for.
+                  <p style={{ fontSize: "12px", color: C.gold, margin: 0, lineHeight: 1.65, fontWeight: 600 }}>
+                    No setup fees. No waiting for a salesperson to book a demo. Start now — this is the operating system your business has been waiting for.
                   </p>
                 </div>
 
