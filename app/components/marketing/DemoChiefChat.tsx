@@ -550,11 +550,17 @@ export default function DemoChiefChat() {
                   marginBottom: "18px",
                   boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
                 }}>
-                  <p style={{ fontSize: "13px", color: C.text, margin: "0 0 6px", lineHeight: 1.65, fontWeight: 600 }}>
-                    I'm Chief — your AI business operator.
+                  <p style={{ fontSize: "13px", color: C.text, margin: "0 0 10px", lineHeight: 1.65, fontWeight: 600 }}>
+                    I'm Chief — the operating system your business has been missing.
                   </p>
-                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: 0, lineHeight: 1.65 }}>
-                    I turn WhatsApp messages into a full operating picture — jobs, expenses, crew hours, and cash flow — then answer your hardest business questions in real time. No new apps. No accountant required.
+                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: "0 0 10px", lineHeight: 1.75 }}>
+                    Receipt scanner. Time clock. Job costing. Quote builder. Signature capture. Job photo storage. Task management. Crew logging. Reminders. Expense tracking. Revenue tracking — tools that used to take a dozen apps, integrated into one system with a financial intelligence layer once reserved for enterprise-level companies.
+                  </p>
+                  <p style={{ fontSize: "12.5px", color: C.textMuted, margin: "0 0 10px", lineHeight: 1.75 }}>
+                    Every receipt, every hour, every dollar — connected to the job it belongs to. So when you ask <em style={{ color: C.text }}>"Did that job make money?"</em> you get a real answer, based on your real data.
+                  </p>
+                  <p style={{ fontSize: "12.5px", color: C.gold, margin: 0, lineHeight: 1.65, fontWeight: 600 }}>
+                    No setup fees. No waiting for a salesperson to book a product demo. Start now — this is the operating system your business has been waiting for.
                   </p>
                 </div>
 
