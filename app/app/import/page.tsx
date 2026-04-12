@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { supabase } from "@/lib/supabase";
-import PlanGateBanner from "@/app/components/PlanGateBanner";
+import PlanGateBanner from "@/app/app/components/PlanGateBanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
