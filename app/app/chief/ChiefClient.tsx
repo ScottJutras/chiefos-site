@@ -692,7 +692,7 @@ function ChiefClientInner() {
                     : "rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1.5 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.14)] transition";
                   const isExternal = a.href?.startsWith("http");
                   return a.href
-                    ? <a key={i} href={a.href} className={cls} {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{a.label}</a>
+                    ? <a key={i} href={a.href} className={cls} target={isExternal ? "_blank" : "_top"} {...(isExternal ? { rel: "noopener noreferrer" } : {})}>{a.label}</a>
                     : <button key={i} onClick={a.onClick} className={cls}>{a.label}</button>;
                 })}
               </div>
