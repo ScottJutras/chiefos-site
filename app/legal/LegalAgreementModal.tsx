@@ -62,7 +62,7 @@ export default function LegalAgreementModal({
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
 
-      <div className="absolute inset-x-4 top-1/2 mx-auto w-full max-w-5xl -translate-y-1/2 overflow-hidden rounded-[28px] border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] text-[#E8E2D8] shadow-[0_50px_160px_rgba(0,0,0,0.75)]">
+      <div className="absolute inset-x-4 top-1/2 mx-auto flex w-full max-w-5xl -translate-y-1/2 flex-col overflow-hidden rounded-[28px] border border-[rgba(212,168,83,0.2)] bg-[#0C0B0A] text-[#E8E2D8] shadow-[0_50px_160px_rgba(0,0,0,0.75)]" style={{ maxHeight: "calc(100vh - 2rem)" }}>
         <div className="border-b border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.04)] px-5 py-4 md:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -115,7 +115,7 @@ export default function LegalAgreementModal({
           </div>
         </div>
 
-        <div ref={scrollRef} className="max-h-[60vh] overflow-y-auto px-5 py-5 md:px-6">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">
           <LegalAgreementContent />
         </div>
 
