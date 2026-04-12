@@ -106,7 +106,7 @@ function HamburgerMenu({ gold, textFaint, bg }: { gold: string; textFaint: strin
             if ("divider" in item) {
               return <div key={i} style={{ height: "1px", background: "rgba(255,255,255,0.07)", margin: "4px 0" }} />;
             }
-            if (item.primary) {
+            if ("primary" in item && item.primary) {
               return (
                 <a key={item.href} href={item.href} onClick={handleLinkClick} style={{
                   display: "block",
