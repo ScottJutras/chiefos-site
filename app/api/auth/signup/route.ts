@@ -133,8 +133,15 @@ export async function POST(req: Request) {
     }
 
     const rlKey = `${String(ip || "noip")}:${email}`;
-    const { success } = await ratelimit.limit(rlKey);
-    if (!success) {
+    let rlBlocked = false;
+    try {
+      const { success } = await ratelimit.limit(rlKey);
+      rlBlocked = !success;
+    } catch (rlErr) {
+      // Redis unavailable — fail open so signups aren't blocked by infra issues
+      console.error("[signup] rate limit check failed (fail-open):", rlErr);
+    }
+    if (rlBlocked) {
       return json(429, { ok: false, error: "Too many attempts. Try again later." });
     }
 
