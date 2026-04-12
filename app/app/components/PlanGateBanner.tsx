@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 type Props = {
   featureName: string;
   availableOn?: string;
@@ -17,6 +15,14 @@ export default function PlanGateBanner({
   variant = "banner",
   freeNote,
 }: Props) {
+  // Use <a target="_top"> so this link always breaks out of any iframe context.
+  // On a regular page _top === _self; inside the ChiefDock iframe it navigates
+  // the parent window instead of the iframe.
+  const linkProps = {
+    href: upgradeUrl,
+    target: "_top" as const,
+  };
+
   if (variant === "overlay") {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 py-16 text-center">
@@ -31,12 +37,12 @@ export default function PlanGateBanner({
             Available on {availableOn} plans.
           </p>
           <div className="mt-6">
-            <Link
-              href={upgradeUrl}
+            <a
+              {...linkProps}
               className="inline-flex items-center justify-center rounded-xl bg-[#D4A853] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#C49843] transition"
             >
               View Plans →
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -58,12 +64,12 @@ export default function PlanGateBanner({
           )}
         </div>
       </div>
-      <Link
-        href={upgradeUrl}
+      <a
+        {...linkProps}
         className="shrink-0 inline-flex items-center rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.1)] px-3 py-1.5 text-xs font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.15)] transition"
       >
         View Plans →
-      </Link>
+      </a>
     </div>
   );
 }

@@ -103,6 +103,7 @@ export default function ChiefDock({ open, onClose, initialQuery, pageContext }: 
               title="Chief"
               src={iframeSrc}
               className="h-full w-full bg-black"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
             />
           </div>
         </aside>
