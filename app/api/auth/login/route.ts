@@ -1,19 +1,5 @@
 // chiefos-site/app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-import { Ratelimit } from "@upstash/ratelimit";
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"), // 10 attempts / minute
-  analytics: true,
-  prefix: "chiefos:auth:login",
-});
 
 function requireEnv(name: string) {
   const v = process.env[name];
@@ -108,22 +94,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Bot check required." }, { status: 400 });
     }
 
-    // Rate limit on (ip + email)
-    const rlKey = `${String(ip || "noip")}:${String(email).toLowerCase()}`;
-    let rlBlocked = false;
-    try {
-      const rl = await ratelimit.limit(rlKey);
-      rlBlocked = !rl.success;
-    } catch (rlErr) {
-      // Redis unavailable — fail open so logins aren't blocked by infra issues
-      console.error("[login] rate limit check failed (fail-open):", rlErr);
-    }
-    if (rlBlocked) {
-      return NextResponse.json(
-        { ok: false, error: "Too many attempts. Try again shortly." },
-        { status: 429 }
-      );
-    }
 
     // Turnstile
     const tsOk = await verifyTurnstile(String(turnstileToken), ip);

@@ -1,23 +1,9 @@
 import { NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-import { Ratelimit } from "@upstash/ratelimit";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
-const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, "10 m"),
-  analytics: true,
-  prefix: "chiefos:auth:signup",
-});
 
 function json(status: number, body: any) {
   return NextResponse.json(body, { status });
@@ -130,19 +116,6 @@ export async function POST(req: Request) {
       !dpaVersion
     ) {
       return json(400, { ok: false, error: "Legal acceptance is required." });
-    }
-
-    const rlKey = `${String(ip || "noip")}:${email}`;
-    let rlBlocked = false;
-    try {
-      const { success } = await ratelimit.limit(rlKey);
-      rlBlocked = !success;
-    } catch (rlErr) {
-      // Redis unavailable — fail open so signups aren't blocked by infra issues
-      console.error("[signup] rate limit check failed (fail-open):", rlErr);
-    }
-    if (rlBlocked) {
-      return json(429, { ok: false, error: "Too many attempts. Try again later." });
     }
 
     const tsOk = await verifyTurnstile(turnstileToken, ip);
