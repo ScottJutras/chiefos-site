@@ -218,14 +218,16 @@ export default function BillingClient() {
     } catch (e: any) {
       const msg = String(e?.message || "Failed to load billing status");
 
-      // Portal user without WhatsApp linked — redirect to link-phone
+      // Account not yet linked to an owner — treat as free plan.
+      // Show the billing page normally so the user can view and select a plan.
+      // Do NOT redirect to link-phone; linking is not required to upgrade.
       if (
         msg.toLowerCase().includes("not_linked") ||
         msg.toLowerCase().includes("missing dashboard token") ||
         msg.toLowerCase().includes("missing owner context")
       ) {
-        router.replace("/app/link-phone?next=/app/settings/billing");
-        return null;
+        setStatus({ linked: false });
+        return { linked: false } as BillingStatus;
       }
 
       setErr(msg);
@@ -420,28 +422,17 @@ export default function BillingClient() {
         </div>
       )}
 
-      {linked === false ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-lg font-semibold">Link required</h2>
-          <p className="mt-2 text-sm text-white/70">
-            This account isn’t linked to a workspace yet. Link your phone to manage billing.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <a
-              href="/app/link-phone?next=/app/settings/billing"
-              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
-            >
-              Link phone
-            </a>
-            <button
-              onClick={() => refreshStatus()}
-              className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-sm font-medium text-white hover:bg-white/5"
-            >
-              Retry
-            </button>
-          </div>
+      {linked === false && (
+        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
+          Your account isn’t linked to a workspace yet — you’re on Free.{" "}
+          <a href="/app/link-phone?next=/app/settings/billing" className="text-white/80 underline underline-offset-2 hover:text-white">
+            Link your phone
+          </a>{" "}
+          after upgrading to activate your plan.
         </div>
-      ) : (
+      )}
+
+      {(
         <>
           <div className="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 md:grid-cols-3">
             <div className="md:col-span-2">
