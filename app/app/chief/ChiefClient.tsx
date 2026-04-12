@@ -558,6 +558,7 @@ function ChiefClientInner() {
         body = resp.message || "Ask Chief reads your transaction ledger. Start logging expenses and revenue — via WhatsApp or the web portal — and I can answer questions about cashflow, job profit, overhead, and more.";
         actions = [
           { label: "Log a transaction", href: "/app/transactions/new", kind: "primary" },
+          { label: "Link WhatsApp", href: "/app/link-phone", kind: "secondary" },
           { label: "How it works", href: "https://usechiefos.com/#faq", kind: "secondary" },
         ];
       } else if (resp.code === "PERMISSION_DENIED") {
