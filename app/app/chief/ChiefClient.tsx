@@ -337,11 +337,19 @@ function ChiefClientInner() {
       };
 
       // ---- SSE streaming path ----
-      const r = await fetch("/api/ask-chief/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
+      const abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 35000);
+      let r: Response;
+      try {
+        r = await fetch("/api/ask-chief/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body),
+          signal: abortCtrl.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const ct = r.headers.get("content-type") || "";
 
@@ -410,15 +418,24 @@ function ChiefClientInner() {
             continue;
           }
 
+          // Error event inside the SSE stream
+          if (evt.error || evt.ok === false) {
+            setPendingResp(normalizeResp(evt, 200));
+            break;
+          }
+
           // {"status":"thinking","tools":[...]} — no UI change needed (dots still show)
         }
       }
     } catch (e: any) {
+      const isAbort = e?.name === "AbortError";
       const isNetwork = e?.name === "TypeError" || e?.message?.includes("fetch");
       setPendingResp({
         ok: false,
         code: "ERROR",
-        message: isNetwork
+        message: isAbort
+          ? "Chief took too long to respond. Try a shorter or more specific question."
+          : isNetwork
           ? "Couldn't reach Chief — check your connection and try again."
           : (e?.message || ""),
       });
@@ -432,21 +449,34 @@ function ChiefClientInner() {
 
   function ChiefAvatar() {
     return (
-      <div className="shrink-0 w-7 h-7 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-[11px] font-bold text-white/70 mt-0.5">
-        C
-      </div>
+      <div style={{
+        flexShrink: 0, width: 28, height: 28, borderRadius: "50%", marginTop: 1,
+        background: "linear-gradient(135deg, #D4A853 0%, #C49840 55%, #9A7220 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 11, fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#0A0900",
+        boxShadow: "0 0 10px rgba(212,168,83,0.3), 0 0 0 1px rgba(212,168,83,0.38), 0 2px 6px rgba(0,0,0,0.4)",
+      }}>C</div>
     );
   }
 
   function renderChiefBubble(m: Msg) {
     if (m.pending) {
       return (
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2.5">
           <ChiefAvatar />
-          <div className="rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+          <div style={{
+            background: "rgba(212,168,83,0.045)", border: "1px solid rgba(212,168,83,0.16)",
+            borderLeft: "2px solid rgba(212,168,83,0.45)", borderRadius: "0 12px 12px 12px",
+            padding: "12px 16px", display: "flex", gap: 5, alignItems: "center",
+            boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
+          }}>
+            {[0, 180, 360].map((delay) => (
+              <span key={delay} style={{
+                width: 5, height: 5, borderRadius: "50%", background: "#D4A853", opacity: 0.6,
+                animation: `chiefDotBounce 1.4s ease-in-out ${delay}ms infinite`,
+                boxShadow: "0 0 5px rgba(212,168,83,0.5)",
+              }} />
+            ))}
           </div>
         </div>
       );
@@ -455,13 +485,22 @@ function ChiefClientInner() {
     // Streaming — show partial text with a blinking cursor
     if (m.streamText !== undefined && !m.resp) {
       return (
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2.5">
           <ChiefAvatar />
-          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
-            <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">
-              {m.streamText}
-              <span className="inline-block w-0.5 h-3.5 bg-white/60 ml-0.5 align-middle animate-pulse" />
-            </p>
+          <div style={{
+            maxWidth: "85%", background: "rgba(212,168,83,0.045)",
+            border: "1px solid rgba(212,168,83,0.16)", borderLeft: "2px solid rgba(212,168,83,0.45)",
+            borderRadius: "0 12px 12px 12px", padding: "10px 13px",
+            fontSize: 13, color: "#E8E2D8", lineHeight: 1.7, whiteSpace: "pre-wrap",
+            boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
+          }}>
+            {m.streamText}
+            <span style={{
+              display: "inline-block", width: 2, height: 13, background: "#D4A853",
+              marginLeft: 2, verticalAlign: "text-bottom",
+              animation: "chiefCursorBlink 0.8s step-end infinite",
+              boxShadow: "0 0 7px rgba(212,168,83,0.75)",
+            }} />
           </div>
         </div>
       );
@@ -524,16 +563,21 @@ function ChiefClientInner() {
       }
 
       return (
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2.5">
           <ChiefAvatar />
-          <div className="max-w-[85%] rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
-            <p className="text-sm text-white/70">{body}</p>
+          <div style={{
+            maxWidth: "85%", background: "rgba(180,60,60,0.06)",
+            border: "1px solid rgba(180,60,60,0.22)", borderLeft: "2px solid rgba(180,60,60,0.5)",
+            borderRadius: "0 12px 12px 12px", padding: "10px 13px",
+            fontSize: 13, lineHeight: 1.7, boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
+          }}>
+            <p style={{ color: "#c47a7a", whiteSpace: "pre-wrap" }}>{body}</p>
             {actions.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {actions.map((a, i) => {
                   const cls = a.kind === "primary"
-                    ? "rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90"
-                    : "rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10";
+                    ? "rounded-xl bg-[#D4A853] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#C49843] transition"
+                    : "rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1.5 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.14)] transition";
                   return a.href
                     ? <a key={i} href={a.href} className={cls}>{a.label}</a>
                     : <button key={i} onClick={a.onClick} className={cls}>{a.label}</button>;
@@ -548,11 +592,16 @@ function ChiefClientInner() {
     const ok = resp as AskChiefOk;
 
     return (
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
         <ChiefAvatar />
         <div className="max-w-[85%] space-y-2">
-          <div className="rounded-2xl rounded-tl-sm bg-white/8 px-4 py-3">
-            <p className="text-sm text-white/90 whitespace-pre-wrap leading-relaxed">{ok.answer}</p>
+          <div style={{
+            background: "rgba(212,168,83,0.045)", border: "1px solid rgba(212,168,83,0.16)",
+            borderLeft: "2px solid rgba(212,168,83,0.45)", borderRadius: "0 12px 12px 12px",
+            padding: "10px 13px", fontSize: 13, color: "#E8E2D8",
+            lineHeight: 1.7, whiteSpace: "pre-wrap", boxShadow: "0 2px 14px rgba(0,0,0,0.18)",
+          }}>
+            {ok.answer}
           </div>
 
           {ok.warnings?.filter(w => !w.includes("auto-normalized")).length ? (
@@ -565,8 +614,8 @@ function ChiefClientInner() {
             <div className="flex flex-wrap gap-2 pl-1">
               {ok.actions.slice(0, 5).map((a, i) => {
                 const cls = a.kind === "primary"
-                  ? "rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-white/90"
-                  : "rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10";
+                  ? "rounded-xl bg-[#D4A853] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#C49843] transition"
+                  : "rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1.5 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.14)] transition";
                 return <a key={i} href={a.href} className={cls}>{a.label}</a>;
               })}
             </div>
@@ -579,8 +628,14 @@ function ChiefClientInner() {
   function renderUserBubble(m: Msg) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-white/15 px-4 py-3">
-          <p className="text-sm text-white/90 whitespace-pre-wrap">{m.prompt}</p>
+        <div style={{
+          maxWidth: "80%",
+          background: "rgba(212,168,83,0.09)", border: "1px solid rgba(212,168,83,0.22)",
+          borderRadius: "12px 12px 2px 12px", padding: "9px 13px",
+          fontSize: 13, color: "#F5F0E8", lineHeight: 1.6, whiteSpace: "pre-wrap",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+        }}>
+          {m.prompt}
         </div>
       </div>
     );
@@ -594,82 +649,145 @@ function ChiefClientInner() {
 
   if (gateLoading) return <div className="p-8 text-white/70">Loading Chief…</div>;
 
+  const CHIPS = pageContext?.job_name ? [
+    `Is ${pageContext.job_name} profitable?`,
+    `What have I spent on ${pageContext.job_name}?`,
+    `How many hours logged on ${pageContext.job_name}?`,
+    "What did we spend this month?",
+  ] : [
+    "What did we spend this month?",
+    "Which job is losing money?",
+    "How much do I need to cover overhead?",
+    "How many hours did the team log this week?",
+    "What's still in Pending Review?",
+  ];
+
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-6xl py-6">
-        {gate.planKey === "free" && (
-          <div className="mb-6">
-            <PlanGateBanner
-              featureName="Ask Chief"
-              availableOn="Starter and Pro"
-              freeNote="Free plan includes 3 questions/month."
-              upgradeUrl="/app/settings/billing"
-            />
-          </div>
-        )}
-        {msgs.length === 0 ? (
-          <div className="mt-12 flex flex-col items-center gap-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-lg font-bold text-white/70">
-              C
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white/80">
-                {pageContext?.job_name
-                  ? `Ask me anything about ${pageContext.job_name}`
-                  : "Ask Chief anything"}
-              </div>
-              <div className="mt-1 text-xs text-white/45">
-                {pageContext?.job_name
-                  ? `Try: "Is this job profitable?" or "What have I spent on ${pageContext.job_name}?"`
-                  : 'Try: "Which job is losing money?" or "What did we spend this month?"'}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {msgs.map((m) => (
-              <div key={m.id}>{m.role === "user" ? renderUserBubble(m) : renderChiefBubble(m)}</div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
-        )}
-
-        <form onSubmit={onSubmit} className="mt-8">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <label htmlFor="ask-chief-input" className="block mb-2 text-xs text-white/60">
-              Ask Chief
-            </label>
-
-            <div className="flex gap-2">
-              <input
-                id="ask-chief-input"
-                name="askChief"
-                type="text"
-                autoComplete="off"
-                enterKeyHint="send"
-                aria-label="Ask Chief"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={
-                  pageContext?.job_name
-                    ? `e.g., Is ${pageContext.job_name} profitable?`
-                    : "e.g., Are we making money on Medway Park (WTD)?"
-                }
-                className="flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 outline-none focus:ring-2 focus:ring-white/15"
+    <>
+      <style>{`
+        @keyframes chiefDotBounce {
+          0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+          40% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes chiefCursorBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
+      <main className="min-h-screen">
+        <div className="mx-auto max-w-3xl py-6 px-4">
+          {gate.planKey === "free" && (
+            <div className="mb-6">
+              <PlanGateBanner
+                featureName="Ask Chief"
+                availableOn="Starter and Pro"
+                freeNote="Free plan includes 3 questions/month."
+                upgradeUrl="/app/settings/billing"
               />
-
-              <button
-                type="submit"
-                disabled={busy || !q.trim()}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50"
-              >
-                {busy ? "Thinking…" : "Ask"}
-              </button>
             </div>
-          </div>
-        </form>
-      </div>
-    </main>
+          )}
+          {msgs.length === 0 ? (
+            <div className="mt-12 flex flex-col items-center gap-6 text-center">
+              <div style={{
+                width: 48, height: 48, borderRadius: "50%",
+                background: "linear-gradient(135deg, #D4A853 0%, #C49840 55%, #9A7220 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#0A0900",
+                boxShadow: "0 0 16px rgba(212,168,83,0.35), 0 0 0 1px rgba(212,168,83,0.4)",
+              }}>C</div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#E8E2D8", letterSpacing: "-0.01em" }}>
+                  Ask Chief anything
+                </div>
+                <div style={{ marginTop: 4, fontSize: 12, color: "rgba(168,160,144,0.7)" }}>
+                  Your financial data, on demand. Powered by your live ledger.
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+                {CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => { setQ(chip); void callAskChief(chip); }}
+                    style={{
+                      padding: "7px 13px",
+                      background: "rgba(212,168,83,0.06)", border: "1px solid rgba(212,168,83,0.28)",
+                      borderRadius: 14, color: "#A8A090", fontSize: 12, cursor: "pointer",
+                      transition: "all 0.15s ease", lineHeight: 1.4, textAlign: "left",
+                    }}
+                    onMouseEnter={(e) => {
+                      const b = e.currentTarget as HTMLButtonElement;
+                      b.style.color = "#D4A853";
+                      b.style.borderColor = "rgba(212,168,83,0.55)";
+                      b.style.background = "rgba(212,168,83,0.11)";
+                    }}
+                    onMouseLeave={(e) => {
+                      const b = e.currentTarget as HTMLButtonElement;
+                      b.style.color = "#A8A090";
+                      b.style.borderColor = "rgba(212,168,83,0.28)";
+                      b.style.background = "rgba(212,168,83,0.06)";
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {msgs.map((m) => (
+                <div key={m.id}>{m.role === "user" ? renderUserBubble(m) : renderChiefBubble(m)}</div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="mt-8">
+            <div style={{
+              borderRadius: 16, border: "1px solid rgba(212,168,83,0.2)",
+              background: "rgba(212,168,83,0.04)", padding: "12px 14px",
+            }}>
+              <div className="flex gap-2">
+                <input
+                  id="ask-chief-input"
+                  name="askChief"
+                  type="text"
+                  autoComplete="off"
+                  enterKeyHint="send"
+                  aria-label="Ask Chief"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={
+                    pageContext?.job_name
+                      ? `Ask about ${pageContext.job_name}…`
+                      : "Ask Chief anything about your business…"
+                  }
+                  style={{
+                    flex: 1, borderRadius: 10, border: "1px solid rgba(212,168,83,0.15)",
+                    background: "rgba(0,0,0,0.35)", padding: "9px 12px",
+                    fontSize: 13, color: "#E8E2D8", outline: "none",
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(212,168,83,0.4)"; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(212,168,83,0.15)"; }}
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !q.trim()}
+                  style={{
+                    borderRadius: 10, background: "#D4A853", padding: "9px 16px",
+                    fontSize: 13, fontWeight: 600, color: "#0A0900", cursor: "pointer",
+                    opacity: busy || !q.trim() ? 0.45 : 1, transition: "opacity 0.15s",
+                    border: "none",
+                  }}
+                >
+                  {busy ? "Thinking…" : "Ask"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </main>
+    </>
   );
 }
 
