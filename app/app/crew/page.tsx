@@ -1,8 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useTenantGate } from "@/lib/useTenantGate";
+import PlanGateBanner from "@/app/app/components/PlanGateBanner";
 
 export default function CrewHomePage() {
+  const { loading, planKey } = useTenantGate({ requireWhatsApp: false });
+
+  if (!loading && planKey === "free") {
+    return (
+      <PlanGateBanner
+        variant="overlay"
+        featureName="Crew management"
+        availableOn="Starter and Pro"
+        upgradeUrl="/app/settings/billing"
+      />
+    );
+  }
+
   return (
     <div className="w-full max-w-5xl mx-auto px-2 py-3">
       <h1 className="text-xl font-semibold tracking-tight">Crew</h1>

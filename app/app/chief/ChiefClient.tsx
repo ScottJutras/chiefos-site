@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useSearchParams } from "next/navigation";
+import PlanGateBanner from "@/app/app/components/PlanGateBanner";
 
 type TotalsRange = "mtd";
 
@@ -480,7 +481,7 @@ function ChiefClientInner() {
       let actions: Array<{ label: string; href?: string; onClick?: () => void; kind?: "primary" | "secondary" }> = [];
 
       if (resp.code === "PLAN_REQUIRED") {
-        body = "Ask Chief is available on Starter and above — upgrade to unlock financial insights, job profitability, and more.";
+        body = "You've used your 3 free questions this month. Upgrade to Starter for 250 questions/month, or Pro for 2,000.";
         actions = [
           { label: "Upgrade to Starter", href: resp.upgrade_url || "/app/settings/billing", kind: "primary" },
           { label: "See what's included", href: "/pricing", kind: "secondary" },
@@ -596,6 +597,16 @@ function ChiefClientInner() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
+        {gate.planKey === "free" && (
+          <div className="mb-6">
+            <PlanGateBanner
+              featureName="Ask Chief"
+              availableOn="Starter and Pro"
+              freeNote="Free plan includes 3 questions/month."
+              upgradeUrl="/app/settings/billing"
+            />
+          </div>
+        )}
         {msgs.length === 0 ? (
           <div className="mt-12 flex flex-col items-center gap-4 text-center">
             <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-lg font-bold text-white/70">

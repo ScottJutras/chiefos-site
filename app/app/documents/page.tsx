@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
+import PlanGateBanner from "@/app/app/components/PlanGateBanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -306,7 +307,7 @@ function DocumentsInner() {
   const searchParams = useSearchParams();
   const activeKey = searchParams.get("section") || "leads";
 
-  const { loading: gateLoading, tenantId } = useTenantGate({ requireWhatsApp: false });
+  const { loading: gateLoading, tenantId, planKey } = useTenantGate({ requireWhatsApp: false });
 
   const [pipeline,      setPipeline]      = useState<PipelineJob[]>([]);
   const [changeOrders,  setChangeOrders]  = useState<COItem[]>([]);
@@ -418,6 +419,17 @@ function DocumentsInner() {
   useEffect(() => { void fetchData(); }, [fetchData]);
 
   if (gateLoading) return <div className="p-8 text-sm text-white/60">Loading…</div>;
+
+  if (planKey === "free") {
+    return (
+      <PlanGateBanner
+        variant="overlay"
+        featureName="Documents builder"
+        availableOn="Starter and Pro"
+        upgradeUrl="/app/settings/billing"
+      />
+    );
+  }
 
   const byStage = (stage: string) => pipeline.filter(p => p.stage === stage);
 
