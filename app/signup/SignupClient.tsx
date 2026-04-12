@@ -139,7 +139,7 @@ export default function SignupClient() {
       if (!pwOk) throw new Error("Password does not meet the requirements below.");
       if (!matchOk) throw new Error("Passwords do not match.");
       if (!agreeLegal || !legalAcceptedAt) {
-        throw new Error("You must review and accept the legal agreement package before creating your account.");
+        throw new Error("You must review and accept the terms and agreements before creating your account.");
       }
 
       await track("signup_submit", {
@@ -461,7 +461,7 @@ export default function SignupClient() {
               <div className="rounded-xl border border-[rgba(212,168,83,0.2)] bg-[rgba(212,168,83,0.05)] p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-sm font-medium text-[#E8E2D8]">Legal agreement package</div>
+                    <div className="text-sm font-medium text-[#E8E2D8]">Terms and Agreement Review</div>
                     <p className="mt-2 text-sm text-[#A8A090] leading-relaxed">
                       Review the Terms of Service, Privacy Policy, AI Usage Policy, and Data Processing Agreement in one place before creating your account.
                     </p>

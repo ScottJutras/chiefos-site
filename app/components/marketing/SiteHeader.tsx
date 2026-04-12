@@ -3,35 +3,65 @@
 import Link from "next/link";
 
 export default function SiteHeader() {
-  const btnBase =
-    "inline-flex items-center justify-center h-10 rounded-xl px-4 text-sm font-semibold transition hover:-translate-y-[1px] active:translate-y-0";
-
   return (
-    <header className="w-full border border-white/10 bg-black/70 backdrop-blur-xl rounded-2xl">
-      <div className="mx-auto w-full px-4 sm:px-6 h-12 flex items-center justify-between">
-        <Link href="/#top" className="flex items-center gap-2 group">
-          <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center font-bold transition group-hover:-translate-y-[1px]">
-            C
-          </div>
-          <div className="font-semibold tracking-tight text-white">ChiefOS</div>
-        </Link>
+    <nav style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      padding: "20px 40px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      background: "linear-gradient(to bottom, rgba(12,11,10,0.96), rgba(12,11,10,0))",
+      backdropFilter: "blur(8px)",
+    }}
+    className="chiefos-nav"
+    >
+      <style>{`
+        @media (max-width: 640px) { .chiefos-nav { padding: 16px 20px !important; } }
+      `}</style>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/signup"
-            className={[btnBase, "bg-white text-black hover:bg-white/90"].join(" ")}
-          >
-            Start free
-          </Link>
+      <Link href="/" style={{
+        fontFamily: "'Space Mono', monospace",
+        fontSize: "20px",
+        fontWeight: 700,
+        letterSpacing: "2px",
+        color: "#D4A853",
+        textDecoration: "none",
+      }}>
+        CHIEF
+      </Link>
 
-          <Link
-            href="/login"
-            className={[btnBase, "border border-white/15 bg-white/5 text-white hover:bg-white/10"].join(" ")}
-          >
-            Sign in
-          </Link>
-        </div>
-      </div>
-    </header>
+      <Link href="/signup" style={{
+        padding: "10px 24px",
+        background: "transparent",
+        border: "1px solid rgba(212,168,83,0.3)",
+        color: "#D4A853",
+        fontFamily: "'DM Sans', sans-serif",
+        fontSize: "14px",
+        fontWeight: 500,
+        letterSpacing: "1px",
+        cursor: "pointer",
+        transition: "all 0.3s ease",
+        borderRadius: "2px",
+        textDecoration: "none",
+        display: "inline-block",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLAnchorElement;
+        el.style.background = "rgba(212,168,83,0.08)";
+        el.style.borderColor = "rgba(212,168,83,0.6)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLAnchorElement;
+        el.style.background = "transparent";
+        el.style.borderColor = "rgba(212,168,83,0.3)";
+      }}
+      >
+        Get Started
+      </Link>
+    </nav>
   );
 }

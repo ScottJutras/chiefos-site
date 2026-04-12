@@ -4,7 +4,6 @@
 import { useMemo, useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import SiteHeader from "@/app/components/marketing/SiteHeader";
-import SiteFooter from "@/app/components/marketing/SiteFooter";
 import DemoChiefChat from "@/app/components/marketing/DemoChiefChat";
 
 export default function ContactPage() {
@@ -187,10 +186,6 @@ export default function ContactPage() {
         )}
       </div>
 
-      <SiteFooter
-        brandLine="Stop stacking apps. Start running a system."
-        subLine="Capture once. Structure automatically. Ask anything."
-      />
       <DemoChiefChat />
     </main>
   );
