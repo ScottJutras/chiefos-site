@@ -625,6 +625,7 @@ export default function HomepageClient() {
           .chiefos-comparison-grid { grid-template-columns: 1fr !important; }
           .chiefos-pricing-grid { grid-template-columns: 1fr !important; }
           .chiefos-nav { padding: 16px 20px !important; }
+          .chiefos-nav-secondary { display: none !important; }
           .chiefos-hero-btns { flex-direction: column; align-items: center; gap: 12px !important; }
           .chiefos-hero-btns button { margin-left: 0 !important; width: 260px; }
           .chiefos-section { padding: 64px 20px !important; }
@@ -640,8 +641,8 @@ export default function HomepageClient() {
       <nav style={s.nav} className="chiefos-nav">
         <div style={s.logo}>CHIEFOS</div>
         <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
-          <a href="/pricing" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
-          <a href="/supplier/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Supplier Portal</a>
+          <a href="/pricing" className="chiefos-nav-secondary" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
+          <a href="/supplier/login" className="chiefos-nav-secondary" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Supplier Portal</a>
           <a href="/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Sign in</a>
           <button style={s.navCta} onClick={() => { window.location.href = "/signup"; }}>Get Started</button>
         </div>

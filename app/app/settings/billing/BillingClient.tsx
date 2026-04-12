@@ -26,9 +26,9 @@ type BillingStatus =
       stripe_customer_id?: string | null; // ✅ was boolean (typo), should be string|null
     };
 
-const STATUS_URL = "/api/billing/status";
-const CHECKOUT_URL = "/api/billing/checkout";
-const PORTAL_URL = "/api/billing/portal";
+const STATUS_URL = "/app/settings/billing/status";
+const CHECKOUT_URL = "/app/settings/billing/checkout";
+const PORTAL_URL = "/app/settings/billing/portal";
 
 const PLAN_UI = {
   free: {
