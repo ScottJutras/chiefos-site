@@ -115,8 +115,27 @@ export default function LegalAgreementModal({
           </div>
         </div>
 
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">
+        {/* Scroll-to-unlock banner — only shown before user reaches the bottom */}
+        {!canCheck && (
+          <div className="flex items-center justify-center gap-2 border-b border-[rgba(212,168,83,0.15)] bg-[rgba(212,168,83,0.08)] px-5 py-2.5">
+            <svg className="h-3.5 w-3.5 animate-bounce text-[#D4A853]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+            <span className="text-xs font-semibold text-[#D4A853]">
+              Scroll to the bottom to unlock the checkbox
+            </span>
+            <svg className="h-3.5 w-3.5 animate-bounce text-[#D4A853]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+          </div>
+        )}
+
+        <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">
           <LegalAgreementContent />
+          {/* Bottom fade gradient — disappears once user reaches the end */}
+          {!canCheck && (
+            <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0C0B0A] to-transparent" />
+          )}
         </div>
 
         <div className="border-t border-[rgba(212,168,83,0.15)] bg-[#0F0E0C] px-5 py-4 md:px-6">
@@ -137,12 +156,12 @@ export default function LegalAgreementModal({
               </label>
 
               {!canCheck ? (
-                <div className="mt-2 text-xs text-[#D4A853]/70">
-                  Scroll to the bottom of the document to enable acceptance.
+                <div className="mt-2 text-xs font-medium text-[#D4A853]">
+                  Read to the end above, then the checkbox will unlock.
                 </div>
               ) : (
-                <div className="mt-2 text-xs text-[#706A60]">
-                  You’ve reached the end. You can now accept and continue.
+                <div className="mt-2 text-xs text-emerald-400">
+                  ✓ You’ve reached the end — checkbox is now unlocked.
                 </div>
               )}
             </div>

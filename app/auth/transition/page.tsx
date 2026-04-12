@@ -207,17 +207,30 @@ function AuthTransitionInner() {
     if (hasRunRef.current) return;
     hasRunRef.current = true;
 
+    async function sleep(ms: number) {
+      return new Promise<void>((r) => setTimeout(r, ms));
+    }
+
     async function run() {
       try {
-        // verify-account
-        const { data: sd } = await supabase.auth.getSession();
-        const accessToken = sd?.session?.access_token || "";
-        if (!accessToken) {
-          routerRef.current.replace(`/login?returnTo=${encodeURIComponent(returnToRef.current)}`);
-          return;
+        // verify-account — retry loop so mobile browsers have time to
+        // write the session to storage after the login redirect
+        let accessToken = "";
+        let userId = "";
+
+        for (let i = 0; i < 10; i++) {
+          try {
+            const { data: sd } = await supabase.auth.getSession();
+            if (sd?.session?.access_token && sd?.session?.user?.id) {
+              accessToken = sd.session.access_token;
+              userId = sd.session.user.id;
+              break;
+            }
+          } catch { /* ignore transient errors */ }
+          await sleep(300);
         }
-        const userId = sd?.session?.user?.id || "";
-        if (!userId) {
+
+        if (!accessToken || !userId) {
           routerRef.current.replace(`/login?returnTo=${encodeURIComponent(returnToRef.current)}`);
           return;
         }
