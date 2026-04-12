@@ -599,8 +599,9 @@ function ChiefClientInner() {
                   const cls = a.kind === "primary"
                     ? "rounded-xl bg-[#D4A853] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#C49843] transition"
                     : "rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1.5 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.14)] transition";
+                  const isExternal = a.href?.startsWith("http");
                   return a.href
-                    ? <a key={i} href={a.href} className={cls}>{a.label}</a>
+                    ? <a key={i} href={a.href} className={cls} {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{a.label}</a>
                     : <button key={i} onClick={a.onClick} className={cls}>{a.label}</button>;
                 })}
               </div>
@@ -637,7 +638,8 @@ function ChiefClientInner() {
                 const cls = a.kind === "primary"
                   ? "rounded-xl bg-[#D4A853] px-3 py-1.5 text-xs font-semibold text-black hover:bg-[#C49843] transition"
                   : "rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1.5 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.14)] transition";
-                return <a key={i} href={a.href} className={cls}>{a.label}</a>;
+                const isExternal = a.href?.startsWith("http");
+                return <a key={i} href={a.href} className={cls} {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{a.label}</a>;
               })}
             </div>
           ) : null}
