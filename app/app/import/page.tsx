@@ -3,6 +3,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { supabase } from "@/lib/supabase";
+import PlanGateBanner from "@/app/components/PlanGateBanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function KindTab({ kind, active, onClick }: { kind: ImportKind; active: boolean;
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ImportPage() {
-  const { loading: gateLoading } = useTenantGate();
+  const { loading: gateLoading, planKey } = useTenantGate();
 
   const [kind,        setKind]        = useState<ImportKind>("expense");
   const [step,        setStep]        = useState<Step>("upload");
@@ -216,6 +217,23 @@ export default function ImportPage() {
   }
 
   if (gateLoading) return <div className="p-8 text-white/70">Loading…</div>;
+
+  if (!planKey || planKey === "free") {
+    return (
+      <main className="min-h-screen">
+        <div className="mx-auto max-w-5xl py-8 px-4 space-y-6">
+          <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
+            <div className="text-xs tracking-[0.18em] uppercase text-[var(--text-faint)]">Finance</div>
+            <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Bulk Import</h1>
+            <p className="mt-3 text-sm text-[var(--text-muted)] max-w-2xl leading-relaxed">
+              Upload a CSV to bring in historical expenses, revenue, or time records.
+            </p>
+          </div>
+          <PlanGateBanner featureName="Bulk Import" availableOn="Starter and Pro" variant="overlay" />
+        </div>
+      </main>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
 

@@ -70,7 +70,7 @@ export default function IntegrityPage() {
       await loadHistory();
       if (result?.summary) setLastResult(result.summary);
     } catch (e: any) {
-      if (e.message?.includes("PLAN_NOT_INCLUDED") || e.status === 402) {
+      if (e.message?.includes("NOT_INCLUDED") || e.status === 402) {
         setRunError("On-demand verification requires a Starter or Pro plan.");
       } else {
         setRunError(e.message || "Verification failed.");
@@ -162,8 +162,8 @@ export default function IntegrityPage() {
 
         {loadError && (
           <div className="text-sm text-red-200/80">
-            {loadError.includes("PLAN_NOT_INCLUDED")
-              ? "Verification history requires a Starter or Pro plan."
+            {loadError.includes("NOT_INCLUDED")
+              ? "Verification history requires a Pro plan. Upgrade to Pro to access your full verification history."
               : loadError}
           </div>
         )}
