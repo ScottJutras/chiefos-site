@@ -160,17 +160,21 @@ export async function POST(req: Request) {
           planKey.includes("pro") ? "pro" :
           planKey.includes("starter") ? "starter" : "free";
 
-        await admin.from("users").upsert(
-          {
-            user_id: pending.owner_phone,
-            owner_id: pending.owner_phone,
-            plan_key: normalizedPlan,
-            country: pending.country ?? null,
-            province: pending.province ?? null,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id", ignoreDuplicates: true }
-        ).then(() => null).catch(() => null); // best-effort — don't block signup on failure
+        try {
+          await admin.from("users").upsert(
+            {
+              user_id: pending.owner_phone,
+              owner_id: pending.owner_phone,
+              plan_key: normalizedPlan,
+              country: pending.country ?? null,
+              province: pending.province ?? null,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id", ignoreDuplicates: true }
+          );
+        } catch {
+          // best-effort — don't block signup on failure
+        }
       }
 
       return json(200, { ok: true });
