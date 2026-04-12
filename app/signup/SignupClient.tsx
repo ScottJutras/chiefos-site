@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
 import LegalAgreementModal from "@/app/legal/LegalAgreementModal";
@@ -210,21 +209,6 @@ export default function SignupClient() {
     <>
       <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]" style={{ paddingTop: "var(--early-access-banner-h)" }}>
         <div className="max-w-md mx-auto px-6 pt-10 pb-20">
-          <Link
-            href="/"
-            style={{
-              display: "inline-block",
-              fontFamily: "'Space Mono', monospace",
-              fontSize: "18px",
-              fontWeight: 700,
-              letterSpacing: "2px",
-              color: "#D4A853",
-              textDecoration: "none",
-              marginBottom: "28px",
-            }}
-          >
-            CHIEF
-          </Link>
           <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
             <span className="h-2 w-2 rounded-full bg-[#D4A853]" />
             {signupMode === "tester" ? "Starter tester account" : "Owner account"}

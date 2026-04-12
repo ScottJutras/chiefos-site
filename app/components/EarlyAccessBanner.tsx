@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 type BannerKind = "tester" | "auth" | "app";
 
@@ -108,14 +109,29 @@ export default function EarlyAccessBanner() {
       ref={ref}
       className="sticky top-0 z-50 w-full border-b border-[rgba(212,168,83,0.15)] bg-[#0C0B0A]/90 backdrop-blur"
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-2 text-xs text-[#A8A090]">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="mx-auto grid max-w-6xl grid-cols-3 items-center px-4 py-2 text-xs text-[#A8A090]">
+        <div>
+          <Link
+            href="/"
+            style={{
+              fontFamily: "'Space Mono', monospace",
+              fontSize: "13px",
+              fontWeight: 700,
+              letterSpacing: "2px",
+              color: "#D4A853",
+              textDecoration: "none",
+            }}
+          >
+            CHIEF
+          </Link>
+        </div>
+        <div className="flex min-w-0 items-center justify-center gap-2">
           <span className={`shrink-0 rounded px-2 py-1 text-[11px] tracking-wide ${badgeClass}`}>
             {banner.badge}
           </span>
           <span className="hidden truncate sm:inline">{banner.message}</span>
         </div>
-        <div className="shrink-0 text-[#706A60]">ChiefOS</div>
+        <div />
       </div>
     </div>
   );
