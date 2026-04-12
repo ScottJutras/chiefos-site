@@ -555,9 +555,9 @@ function ChiefClientInner() {
         body = "I hit an error on my end — your data is safe. Try again in a moment.";
         if (retryPrompt) actions.push({ label: "Try again", onClick: () => void callAskChief(retryPrompt), kind: "primary" });
       } else if (resp.code === "NOT_LINKED") {
-        body = resp.message || "Ask Chief reads your transaction ledger, which gets built when you log expenses and revenue through WhatsApp. Link your number to start — once you have data logged, I can answer questions about cashflow, job profit, and more.";
+        body = resp.message || "Ask Chief reads your transaction ledger. Start logging expenses and revenue — via WhatsApp or the web portal — and I can answer questions about cashflow, job profit, overhead, and more.";
         actions = [
-          { label: "Link WhatsApp", href: "/app/link-phone", kind: "primary" },
+          { label: "Log a transaction", href: "/app/transactions/new", kind: "primary" },
           { label: "How it works", href: "https://usechiefos.com/#faq", kind: "secondary" },
         ];
       } else if (resp.code === "PERMISSION_DENIED") {
