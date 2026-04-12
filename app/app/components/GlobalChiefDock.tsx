@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ChiefDock from "./ChiefDock";
 
 export type ChiefPageContext = {
@@ -20,13 +21,20 @@ export type ChiefPageContext = {
  *   window.dispatchEvent(new CustomEvent("open-chief", {
  *     detail: { query: "...", page: "/app/jobs/123", job_name: "257 Main St", job_no: 1556 }
  *   }))
+ *
+ * Suppressed when rendered inside the embed iframe (?embed=1) to prevent
+ * a dock-inside-dock nesting loop.
  */
-export default function GlobalChiefDock() {
+function GlobalChiefDockInner() {
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [pendingQuery, setPendingQuery] = useState("");
   const [pageContext, setPageContext] = useState<ChiefPageContext>(null);
 
+  const isEmbed = searchParams.get("embed") === "1";
+
   useEffect(() => {
+    if (isEmbed) return;
     function handler(e: Event) {
       const detail = (e as CustomEvent).detail || {};
       const q = (detail.query as string) || "";
@@ -41,7 +49,9 @@ export default function GlobalChiefDock() {
     }
     window.addEventListener("open-chief", handler);
     return () => window.removeEventListener("open-chief", handler);
-  }, []);
+  }, [isEmbed]);
+
+  if (isEmbed) return null;
 
   function handleClose() {
     setOpen(false);
@@ -55,5 +65,13 @@ export default function GlobalChiefDock() {
       initialQuery={pendingQuery}
       pageContext={pageContext}
     />
+  );
+}
+
+export default function GlobalChiefDock() {
+  return (
+    <Suspense fallback={null}>
+      <GlobalChiefDockInner />
+    </Suspense>
   );
 }

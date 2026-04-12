@@ -370,6 +370,7 @@ function ChiefClientInner() {
       const reader  = r.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamDone = false;
 
       const appendStreamText = (chunk: string) => {
         setMsgs((prev) =>
@@ -392,7 +393,7 @@ function ChiefClientInner() {
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const raw = line.slice(6).trim();
-          if (raw === "[DONE]") break;
+          if (raw === "[DONE]") { streamDone = true; break; }
 
           let evt: any;
           try { evt = JSON.parse(raw); } catch { continue; }
@@ -415,18 +416,37 @@ function ChiefClientInner() {
                   : m
               )
             );
-            continue;
+            streamDone = true;
+            break;
           }
 
           // Error event inside the SSE stream
           if (evt.error || evt.ok === false) {
             setPendingResp(normalizeResp(evt, 200));
+            streamDone = true;
             break;
           }
 
           // {"status":"thinking","tools":[...]} — no UI change needed (dots still show)
         }
+
+        if (streamDone) break;
       }
+
+      // Post-loop safety net: if the pending bubble was never resolved
+      // (stream closed without a done/error event), replace it with an error.
+      setMsgs((prev) =>
+        prev.map((m) =>
+          m.id === pendingChief.id && (m.pending || (m.streamText !== undefined && !m.resp))
+            ? {
+                ...m,
+                pending: false,
+                streamText: undefined,
+                resp: { ok: false, code: "ERROR", message: "Chief didn't respond. Try again." },
+              }
+            : m
+        )
+      );
     } catch (e: any) {
       const isAbort = e?.name === "AbortError";
       const isNetwork = e?.name === "TypeError" || e?.message?.includes("fetch");

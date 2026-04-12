@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 /**
  * Floating vertical "Ask Chief" pull-tab anchored to the right edge.
  * Disappears while the Chief panel is open so the two don't overlap.
+ * Suppressed when rendered inside the embed iframe (?embed=1).
  */
-export default function ChiefPullTab() {
+function ChiefPullTabInner() {
+  const searchParams = useSearchParams();
   const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
@@ -20,6 +23,8 @@ export default function ChiefPullTab() {
     };
   }, []);
 
+  // Don't render inside the embed iframe (would create a dock-inside-dock loop)
+  if (searchParams.get("embed") === "1") return null;
   if (panelOpen) return null;
 
   function open() {
@@ -47,5 +52,13 @@ export default function ChiefPullTab() {
       <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50 leading-tight">Ask</span>
       <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-white/50 leading-tight">Chief</span>
     </button>
+  );
+}
+
+export default function ChiefPullTab() {
+  return (
+    <Suspense fallback={null}>
+      <ChiefPullTabInner />
+    </Suspense>
   );
 }
