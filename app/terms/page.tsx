@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "April 5, 2026";
+const LAST_UPDATED = "April 12, 2026";
 const COMPANY = "9839429 Canada Inc. (operating as ChiefOS)";
 const JURISDICTION = "Ontario, Canada";
 const SUPPORT_EMAIL = "support@usechiefos.com";
@@ -207,11 +207,46 @@ export default function TermsPage() {
           </div>
         </Section>
 
-        <Section title="10. Aggregated and anonymized data">
+        <Section title="10. Supplier marketplace and aggregated platform analytics">
           <div>
-            ChiefOS may generate anonymized, aggregated datasets derived from platform activity across
-            users. These datasets do not identify individual users or businesses and may be used internally
-            to improve reliability, develop features, and conduct research.
+            <strong className="text-[#E8E2D8]">Supplier Catalog.</strong> ChiefOS operates a Supplier Portal where
+            building material suppliers may list product catalogs that are surfaced to contractors during quoting and
+            purchasing workflows. By using these features, you acknowledge that your activity within them — including
+            which products you select, the quantities you quote, and your general geographic region — constitutes
+            platform usage data collected in the ordinary course of operating the Service.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Aggregated Analytics.</strong> ChiefOS may aggregate and anonymize
+            platform usage data — including product selection patterns, quoting frequency, regional demand signals,
+            and category trends — to generate market intelligence insights ("Aggregated Analytics"). Aggregated
+            Analytics are stripped of all tenant-identifying information and are computed only when a minimum
+            threshold of distinct businesses have contributed data to any given result (k-anonymity). Aggregated
+            Analytics do not identify you, your business, your employees, your specific jobs, or your financial details.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Sharing with Supplier Partners.</strong> ChiefOS may share Aggregated
+            Analytics with supplier partners who participate in the Supplier Portal, including as part of paid analytics
+            tiers offered to those suppliers. No personally identifying information, tenant-specific data, job-level
+            financial data, or business-identifying information is ever included in data shared with suppliers.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Opt-Out.</strong> If you prefer that your quoting activity not
+            contribute to Aggregated Analytics shared with supplier partners, you may opt out at any time by contacting{" "}
+            <a href="mailto:privacy@usechiefos.com" className="text-[#D4A853] underline">privacy@usechiefos.com</a>.
+            Opting out does not affect your access to any ChiefOS features.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Lead Referral (Future Feature).</strong> ChiefOS may in the future
+            offer an optional feature allowing contractors to be discoverable by suppliers in their region. This
+            feature will require a separate, explicit, affirmative opt-in — it will not be enabled by default and
+            will not be covered by acceptance of these Terms. A distinct consent mechanism will be presented at the
+            time that feature is introduced.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">For US Users.</strong> If you are located in the United States, see
+            the "US Privacy Rights" section of our{" "}
+            <Link href="/privacy" className="text-[#D4A853] underline">Privacy Policy</Link> for additional rights
+            that may apply, including rights under CCPA/CPRA and applicable state privacy laws.
           </div>
         </Section>
 

@@ -1,9 +1,9 @@
 import React from "react";
 
-export const LEGAL_TERMS_VERSION = "2026-03-10";
-export const LEGAL_PRIVACY_VERSION = "2026-03-10";
-export const LEGAL_AI_POLICY_VERSION = "2026-03-10";
-export const LEGAL_DPA_VERSION = "2026-03-10";
+export const LEGAL_TERMS_VERSION = "2026-04-12";
+export const LEGAL_PRIVACY_VERSION = "2026-04-12";
+export const LEGAL_AI_POLICY_VERSION = "2026-04-12";
+export const LEGAL_DPA_VERSION = "2026-04-12";
 
 function Section({
   id,
@@ -66,7 +66,7 @@ export default function LegalAgreementContent() {
             <>AI-generated outputs may contain errors and should not be treated as accounting, financial, or legal advice.</>,
             <>Do not use the service for illegal activity, unauthorized access attempts, or behavior that harms platform reliability.</>,
             <>Paid subscriptions are processed through Stripe. Failure to pay applicable fees may restrict access.</>,
-            <>ChiefOS may create anonymized or aggregated data derived from platform activity to improve the service.</>,
+            <>ChiefOS may aggregate and anonymize quoting activity data to generate market intelligence. This Aggregated Analytics data may be shared with supplier partners. No individually identifying information is ever included. You may opt out at any time by emailing privacy@usechiefos.com.</>,
             <>To the maximum extent permitted by law, ChiefOS is not liable for indirect or consequential damages arising from use of the service.</>,
             <>Continued use of the service after updates to these terms constitutes acceptance of the revised terms.</>,
           ]}
@@ -106,6 +106,8 @@ export default function LegalAgreementContent() {
             <>We do not sell personal information.</>,
             <>Information may be shared with service providers only as needed to operate the service.</>,
             <>Current infrastructure providers may include Supabase, Vercel, Stripe, and Twilio.</>,
+            <>Anonymized, aggregated demand analytics (never individually identifying) may be shared with supplier partners participating in the ChiefOS Supplier Portal.</>,
+            <>US users have additional rights under CCPA/CPRA and applicable state privacy laws. Contact privacy@usechiefos.com to exercise these rights.</>,
           ]}
         />
 
@@ -173,6 +175,7 @@ export default function LegalAgreementContent() {
             <>Organizing financial and operational information.</>,
             <>Generating analytics, summaries, and operational views.</>,
             <>Supporting reliability, monitoring, and security operations.</>,
+            <>Generating anonymized platform analytics for market intelligence (ChiefOS acts as data controller for this anonymized output, not processor).</>,
           ]}
         />
 

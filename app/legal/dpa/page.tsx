@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "March 8, 2026";
+const LAST_UPDATED = "April 12, 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -45,15 +45,22 @@ export default function DPAPage() {
 
       <Section title="Roles">
         <div>
-          When using ChiefOS, the customer acts as the data controller and
-          ChiefOS acts as the data processor for customer-submitted data.
+          When using ChiefOS, the customer acts as the data controller and ChiefOS acts as the data
+          processor for customer-submitted data (financial records, job data, employee information, documents).
+          ChiefOS processes this data only as instructed by your use of the Service.
+        </div>
+        <div>
+          For Aggregated Analytics derived from anonymized usage patterns (as described in the Privacy Policy),
+          ChiefOS acts as a data <strong>controller</strong> — this data has been anonymized below the threshold
+          of personal information, and ChiefOS determines the purpose and means of its use and disclosure. The
+          protections of this DPA apply to Customer Data in ChiefOS's role as processor; Aggregated Analytics
+          are governed by the Privacy Policy.
         </div>
       </Section>
 
       <Section title="Scope of processing">
         <div>
-          ChiefOS processes customer data only as necessary to provide and
-          maintain the Service.
+          ChiefOS processes customer data only as necessary to provide and maintain the Service.
         </div>
 
         <div>Processing activities may include:</div>
@@ -63,6 +70,11 @@ export default function DPAPage() {
           <li>organizing financial and operational information</li>
           <li>generating analytics and summaries</li>
           <li>system reliability and monitoring</li>
+          <li>
+            generating anonymized, aggregated platform analytics for market intelligence purposes
+            (Aggregated Analytics), subject to the anonymization and k-anonymity standards described in
+            the Privacy Policy — in this context ChiefOS acts as data controller, not processor
+          </li>
         </ul>
       </Section>
 
@@ -88,13 +100,18 @@ export default function DPAPage() {
 
       <Section title="Data retention and deletion">
         <div>
-          Customer data is retained only for the duration of the customer’s
-          account unless required for legal or operational purposes.
+          Customer data is retained only for the duration of the customer’s account unless required for
+          legal or operational purposes.
         </div>
 
         <div>
-          Customers may request deletion of their account and associated
-          workspace data.
+          Customers may request deletion of their account and associated workspace data.
+        </div>
+
+        <div>
+          Anonymized and aggregated data (which contains no personal information and cannot be traced back
+          to any individual business) may be retained indefinitely for analytics, benchmarking, and market
+          intelligence purposes, consistent with ChiefOS’s role as controller for that data class.
         </div>
       </Section>
 

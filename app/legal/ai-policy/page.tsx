@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "April 5, 2026";
+const LAST_UPDATED = "April 12, 2026";
 const PRIVACY_EMAIL = "privacy@usechiefos.com";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -74,6 +74,7 @@ export default function AIUsagePolicyPage() {
               <><strong className="text-[#E8E2D8]">Anomaly detection:</strong> Identifying unusual patterns in submitted data (e.g. vendor spikes, margin drops) and surfacing them proactively.</>,
               <><strong className="text-[#E8E2D8]">Voice and message transcription:</strong> Converting voice notes and text messages into structured business records.</>,
               <><strong className="text-[#E8E2D8]">Proactive summaries:</strong> Generating weekly digests, job updates, and cash flow projections from your real data.</>,
+              <><strong className="text-[#E8E2D8]">Supplier analytics (statistical, not AI):</strong> The demand intelligence data shared with supplier partners — which products are being quoted, regional patterns, seasonal trends — is generated through statistical aggregation (counting, grouping, and anonymizing product selection events). This is not AI-generated and does not involve language models or machine learning inference on your individual data. If ChiefOS introduces AI-powered demand forecasting features for suppliers in the future, we will disclose this separately and clearly label which outputs are AI-generated estimates versus statistical facts.</>,
             ]}
           />
         </Section>

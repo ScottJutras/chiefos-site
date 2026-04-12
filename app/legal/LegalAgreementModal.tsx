@@ -70,7 +70,7 @@ export default function LegalAgreementModal({
                 Review before creating your account
               </div>
               <h2 className="mt-2 text-xl md:text-2xl font-semibold text-[#E8E2D8]">
-                ChiefOS legal agreement package
+                Terms and Agreement Review
               </h2>
               <p className="mt-2 text-sm text-[#A8A090] max-w-2xl leading-relaxed">
                 Please review the terms, privacy policy, AI usage policy, and data processing agreement.
@@ -131,7 +131,7 @@ export default function LegalAgreementModal({
                   className="mt-1 h-4 w-4 rounded border-[rgba(212,168,83,0.3)] bg-[#0C0B0A] accent-[#D4A853] disabled:opacity-50"
                 />
                 <span className="text-sm text-[#A8A090] leading-relaxed">
-                  I have reviewed the legal agreement package and agree to the Terms of Service,
+                  I have reviewed the Terms and Agreement and agree to the Terms of Service,
                   Privacy Policy, AI Usage Policy, and Data Processing Agreement.
                 </span>
               </label>

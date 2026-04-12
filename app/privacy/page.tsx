@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const LAST_UPDATED = "April 5, 2026";
+const LAST_UPDATED = "April 12, 2026";
 const COMPANY = "9839429 Canada Inc. (operating as ChiefOS)";
 const PRIVACY_EMAIL = "privacy@usechiefos.com";
 
@@ -121,18 +121,49 @@ export default function PrivacyPage() {
           </div>
         </Section>
 
-        <Section title="4. Aggregated and de-identified data">
+        <Section title="4. Platform analytics and supplier intelligence">
           <div>
-            ChiefOS may create aggregated, anonymized, or de-identified datasets derived from platform
-            activity.
+            ChiefOS may create aggregated, anonymized, or de-identified datasets derived from platform activity.
+            This section explains how that data is generated, protected, and used.
           </div>
-          <Bullets
-            items={[
-              <>These datasets do not identify individual users or businesses.</>,
-              <>They cannot reasonably be used to reconstruct individual customer records.</>,
-              <>They may be used internally to improve platform reliability, develop new features, conduct research, and refine machine learning systems.</>,
-            ]}
-          />
+          <div>
+            <strong className="text-[#E8E2D8]">What we collect for analytics purposes.</strong> As part of normal
+            operation of the Service, ChiefOS records which products from supplier catalogs you select or quote during
+            job costing and purchasing workflows, the quantities involved, the general region your account is
+            associated with (province/state level), and the timing and frequency of those selections. This activity
+            data is collected regardless of whether you complete a purchase.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">How we aggregate and anonymize it.</strong> Raw quoting activity is
+            processed through an aggregation pipeline that: (a) strips all tenant-identifying fields (tenant_id,
+            owner_id, user_id, job IDs, business names); (b) groups data by product, region, and time period; and
+            (c) suppresses any data point that does not represent activity from at least five (5) distinct business
+            accounts (k-anonymity threshold). The result is statistical market intelligence — demand counts, trend
+            lines, and regional breakdowns — with no path back to any individual business.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">What we share with suppliers.</strong> ChiefOS may provide Aggregated
+            Analytics to suppliers participating in our Supplier Portal, including as a paid feature. Suppliers
+            receive only: product-level demand counts, regional demand distributions (province/state level or coarser),
+            seasonal trend data, and category comparison data. Suppliers never receive your business name, tenant ID,
+            specific job details, financial data, employee information, or any data that could identify you.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">What we never share.</strong> We never sell, rent, or disclose your
+            individual Customer Data — financial records, job details, crew information, Ask Chief conversations,
+            receipts, or documents — to any supplier or third party for commercial purposes.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Your opt-out right.</strong> You may opt out of having your quoting
+            activity included in Aggregated Analytics shared with suppliers by emailing{" "}
+            <a href="mailto:privacy@usechiefos.com" className="text-[#D4A853] underline">privacy@usechiefos.com</a>.
+            We will action your request within 30 days. Opting out does not affect your access to the Service.
+          </div>
+          <div>
+            These datasets cannot reasonably be used to reconstruct individual customer records and may also be used
+            internally to improve platform reliability, develop new features, conduct research, and refine machine
+            learning systems.
+          </div>
         </Section>
 
         <Section title="5. How we share information">
@@ -259,6 +290,25 @@ export default function PrivacyPage() {
             To exercise any of these rights, contact us at {PRIVACY_EMAIL}. We will respond within
             30 days. We may need to verify your identity before processing your request.
           </div>
+          <div className="font-semibold text-[#E8E2D8] mt-3">US Privacy Rights</div>
+          <div>
+            <strong className="text-[#E8E2D8]">California Residents (CCPA/CPRA).</strong> If you are a California
+            resident, you have the following additional rights: (1) the right to know what personal information we
+            collect, use, disclose, and sell; (2) the right to delete personal information we have collected, subject
+            to certain exceptions; (3) the right to opt out of the sale or sharing of your personal information;
+            (4) the right to correct inaccurate personal information; and (5) the right to limit the use of sensitive
+            personal information. ChiefOS does not sell personal information as defined under CCPA. The Aggregated
+            Analytics described in Section 4 do not constitute a "sale" or "sharing" of personal information because
+            the data is anonymized below the threshold of personal information before it is shared. To exercise any
+            of these rights, contact {PRIVACY_EMAIL}.
+          </div>
+          <div>
+            <strong className="text-[#E8E2D8]">Other US State Privacy Rights.</strong> Residents of Virginia
+            (VCDPA), Colorado (CPA), Connecticut (CTDPA), Texas (TDPSA), and other states with comprehensive
+            privacy laws have similar rights to access, correct, delete, and opt out of certain processing. ChiefOS
+            honors these rights regardless of which US state you reside in. Contact {PRIVACY_EMAIL} to exercise
+            any of these rights.
+          </div>
         </Section>
 
         <Section title="12. Data breach notification">
@@ -279,10 +329,16 @@ export default function PrivacyPage() {
 
         <Section title="13. International data transfers">
           <div>
-            Our service providers may process data in multiple regions, including the United States
-            and European Union. Where data is transferred internationally, we take reasonable steps to
-            ensure appropriate contractual and technical protections are in place consistent with
-            applicable Canadian privacy law.
+            ChiefOS is a Canadian company (Ontario) and your data may be processed in Canada, the United States,
+            and other jurisdictions where our infrastructure providers operate. For users in Canada, transfers to
+            the US are subject to applicable legal orders in that jurisdiction. For users in the US, data processed
+            in Canada is subject to Canadian privacy law (PIPEDA). We apply contractual and technical safeguards —
+            including data processing agreements with all subprocessors — to protect your data regardless of where
+            it is processed.
+          </div>
+          <div>
+            Where data is transferred internationally, we take reasonable steps to ensure appropriate protections
+            are in place consistent with PIPEDA and, for US users, applicable state privacy laws.
           </div>
         </Section>
 
