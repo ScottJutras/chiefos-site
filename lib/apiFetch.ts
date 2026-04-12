@@ -52,8 +52,18 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   }
 
   if (!r.ok) {
-    const code = String(json?.code || json?.error || "API_ERROR");
-    const message = String(json?.message || json?.error_description || "Request failed");
+    // Core returns either { code, message } or { error: { code, message } } (nested object)
+    const nested = json?.error && typeof json.error === "object" ? json.error : null;
+    const code =
+      nested?.code ||
+      json?.code ||
+      (typeof json?.error === "string" ? json.error : null) ||
+      "API_ERROR";
+    const message =
+      nested?.message ||
+      json?.message ||
+      json?.error_description ||
+      "Request failed";
     const e = new Error(`${code}: ${message}`);
     // @ts-ignore
     e.status = r.status;

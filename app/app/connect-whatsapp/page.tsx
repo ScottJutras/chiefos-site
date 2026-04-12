@@ -158,10 +158,9 @@ export default function ConnectWhatsAppPage() {
       const linked = await isLinkedNow();
       if (linked) {
         router.replace(returnTo);
-        return;
       }
-
-      await load();
+      // Do NOT call load() here — that causes a reload loop every 1.5 s.
+      // The interval is only checking link status, not refreshing the page.
     } catch (e: any) {
       setError(e?.message ?? "Unknown error checking link status.");
     } finally {

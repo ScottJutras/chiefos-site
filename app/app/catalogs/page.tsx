@@ -54,8 +54,8 @@ export default function CatalogsPage() {
 
       {error && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-200">
-          {error.includes("PLAN_NOT_INCLUDED")
-            ? "Supplier catalogs require a Starter or Pro plan."
+          {error.includes("NOT_INCLUDED") || error.includes("PLAN_NOT_INCLUDED")
+            ? "Supplier catalogs require a Starter or Pro plan. Upgrade to Starter or Pro to browse supplier pricing."
             : error}
         </div>
       )}
