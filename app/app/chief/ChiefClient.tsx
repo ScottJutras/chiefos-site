@@ -182,39 +182,121 @@ function ChiefClientInner() {
   }, [msgs.length]);
 
   function getInstantAnswer(prompt: string): string | null {
-    const lc = prompt.trim().toLowerCase().replace(/[.!?]+$/, "");
+    const lc = prompt.trim().toLowerCase().replace(/[.!?]+$/, "").trim();
+
+    // Intro / capability questions
     const isIntro =
-      /\b(how can you help|what can you do|what do you do|who are you|what are you|how does this work|help me understand|what can i ask|tell me what you can do)\b/i.test(lc) ||
-      lc === "help" || lc === "?" || lc === "menu" || lc === "how can you help me";
-    if (!isIntro) return null;
-    return [
-      "I'm Chief — your on-call CFO. I read your live transaction ledger and give you straight answers about where the money is going, which jobs are profitable, and what needs your attention.",
-      "",
-      "Here's what you can ask me:",
-      "",
-      "Financial position",
-      '  "What did we spend this month?"',
-      '  "How much revenue came in this week?"',
-      '  "Are we up or down vs. last month?"',
-      "",
-      "Job profitability",
-      '  "Is [job name] making money?"',
-      '  "Which jobs are losing money right now?"',
-      '  "How am I doing on [job name]?" — if you have a job open, just ask "How am I doing on this job?"',
-      "",
-      "Overhead & obligations",
-      '  "How much do I need to make this month to cover my overhead?"',
-      '  "What are my biggest fixed costs?"',
-      '  "Am I on track to cover my bills this month?"',
-      '  "What\'s my true profit after overhead?"',
-      "",
-      "Crew & operations",
-      '  "How many hours did the team log this week?"',
-      '  "What\'s still in Pending Review?"',
-      '  "Which tasks are overdue?"',
-      "",
-      "The more you log through WhatsApp — expenses, revenue, time, overhead — the more precise my answers get. What would you like to know first?",
-    ].join("\n");
+      /\b(how can you help|what can you do|what do you do|who are you|what are you|how does this work|help me understand|what can i ask|tell me what you can do|how does ask chief work|how does chief work)\b/i.test(lc) ||
+      lc === "help" || lc === "?" || lc === "menu" || lc === "how can you help me" || lc === "how it works" || lc === "how does this work";
+    if (isIntro) {
+      return [
+        "I'm Chief — your on-call CFO. I read your live transaction ledger and give you straight answers about where the money is going, which jobs are profitable, and what needs your attention.",
+        "",
+        "Here's what you can ask me:",
+        "",
+        "Financial position",
+        '  "What did we spend this month?"',
+        '  "How much revenue came in this week?"',
+        '  "Are we up or down vs. last month?"',
+        "",
+        "Job profitability",
+        '  "Is [job name] making money?"',
+        '  "Which jobs are losing money right now?"',
+        '  "How am I doing on this job?" — if you have a job open, I\'ll pull that job\'s data',
+        "",
+        "Overhead & obligations",
+        '  "How much do I need to make this month to cover my overhead?"',
+        '  "What are my biggest fixed costs?"',
+        '  "Am I on track to cover my bills this month?"',
+        "",
+        "Crew & operations",
+        '  "How many hours did the team log this week?"',
+        '  "What\'s still in Pending Review?"',
+        '  "Which tasks are overdue?"',
+        "",
+        "The more you log — via WhatsApp or the web portal — the more precise my answers get. What would you like to know first?",
+      ].join("\n");
+    }
+
+    // How to log a transaction
+    const isLogTx =
+      /\b(log a transaction|log transaction|how do i log|how to log|log an expense|log revenue|add a transaction|record a transaction|record an expense)\b/i.test(lc);
+    if (isLogTx) {
+      return [
+        "You can log transactions two ways:",
+        "",
+        "Via the web portal",
+        "  Go to Expenses or Revenue in the left sidebar. Hit \"New\" and fill in the details. Takes about 20 seconds.",
+        "",
+        "Via WhatsApp",
+        "  Text or voice-message your ChiefOS number. Say something like:",
+        '  "Spent $240 at Home Depot for the Henderson job"',
+        '  "Received $4,500 from Thompson — final invoice"',
+        "  I'll parse it and log it automatically. Receipt photos work too — just send the image.",
+        "",
+        "The more you log, the more accurately I can answer questions about your cashflow and job profitability. Want to link your WhatsApp number?",
+      ].join("\n");
+    }
+
+    // How to link WhatsApp
+    const isLinkWA =
+      /\b(link whatsapp|link my whatsapp|link my phone|connect whatsapp|how do i link|how to link|whatsapp number|connect my number)\b/i.test(lc);
+    if (isLinkWA) {
+      return [
+        "Linking WhatsApp lets you log expenses, revenue, hours, and more by just sending a text or voice message — no forms needed.",
+        "",
+        "To link your number:",
+        "  1. Go to Settings → Link WhatsApp (or tap the Link WhatsApp button below)",
+        "  2. Enter your mobile number",
+        "  3. You'll get a WhatsApp message with a verification code",
+        "  4. Reply with the code and you're connected",
+        "",
+        "Once linked, text me things like:",
+        '  "Bought $180 in lumber for the Oakdale job"',
+        '  "Clock in Dan on the Henderson site"',
+        '  "Invoice paid — $6,200 from Morrison"',
+        "",
+        "WhatsApp is optional — you can also log everything through the web portal. But most owners find texting faster once they\'re set up.",
+      ].join("\n");
+    }
+
+    // Pricing / what's free vs paid
+    const isPricing =
+      /\b(what.s free|free vs paid|pricing|plans|how much does|cost|subscription|upgrade|starter|pro plan|what do i get|what.s included)\b/i.test(lc);
+    if (isPricing) {
+      return [
+        "ChiefOS has three plans. Start with Free, upgrade when you're ready.",
+        "",
+        "FREE — $0/month",
+        "  • Ask Chief: 3 questions/month",
+        "  • Expense & revenue logging (web + WhatsApp)",
+        "  • Up to 3 active jobs · up to 3 employees",
+        "  • Time clock & labour hours",
+        "  • CSV export · 90-day history",
+        "",
+        "STARTER — $59/month",
+        "  • Ask Chief: 250 questions/month",
+        "  • Everything in Free, plus:",
+        "  • Receipt scanner (OCR) · audio logging",
+        "  • Documents builder (quotes, invoices, contracts)",
+        "  • Up to 25 jobs · 10 employees",
+        "  • PDF & XLS exports · 3-year history",
+        "",
+        "PRO — $149/month",
+        "  • Ask Chief: 2,000 questions/month",
+        "  • Everything in Starter, plus:",
+        "  • Crew self-logging via WhatsApp",
+        "  • Time approvals & edit requests",
+        "  • Unlimited jobs · up to 50 employees",
+        "  • Up to 5 board members",
+        "  • 7-year history",
+        "",
+        "All plans: your data is yours, export anytime. No lock-in.",
+        "Upgrade at any time from Settings → Billing.",
+      ].join("\n");
+    }
+
+    return null;
   }
 
   async function callAskChief(prompt: string) {
@@ -461,6 +543,15 @@ function ChiefClientInner() {
       });
     } finally {
       setBusy(false);
+      // Notify the parent frame (ChiefDock) that a question was consumed,
+      // so the pull-tab quota indicator can decrement without a round-trip.
+      try {
+        if (typeof window !== "undefined" && window.parent !== window) {
+          window.parent.postMessage({ type: "chief-quota-used" }, window.location.origin);
+        }
+      } catch {
+        // cross-origin guard — safe to ignore
+      }
     }
   }
 
@@ -557,9 +648,9 @@ function ChiefClientInner() {
       } else if (resp.code === "NOT_LINKED") {
         body = resp.message || "Ask Chief reads your transaction ledger. Start logging expenses and revenue — via WhatsApp or the web portal — and I can answer questions about cashflow, job profit, overhead, and more.";
         actions = [
-          { label: "Log a transaction", href: "/app/transactions/new", kind: "primary" },
-          { label: "Link WhatsApp", href: "/app/link-phone", kind: "secondary" },
-          { label: "How it works", href: "https://usechiefos.com/#faq", kind: "secondary" },
+          { label: "How do I log a transaction?", onClick: () => void callAskChief("How do I log a transaction?"), kind: "primary" },
+          { label: "How do I link WhatsApp?", onClick: () => void callAskChief("How do I link WhatsApp?"), kind: "secondary" },
+          { label: "How does this work?", onClick: () => void callAskChief("How does Ask Chief work?"), kind: "secondary" },
         ];
       } else if (resp.code === "PERMISSION_DENIED") {
         body = "You don't have permission to use Ask Chief on this account. If you think this is wrong, ask the account owner to check your role.";
