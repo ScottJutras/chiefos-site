@@ -250,6 +250,7 @@ export default function DemoChiefChat() {
   const [inputFocused, setInputFocused] = useState(false);
   const [chipsExpanded, setChipsExpanded] = useState(false);
 
+  const topRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -257,7 +258,12 @@ export default function DemoChiefChat() {
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!open) return;
+    if (messages.length === 0 && !awaitingFirstToken) {
+      topRef.current?.scrollIntoView({ behavior: "instant" });
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, awaitingFirstToken, open]);
 
   useEffect(() => {
@@ -625,6 +631,7 @@ export default function DemoChiefChat() {
             flex: 1, overflowY: "auto", padding: "16px 14px 0",
             scrollbarWidth: "thin", scrollbarColor: "rgba(212,168,83,0.14) transparent",
           }}>
+            <div ref={topRef} />
             {!hasMessages && (
               <div style={{ marginBottom: "16px" }}>
                 {/* Chief intro */}

@@ -81,6 +81,23 @@ Every job has a live running P&L: revenue logged in vs. expenses logged against 
 ## Exports
 Every plan includes full data export — CSV and XLS for spreadsheets, PDF for reports, original receipt images and voice recordings downloadable as ZIP. Your data is never trapped.
 
+## Supplier Portal
+ChiefOS has a dedicated Supplier Portal — a separate, self-serve web interface where building suppliers (plumbing wholesalers, electrical distributors, lumber yards, HVAC suppliers, etc.) can manage their product catalog and pricing inside the ChiefOS ecosystem.
+
+How it works:
+- Suppliers apply for an account at usechiefos.com/supplier/signup. Applications go through an approval review before access is granted.
+- Once approved, suppliers log in at usechiefos.com/supplier/login to access their portal.
+- Inside the portal, suppliers can manage their full product catalog: add and edit individual products, assign categories, and set pricing.
+- Suppliers can bulk-upload their price list via spreadsheet (CSV/XLS) — ideal for large catalogs. The uploader maps columns to ChiefOS fields automatically.
+- All uploaded products are tagged to the supplier's account and become available to ChiefOS contractor users through the catalog browsing experience inside the app.
+
+Why this matters for contractors:
+- When a contractor browses or uses a supplier's catalog inside ChiefOS, the pricing flows directly into their quotes, purchase tracking, and job costing — no manual re-entry.
+- Supplier catalogs are surfaced in the ChiefOS materials library, so a contractor quoting a job can pull real supplier prices directly into their estimate.
+- Expense entries referencing a supplier can be matched against catalog pricing to flag cost overruns automatically.
+
+The supplier portal is invite-driven during the beta period. Suppliers interested in joining can apply via the signup page.
+
 ## Target Customers
 Small to mid-size contractors: 1–20 person operations. Owner-operators who currently manage finances in spreadsheets or their memory. Operations where the owner is on the tools half the day and can't sit at a desk reconciling books.
 

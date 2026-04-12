@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import DemoChiefChat from "@/app/components/marketing/DemoChiefChat";
 
 const inputCls =
   "w-full rounded-lg border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-sm text-[#E8E2D8] placeholder-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]";
@@ -116,8 +117,11 @@ function LoginForm() {
 
 export default function SupplierLoginPage() {
   return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
+    <>
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+      <DemoChiefChat />
+    </>
   );
 }

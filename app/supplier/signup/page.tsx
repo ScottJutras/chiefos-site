@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import DemoChiefChat from "@/app/components/marketing/DemoChiefChat";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { supabase } from "@/lib/supabase";
 
@@ -404,6 +405,7 @@ export default function SupplierSignupPage() {
           </Link>
         </p>
       </div>
+      <DemoChiefChat />
     </div>
   );
 }

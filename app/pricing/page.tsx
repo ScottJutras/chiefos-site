@@ -4,6 +4,7 @@ import Section from "@/app/components/marketing/Section";
 import SiteFooter from "@/app/components/marketing/SiteFooter";
 import CheckoutButton from "@/app/components/marketing/CheckoutButton";
 import PricingFAQ from "@/app/pricing/PricingFAQ";
+import DemoChiefChat from "@/app/components/marketing/DemoChiefChat";
 
 function Check() {
   return (
@@ -333,6 +334,7 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
         brandLine="Stop stacking apps. Start running a system."
         subLine="Capture on the go: Text. Voice. Audio. Ask Chief."
       />
+      <DemoChiefChat />
     </main>
   );
 }
