@@ -191,7 +191,7 @@ export default function SettingsPage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
         <div className="text-xs tracking-[0.18em] uppercase text-white/55">Settings</div>
         <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-white/95">
           Workspace Settings
@@ -236,8 +236,7 @@ export default function SettingsPage() {
         <Tile
           title="WhatsApp Connection"
           sub="Manage your WhatsApp linkage and connection health."
-          href="/app/settings"
-          badge="Coming soon"
+          href="/app/connect-whatsapp"
         />
         <Tile
           title="Roles & Permissions"

@@ -385,12 +385,12 @@ function InboxPageInner() {
   if (gate.loading) return <div className="p-8 text-sm text-white/60">Loading…</div>;
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen">
       <div className="mx-auto max-w-4xl px-4 py-5 space-y-6">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Business</div>
-          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Inbox</h1>
-          <p className="mt-1.5 text-sm text-white/50">Upload receipts and documents, or review items sent via WhatsApp.</p>
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-faint)]">Business</div>
+          <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Inbox</h1>
+          <p className="mt-3 text-sm text-[var(--text-muted)]">Upload receipts and documents, or review items sent via WhatsApp.</p>
         </div>
         <UploadPanel onUploaded={() => setRefreshKey((k) => k + 1)} />
         {gate.tenantId && <ReviewContent tenantId={gate.tenantId} refreshKey={refreshKey} />}

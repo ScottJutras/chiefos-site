@@ -154,7 +154,7 @@ export default function EmailCapturePage() {
   if (loading) {
     return (
       <main className="space-y-6">
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 animate-pulse">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 animate-pulse">
           <div className="h-4 w-32 rounded bg-white/10" />
           <div className="mt-3 h-7 w-48 rounded bg-white/10" />
         </div>
@@ -165,7 +165,7 @@ export default function EmailCapturePage() {
   return (
     <main className="space-y-6">
       {/* ── Header ── */}
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
         <div className="text-xs tracking-[0.18em] uppercase text-white/55">Settings</div>
         <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-white/95">
           Email Capture
@@ -178,13 +178,15 @@ export default function EmailCapturePage() {
 
       {error && (
         <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error}
+          {error.toLowerCase().includes("owner") || error.toLowerCase().includes("tenant")
+            ? <>Your account isn&apos;t linked to a WhatsApp number yet. <a href="/app/connect-whatsapp" className="underline text-red-100 hover:text-white">Link WhatsApp</a> to activate email capture.</>
+            : error}
         </div>
       )}
 
       {/* ── Capture Address ── */}
       {info && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 space-y-5">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
           <div className="text-sm font-semibold text-white/80 uppercase tracking-widest text-xs">
             Your Capture Address
           </div>
@@ -224,7 +226,7 @@ export default function EmailCapturePage() {
 
       {/* ── Auto-Forwarding Guides ── */}
       {info?.monthly_cap !== 0 && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 space-y-4">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-4">
           <div className="text-sm font-semibold text-white/80 uppercase tracking-widest text-xs">
             Set Up Auto-Forwarding (Recommended)
           </div>
@@ -273,7 +275,7 @@ export default function EmailCapturePage() {
 
       {/* ── Lead Capture ── */}
       {info?.monthly_cap !== 0 && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 space-y-3">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-3">
           <div className="text-sm font-semibold text-white/80 uppercase tracking-widest text-xs">
             Website Lead Capture
           </div>
@@ -293,7 +295,7 @@ export default function EmailCapturePage() {
 
       {/* ── Manual Forwarding ── */}
       {info?.monthly_cap !== 0 && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 space-y-3">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-3">
           <div className="text-sm font-semibold text-white/80 uppercase tracking-widest text-xs">
             Manual Forwarding
           </div>
@@ -307,7 +309,7 @@ export default function EmailCapturePage() {
 
       {/* ── Rotate Address ── */}
       {info && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 space-y-3">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-3">
           <div className="text-sm font-semibold text-white/80 uppercase tracking-widest text-xs">
             Rotate Address
           </div>

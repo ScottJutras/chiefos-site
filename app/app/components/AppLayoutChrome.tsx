@@ -23,18 +23,18 @@ function AppLayoutChromeInner({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-black text-white">
+    <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Sidebar />
 
       <div className="flex flex-1 flex-col md:ml-56">
         {/* Mobile-only slim top bar */}
         <header
-          className="sticky top-0 z-30 flex items-center border-b border-white/10 bg-black/80 px-4 py-3 backdrop-blur-xl md:hidden"
+          className="sticky top-0 z-30 flex items-center border-b border-[var(--gold-border)] bg-[#0C0B0A]/90 px-4 py-3 backdrop-blur-xl md:hidden"
           style={{ top: "var(--early-access-banner-h, 0px)" }}
         >
           <Link
             href="/app/jobs"
-            className="text-base font-semibold tracking-tight text-white"
+            className="text-base font-semibold tracking-tight text-[var(--text-primary)]"
           >
             ChiefOS
           </Link>
@@ -58,7 +58,7 @@ function AppLayoutChromeInner({ children }: { children: ReactNode }) {
 export default function AppLayoutChrome({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen bg-black text-white">
+      <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <div className="flex flex-1 flex-col">{children}</div>
       </div>
     }>

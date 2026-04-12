@@ -52,8 +52,8 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   }
 
   if (!r.ok) {
-    const code = json?.code || json?.error || "API_ERROR";
-    const message = json?.message || json?.error_description || "Request failed";
+    const code = String(json?.code || json?.error || "API_ERROR");
+    const message = String(json?.message || json?.error_description || "Request failed");
     const e = new Error(`${code}: ${message}`);
     // @ts-ignore
     e.status = r.status;

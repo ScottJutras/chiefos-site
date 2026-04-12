@@ -96,8 +96,8 @@ export default function MobileNav() {
   }, [pathname]);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/92 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 backdrop-blur-xl md:hidden">
-      <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--gold-border)] bg-[#0C0B0A]/95 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 backdrop-blur-xl md:hidden">
+      <div className="mx-auto flex max-w-3xl items-stretch gap-2 rounded-[24px] border border-[var(--gold-border)] bg-white/[0.04] p-2">
         <MobileTabLink href="/app/jobs"              label="Jobs" />
         <MobileTabLink href="/app/activity/expenses" label="My Books" />
         <MobileTabLink href="/app/uploads"           label="Inbox" badge={combinedBadge} />

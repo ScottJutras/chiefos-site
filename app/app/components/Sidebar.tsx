@@ -140,8 +140,8 @@ export default function Sidebar() {
         className={[
           "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition",
           active
-            ? "bg-white/8 text-white"
-            : "text-white/55 hover:bg-white/5 hover:text-white",
+            ? "bg-[rgba(212,168,83,0.12)] text-[#D4A853]"
+            : "text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-primary)]",
         ].join(" ")}
       >
         {label}
@@ -155,26 +155,26 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-30 hidden h-full w-56 flex-col border-r border-white/10 bg-black md:flex">
+    <aside className="fixed left-0 top-0 z-30 hidden h-full w-56 flex-col border-r border-[var(--gold-border)] bg-[var(--background)] md:flex">
 
       {/* Logo */}
       <div className="px-5 py-5">
         <Link
           href="/app/dashboard"
-          className="text-base font-semibold tracking-tight text-white hover:text-white/80 transition"
+          className="text-base font-semibold tracking-tight text-[var(--gold)] hover:text-[var(--text-primary)] transition"
         >
           ChiefOS
         </Link>
       </div>
 
-      <div className="mx-4 border-t border-white/8" />
+      <div className="mx-4 border-t border-[var(--gold-border)]" />
 
       {/* Main nav groups */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
         {mainGroups.map((group, gi) => (
           <div key={gi}>
             {group.label && (
-              <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/25 select-none">
+              <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-faint)] select-none">
                 {group.label}
               </div>
             )}
@@ -199,7 +199,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-white/40 transition hover:bg-white/5 hover:text-white/70"
+          className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--text-faint)] transition hover:bg-white/5 hover:text-[var(--text-muted)]"
         >
           Logout
         </button>

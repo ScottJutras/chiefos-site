@@ -196,99 +196,89 @@ export default function ConnectWhatsAppPage() {
   }, [copied]);
 
   // ✅ early returns AFTER hooks
-  if (gateLoading) return <div className="p-8 text-gray-600">Loading…</div>;
-  if (pageLoading) return <div className="p-8 text-gray-600">Loading…</div>;
+  if (gateLoading) return <div className="p-8 text-[var(--text-muted)]">Loading…</div>;
+  if (pageLoading) return <div className="p-8 text-[var(--text-muted)]">Loading…</div>;
 
   return (
-    <main className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-xl mx-auto px-6 py-16">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Connect WhatsApp</h1>
+    <main className="space-y-6">
+      {/* Header */}
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
+        <div className="text-xs tracking-[0.18em] uppercase text-[var(--text-faint)]">Settings</div>
+        <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+          Connect WhatsApp
+        </h1>
+        <div className="mt-3 text-sm text-[var(--text-muted)] leading-relaxed max-w-xl">
+          Link your portal account to the phone number you use in WhatsApp so expenses, revenue, and time entries flow in automatically.
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {/* Link code */}
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 1</div>
+        <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+          Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> to ChiefOS on WhatsApp:
+        </p>
+
+        <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-5 font-mono text-3xl tracking-[0.35em] text-[var(--gold)] text-center">
+          {has6Digits ? codeDigits : <span className="text-[var(--text-faint)] text-base tracking-normal">No code available</span>}
+        </div>
+
+        {codeRow?.expires_at ? (
+          <div className="text-xs text-[var(--text-faint)]">Expires at {fmtTime(codeRow.expires_at)} — this page checks automatically.</div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={createNewCode}
+            disabled={creating}
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating ? "Generating…" : "Get a new code"}
+          </button>
+
+          <button
+            onClick={checkLinked}
+            disabled={checking}
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {checking ? "Checking…" : "Check now"}
+          </button>
 
           <button
             onClick={async () => {
-              await supabase.auth.signOut();
-              router.push("/login");
+              if (!has6Digits) return;
+              try {
+                await navigator.clipboard.writeText(codeDigits);
+                setCopied(true);
+              } catch {
+                // ignore
+              }
             }}
-            className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50"
+            disabled={!has6Digits}
+            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Log out
+            {copied ? "Copied!" : "Copy code"}
           </button>
+
+          <a
+            href={has6Digits ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}` : undefined}
+            className={`rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-4 py-2 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition inline-flex items-center ${
+              !has6Digits ? "pointer-events-none opacity-40" : ""
+            }`}
+          >
+            Open WhatsApp
+          </a>
         </div>
 
-        <p className="mt-4 text-gray-600">
-          This links your portal account to the phone number you use in WhatsApp so expenses flow in automatically.
+        <p className="text-xs text-[var(--text-faint)]">
+          Once you send the code, this page detects the link automatically.
         </p>
-
-        {error ? (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <div className="font-semibold">Error</div>
-            <div className="mt-1">{error}</div>
-          </div>
-        ) : null}
-
-        <div className="mt-8 rounded-lg border p-5">
-          <div className="text-sm font-semibold">Step 1</div>
-          <div className="mt-2 text-gray-700 text-sm">
-            Send <span className="font-semibold">only this 6-digit code</span> to ChiefOS on WhatsApp:
-          </div>
-
-          <div className="mt-4 rounded-md bg-gray-50 border px-4 py-3 font-mono text-2xl tracking-widest text-center">
-            {has6Digits ? codeDigits : "No code available"}
-          </div>
-
-          {codeRow?.expires_at ? (
-            <div className="mt-2 text-xs text-gray-500">Expires at {fmtTime(codeRow.expires_at)}.</div>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              onClick={createNewCode}
-              disabled={creating}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {creating ? "Generating…" : "Get a new code"}
-            </button>
-
-            <button
-              onClick={checkLinked}
-              disabled={checking}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {checking ? "Checking…" : "Check now"}
-            </button>
-
-            <button
-              onClick={async () => {
-                if (!has6Digits) return;
-                try {
-                  await navigator.clipboard.writeText(codeDigits);
-                  setCopied(true);
-                } catch {
-                  // ignore
-                }
-              }}
-              disabled={!has6Digits}
-              className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-            >
-              {copied ? "Copied!" : "Copy code"}
-            </button>
-
-            <a
-              href={has6Digits ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}` : undefined}
-              className={`rounded-md border px-4 py-2 text-sm hover:bg-gray-50 inline-flex items-center ${
-                !has6Digits ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              Open WhatsApp
-            </a>
-          </div>
-
-          <div className="mt-4 text-sm text-gray-600">
-            Once you send the code, this page will auto-detect the link and take you back to{" "}
-            <span className="font-semibold">{returnTo}</span>.
-          </div>
-        </div>
       </div>
     </main>
   );

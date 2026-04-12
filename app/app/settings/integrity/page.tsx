@@ -86,7 +86,7 @@ export default function IntegrityPage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
         <Link href="/app/settings" className="text-xs text-white/40 hover:text-white/60 transition">
           ← Settings
         </Link>
@@ -155,7 +155,7 @@ export default function IntegrityPage() {
       )}
 
       {/* Verification history */}
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
         <div className="text-sm font-semibold text-white/80 mb-4">Verification History</div>
 
         {loading && <div className="text-sm text-white/40">Loading history…</div>}

@@ -574,7 +574,7 @@ export default function OverheadPage() {
 
       {/* Due this month */}
       {dueItems.length > 0 && (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+        <section className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5">
           <div className="mb-4 text-[11px] uppercase tracking-[0.16em] text-white/40">Due this month</div>
           <div className="space-y-2">
             {dueItems.map((item) => {
@@ -627,7 +627,7 @@ export default function OverheadPage() {
 
       {/* All active items grouped by category */}
       {activeItems.length === 0 && !showForm ? (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-10 text-center">
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.03] p-10 text-center">
           <div className="text-sm font-semibold text-white/60">No overhead items yet</div>
           <div className="mt-2 text-sm text-white/35">
             Add rent, vehicle leases, equipment loans, insurance — anything you pay to keep the business running.
@@ -638,7 +638,7 @@ export default function OverheadPage() {
           </button>
         </div>
       ) : (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 space-y-6">
+        <section className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5 space-y-6">
           <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">All overhead items</div>
           {CATEGORY_ORDER.filter((cat) => grouped[cat]?.length).map((cat) => (
             <div key={cat}>
@@ -742,7 +742,7 @@ export default function OverheadPage() {
 
       {/* Pricing tip */}
       {monthlyBurden > 0 && (
-        <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+        <section className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.03] p-5">
           <div className="text-[11px] uppercase tracking-[0.16em] text-white/40 mb-3">Pricing guidance</div>
           <div className="space-y-2 text-sm text-white/60">
             <div>

@@ -1046,14 +1046,13 @@ export default function ExpensesPage() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
-        {/* Minimal header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        {/* Header */}
+        <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 mb-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <div className={chip("border-white/10 bg-white/5 text-white/60")}>
-              My Books
-            </div>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight">Expense ledger</h1>
-            <p className="mt-2 max-w-2xl text-sm text-white/55">
+            <div className="text-xs uppercase tracking-[0.18em] text-[var(--text-faint)]">Finance</div>
+            <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Expense Ledger</h1>
+            <p className="mt-3 max-w-2xl text-sm text-[var(--text-muted)] leading-relaxed">
               Review recorded expenses, inspect receipts, clean vendor names, and make quick corrections without leaving the ledger.
             </p>
           </div>
@@ -1076,6 +1075,7 @@ export default function ExpensesPage() {
               <RangePill id="today" label="Today" />
             </div>
           </div>
+        </div>
         </div>
 
         {/* Unassigned entries disclosure */}

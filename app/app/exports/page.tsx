@@ -171,10 +171,10 @@ export default function ExportsPage() {
   return (
     <div className="mx-auto max-w-3xl py-2 space-y-6">
       {/* Header */}
-      <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Finance</div>
-        <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Exports</h1>
-        <p className="mt-1.5 text-sm text-white/50">
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
+        <div className="text-xs tracking-[0.18em] uppercase text-[var(--text-faint)]">Finance</div>
+        <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Exports</h1>
+        <p className="mt-3 text-sm text-[var(--text-muted)]">
           Download your financial records as XLSX or PDF — ready for your accountant.
         </p>
       </div>

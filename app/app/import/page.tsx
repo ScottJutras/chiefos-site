@@ -224,10 +224,10 @@ export default function ImportPage() {
       <div className="mx-auto max-w-5xl py-8 px-4">
 
         {/* Header */}
-        <div className="mb-6">
-          <div className={chip("border-white/10 bg-white/5 text-white/60")}>Import</div>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight">Bulk Import</h1>
-          <p className="mt-2 max-w-2xl text-sm text-white/55">
+        <div className="mb-6 rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6">
+          <div className="text-xs tracking-[0.18em] uppercase text-[var(--text-faint)]">Finance</div>
+          <h1 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">Bulk Import</h1>
+          <p className="mt-3 text-sm text-[var(--text-muted)] max-w-2xl leading-relaxed">
             Upload a CSV to bring in historical expenses, revenue, or time records.
             Imported entries appear in your ledgers and company analytics — unassigned entries
             are included in company totals but won&apos;t show up in per-job P&amp;L until you assign them.
