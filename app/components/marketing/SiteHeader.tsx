@@ -31,7 +31,7 @@ export default function SiteHeader() {
         color: "#D4A853",
         textDecoration: "none",
       }}>
-        CHIEF
+        CHIEFOS
       </Link>
 
       <Link href="/signup" style={{
