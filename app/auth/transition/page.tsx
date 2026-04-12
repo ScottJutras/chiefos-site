@@ -56,7 +56,14 @@ function AuthTransitionInner() {
         setActiveStep("resolve-workspace");
         setStatus("Resolving your workspace…");
 
-        const who = await fetchWhoami();
+        let who: Awaited<ReturnType<typeof fetchWhoami>>;
+        try {
+          who = await fetchWhoami();
+        } catch {
+          // Network or unexpected error — route to finish-signup to recover
+          router.replace(`/finish-signup?returnTo=${encodeURIComponent(returnTo)}`);
+          return;
+        }
 
         if (!who?.ok) {
           if (who?.error === "no-session-token") {
@@ -96,9 +103,9 @@ function AuthTransitionInner() {
         }, 450);
       } catch {
         if (cancelled) return;
-        setIsError(true);
-        setActiveStep("resolve-workspace");
-        setStatus("We couldn’t finish the sign-in handoff.");
+        // Unexpected error before we confirmed workspace status — route to finish-signup
+        // which handles workspace creation and will surface any real errors there.
+        router.replace(`/finish-signup?returnTo=${encodeURIComponent(returnTo)}`);
       }
     }
 
@@ -138,22 +145,6 @@ function AuthTransitionInner() {
           description: "Load the operating center for this session.",
         },
       ]}
-      errorActions={
-        <div className="flex flex-col sm:flex-row gap-3">
-          <a
-            href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
-            className="inline-flex items-center justify-center rounded-[2px] bg-[#D4A853] px-5 py-3 text-sm font-semibold text-[#0C0B0A] hover:bg-[#C49843] transition"
-          >
-            Back to login
-          </a>
-          <a
-            href="/signup"
-            className="inline-flex items-center justify-center rounded-[2px] border border-[rgba(212,168,83,0.3)] px-5 py-3 text-sm font-semibold text-[#A8A090] hover:text-[#D4A853] hover:border-[rgba(212,168,83,0.5)] transition"
-          >
-            Create account again
-          </a>
-        </div>
-      }
     />
   );
 }
