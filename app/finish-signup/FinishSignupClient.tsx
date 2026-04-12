@@ -445,6 +445,14 @@ export default function FinishSignupClient() {
   const [allComplete, setAllComplete] = useState(false);
   const [errorLine, setErrorLine] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to bottom as log lines appear
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  });
 
   // Sync/advance machinery
   const realDoneRef = useRef<Set<StepKey>>(new Set());
@@ -774,6 +782,7 @@ export default function FinishSignupClient() {
 
             {/* Log area */}
             <div
+              ref={scrollRef}
               className="chief-scrollbar"
               style={{ padding: "18px 14px", maxHeight: 420, overflowY: "auto" }}
             >

@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchWhoami } from "@/lib/whoami";
 
 // ─── Step definitions ─────────────────────────────────────────────────────────
 
@@ -160,6 +159,14 @@ function AuthTransitionInner() {
   const [completedSteps, setCompletedSteps] = useState<Set<StepKey>>(new Set());
   const [allComplete, setAllComplete] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to bottom as log lines appear
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  });
 
   const realDoneRef = useRef<Set<StepKey>>(new Set());
   const pendingAdvanceRef = useRef<Map<StepKey, () => void>>(new Map());
@@ -209,33 +216,24 @@ function AuthTransitionInner() {
           routerRef.current.replace(`/login?returnTo=${encodeURIComponent(returnToRef.current)}`);
           return;
         }
-        signalRealDone("verify-account");
-
-        // resolve-workspace
-        let who: Awaited<ReturnType<typeof fetchWhoami>>;
-        try {
-          who = await fetchWhoami();
-        } catch {
-          routerRef.current.replace(`/finish-signup?returnTo=${encodeURIComponent(returnToRef.current)}`);
-          return;
-        }
-
-        if (!who?.ok) {
-          if (who?.error === "no-session-token") {
-            routerRef.current.replace(`/login?returnTo=${encodeURIComponent(returnToRef.current)}`);
-            return;
-          }
-          routerRef.current.replace(`/finish-signup?returnTo=${encodeURIComponent(returnToRef.current)}`);
-          return;
-        }
-        signalRealDone("resolve-workspace");
-
-        // secure-tenant
-        if (!who.userId) {
+        const userId = sd?.session?.user?.id || "";
+        if (!userId) {
           routerRef.current.replace(`/login?returnTo=${encodeURIComponent(returnToRef.current)}`);
           return;
         }
-        if (!who.tenantId) {
+        signalRealDone("verify-account");
+
+        // resolve-workspace — direct Supabase query (no core backend dependency)
+        const { data: pu } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        signalRealDone("resolve-workspace");
+
+        // secure-tenant
+        if (!pu?.tenant_id) {
           routerRef.current.replace(`/finish-signup?returnTo=${encodeURIComponent(returnToRef.current)}`);
           return;
         }
@@ -285,7 +283,7 @@ function AuthTransitionInner() {
               </div>
             </div>
 
-            <div className="chief-scrollbar" style={{ padding: "18px 14px", maxHeight: 360, overflowY: "auto" }}>
+            <div ref={scrollRef} className="chief-scrollbar" style={{ padding: "18px 14px", maxHeight: 360, overflowY: "auto" }}>
               {STEP_DEFS.map((step, i) => (
                 <StepBlock
                   key={step.key}
