@@ -122,7 +122,7 @@ export default function EarlyAccessBanner() {
               textDecoration: "none",
             }}
           >
-            CHIEF
+            CHIEFOS
           </Link>
         </div>
         <div className="flex min-w-0 items-center justify-center gap-2">
