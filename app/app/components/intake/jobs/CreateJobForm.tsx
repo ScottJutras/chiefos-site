@@ -130,35 +130,35 @@ export default function CreateJobForm() {
   }
 
   return (
-    <div className=”rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5 md:p-6”>
-      <form onSubmit={onSubmit} className=”space-y-5”>
+    <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5 md:p-6">
+      <form onSubmit={onSubmit} className="space-y-5">
         <div>
-          <label htmlFor=”job-name” className=”block text-sm font-medium text-white/85”>
+          <label htmlFor="job-name" className="block text-sm font-medium text-white/85">
             Job name
           </label>
-          <p className=”mt-1 text-xs leading-5 text-[var(--text-faint)]”>
-            Use the customer or site name plus the job type — e.g. “Oak Street re-roof”.
+          <p className="mt-1 text-xs leading-5 text-[var(--text-faint)]">
+            Use the customer or site name plus the job type — e.g. &quot;Oak Street re-roof&quot;.
           </p>
 
           <input
-            id=”job-name”
-            name=”jobName”
-            type=”text”
-            autoComplete=”off”
+            id="job-name"
+            name="jobName"
+            type="text"
+            autoComplete="off"
             value={jobName}
             onChange={(e) => setJobName(e.target.value)}
-            placeholder=”Oak Street re-roof”
+            placeholder="Oak Street re-roof"
             disabled={submitting}
-            className=”mt-3 w-full rounded-2xl border border-[var(--gold-border)] bg-black/40 px-4 py-3 text-sm text-white/90 placeholder:text-white/25 outline-none transition focus:border-[rgba(212,168,83,0.4)]”
+            className="mt-3 w-full rounded-2xl border border-[var(--gold-border)] bg-black/40 px-4 py-3 text-sm text-white/90 placeholder:text-white/25 outline-none transition focus:border-[rgba(212,168,83,0.4)]"
           />
         </div>
 
-        <div className=”rounded-2xl border border-[var(--gold-border)] bg-white/[0.02] p-4”>
-          <div className=”text-xs uppercase tracking-[0.12em] text-[var(--text-faint)]”>Once created</div>
-          <ul className=”mt-3 space-y-2 text-sm text-[var(--text-muted)]”>
-            <li>• Expenses and revenue logged to this job update its P&amp;L in real time</li>
-            <li>• Ask Chief “job kpis [job name]” to see margin and cost breakdown</li>
-            <li>• Assign crew time entries to track labour cost per job</li>
+        <div className="rounded-2xl border border-[var(--gold-border)] bg-white/[0.02] p-4">
+          <div className="text-xs uppercase tracking-[0.12em] text-[var(--text-faint)]">Once created</div>
+          <ul className="mt-3 space-y-2 text-sm text-[var(--text-muted)]">
+            <li>&#x2022; Expenses and revenue logged to this job update its P&amp;L in real time</li>
+            <li>&#x2022; Ask Chief &quot;job kpis [job name]&quot; to see margin and cost breakdown</li>
+            <li>&#x2022; Assign crew time entries to track labour cost per job</li>
           </ul>
         </div>
 
@@ -183,21 +183,21 @@ export default function CreateJobForm() {
           <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.08] p-4">
             <div className="text-sm font-semibold text-amber-200">Job limit reached</div>
             <div className="mt-1 text-sm text-amber-100/80">
-              You’ve used all 3 jobs on the Free plan. Upgrade to Starter to manage up to 25 active jobs.
+              You&apos;ve used all 3 jobs on the Free plan. Upgrade to Starter to manage up to 25 active jobs.
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <a
                 href="/app/settings/billing?plan=starter"
                 className="inline-flex items-center rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-black hover:bg-amber-400 transition"
               >
-                Upgrade to Starter →
+                Upgrade to Starter &#x2192;
               </a>
-              <span className="self-center text-[11px] text-amber-100/50">7 days free — no charge until day 8</span>
+              <span className="self-center text-[11px] text-amber-100/50">7 days free &#x2014; no charge until day 8</span>
             </div>
           </div>
         ) : resp?.ok === false ? (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-            <div className="text-sm font-semibold text-red-200">Couldn’t create job</div>
+            <div className="text-sm font-semibold text-red-200">Couldn&apos;t create job</div>
             <div className="mt-1 text-sm text-red-100/85">
               {resp.message || "Please try again."}
             </div>
@@ -218,7 +218,7 @@ export default function CreateJobForm() {
                 : "bg-[var(--gold)] text-black hover:bg-[#C49843]"
             )}
           >
-            {submitting ? "Creating…" : "Create job"}
+            {submitting ? "Creating\u2026" : "Create job"}
           </button>
 
           <Link
