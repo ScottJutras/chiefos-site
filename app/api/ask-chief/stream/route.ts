@@ -74,13 +74,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!upstream.ok && !upstream.headers.get("content-type")?.includes("text/event-stream")) {
-    // Non-SSE error from core (e.g., plan gate returned JSON 200) — pass through as-is
+  const upstreamCT = upstream.headers.get("content-type") || "";
+  if (!upstreamCT.includes("text/event-stream")) {
+    // Non-SSE response from core (plan gate JSON, auth error, etc.) — pass through as-is.
+    // Check content-type, not status, because plan gates return JSON 200 (upstream.ok is true).
     const body = await upstream.text().catch(() => "");
     return new Response(body, {
       status: upstream.status,
       headers: {
-        "Content-Type": upstream.headers.get("content-type") || "application/json",
+        "Content-Type": upstreamCT || "application/json",
         "Cache-Control": "no-store",
       },
     });
