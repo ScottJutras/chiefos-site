@@ -78,6 +78,7 @@ export async function POST(req: Request) {
     const password = cleanPassword(body?.password);
     const turnstileToken = cleanText(body?.turnstileToken);
 
+    const ownerName = cleanText(body?.ownerName) || null;
     const companyName = cleanText(body?.companyName);
     const rawCountry = cleanText(body?.country).toUpperCase();
     const country = rawCountry === "CA" || rawCountry === "US" ? rawCountry : null;
@@ -160,6 +161,7 @@ export async function POST(req: Request) {
       .upsert(
         {
           email,
+          owner_name: ownerName,
           company_name: companyName || null,
           country: country || null,
           province: province || null,

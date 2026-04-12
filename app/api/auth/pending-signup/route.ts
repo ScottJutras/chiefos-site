@@ -63,6 +63,7 @@ export async function GET(req: Request) {
       .select(`
         id,
         email,
+        owner_name,
         company_name,
         country,
         province,
