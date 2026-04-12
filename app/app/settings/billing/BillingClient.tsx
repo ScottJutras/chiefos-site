@@ -218,8 +218,12 @@ export default function BillingClient() {
     } catch (e: any) {
       const msg = String(e?.message || "Failed to load billing status");
 
-      // Still not linked (valid state)
-      if (msg.toLowerCase().includes("not_linked") || msg.toLowerCase().includes("missing dashboard token")) {
+      // Portal user without WhatsApp linked — redirect to link-phone
+      if (
+        msg.toLowerCase().includes("not_linked") ||
+        msg.toLowerCase().includes("missing dashboard token") ||
+        msg.toLowerCase().includes("missing owner context")
+      ) {
         router.replace("/app/link-phone?next=/app/settings/billing");
         return null;
       }

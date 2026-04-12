@@ -4,6 +4,153 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import DemoChiefChat from "./DemoChiefChat";
 
+// ─── Hamburger Menu ───────────────────────────────────────────────────────────
+
+const MENU_LINKS = [
+  { label: "Get Started", href: "/signup", primary: true },
+  { label: "Sign in", href: "/login" },
+  { label: "Ask Chief", href: "/#demo" },
+  { divider: true },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Supplier Portal", href: "/supplier/login" },
+  { divider: true },
+  { label: "How it works", href: "/#how" },
+  { label: "Job Performance", href: "/#scoreboard" },
+  { label: "Time Tracking", href: "/#time" },
+  { label: "Plans", href: "/#pricing-preview" },
+  { label: "FAQ", href: "/#faq" },
+  { divider: true },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "AI Policy", href: "/ai-policy" },
+  { label: "Contact", href: "/contact" },
+] as const;
+
+function HamburgerMenu({ gold, textFaint, bg }: { gold: string; textFaint: string; bg: string }) {
+  const [open, setOpen] = useState(false);
+
+  // Close on outside click
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  // Close on route change (anchor clicks)
+  function handleLinkClick() {
+    setOpen(false);
+  }
+
+  return (
+    <div ref={menuRef} style={{ position: "relative" }}>
+      {/* Hamburger button */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label={open ? "Close menu" : "Open menu"}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: "8px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "5px",
+          width: "40px",
+          height: "40px",
+        }}
+      >
+        <span style={{
+          display: "block", width: "22px", height: "2px",
+          background: gold,
+          transition: "transform 0.25s, opacity 0.25s",
+          transform: open ? "translateY(7px) rotate(45deg)" : "none",
+        }} />
+        <span style={{
+          display: "block", width: "22px", height: "2px",
+          background: gold,
+          transition: "opacity 0.25s",
+          opacity: open ? 0 : 1,
+        }} />
+        <span style={{
+          display: "block", width: "22px", height: "2px",
+          background: gold,
+          transition: "transform 0.25s, opacity 0.25s",
+          transform: open ? "translateY(-7px) rotate(-45deg)" : "none",
+        }} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position: "absolute",
+          top: "calc(100% + 12px)",
+          right: 0,
+          width: "240px",
+          background: "rgba(15,14,12,0.97)",
+          border: "1px solid rgba(212,168,83,0.2)",
+          borderRadius: "8px",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+          overflow: "hidden",
+          zIndex: 200,
+        }}>
+          {MENU_LINKS.map((item, i) => {
+            if ("divider" in item) {
+              return <div key={i} style={{ height: "1px", background: "rgba(255,255,255,0.07)", margin: "4px 0" }} />;
+            }
+            if (item.primary) {
+              return (
+                <a key={item.href} href={item.href} onClick={handleLinkClick} style={{
+                  display: "block",
+                  margin: "10px 12px 6px",
+                  padding: "10px 16px",
+                  background: gold,
+                  color: "#0C0B0A",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  letterSpacing: "0.5px",
+                  textDecoration: "none",
+                  borderRadius: "4px",
+                  textAlign: "center",
+                }}>
+                  {item.label}
+                </a>
+              );
+            }
+            return (
+              <a key={item.href} href={item.href} onClick={handleLinkClick} style={{
+                display: "block",
+                padding: "10px 20px",
+                color: textFaint,
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: "13px",
+                letterSpacing: "0.5px",
+                textDecoration: "none",
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = textFaint; }}
+              >
+                {item.label}
+              </a>
+            );
+          })}
+          <div style={{ height: "8px" }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Scroll-reveal ───────────────────────────────────────────────────────────
 
 const useInView = (options = {}) => {
@@ -621,11 +768,13 @@ export default function HomepageClient() {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         ::selection { background: rgba(212,168,83,0.25); color: #F5F0E8; }
+        .chiefos-nav-mobile { display: none; }
         @media (max-width: 700px) {
           .chiefos-comparison-grid { grid-template-columns: 1fr !important; }
           .chiefos-pricing-grid { grid-template-columns: 1fr !important; }
           .chiefos-nav { padding: 16px 20px !important; }
-          .chiefos-nav-secondary { display: none !important; }
+          .chiefos-nav-desktop { display: none !important; }
+          .chiefos-nav-mobile { display: block !important; }
           .chiefos-hero-btns { flex-direction: column; align-items: center; gap: 12px !important; }
           .chiefos-hero-btns button { margin-left: 0 !important; width: 260px; }
           .chiefos-section { padding: 64px 20px !important; }
@@ -640,11 +789,18 @@ export default function HomepageClient() {
       {/* ── NAV ─────────────────────────────────────────────────────────── */}
       <nav style={s.nav} className="chiefos-nav">
         <div style={s.logo}>CHIEFOS</div>
-        <div style={{ display: "flex", gap: "32px", alignItems: "center" }}>
-          <a href="/pricing" className="chiefos-nav-secondary" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
-          <a href="/supplier/login" className="chiefos-nav-secondary" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Supplier Portal</a>
+
+        {/* Desktop nav */}
+        <div className="chiefos-nav-desktop" style={{ display: "flex", gap: "32px", alignItems: "center" }}>
+          <a href="/pricing" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Pricing</a>
+          <a href="/supplier/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Supplier Portal</a>
           <a href="/login" style={{ fontSize: "13px", color: C.textFaint, letterSpacing: "1px", textDecoration: "none" }}>Sign in</a>
           <button style={s.navCta} onClick={() => { window.location.href = "/signup"; }}>Get Started</button>
+        </div>
+
+        {/* Mobile hamburger */}
+        <div className="chiefos-nav-mobile">
+          <HamburgerMenu gold={C.gold} textFaint={C.textFaint} bg={C.bg} />
         </div>
       </nav>
 
