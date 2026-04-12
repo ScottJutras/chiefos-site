@@ -130,35 +130,35 @@ export default function CreateJobForm() {
   }
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-6">
-      <form onSubmit={onSubmit} className="space-y-5">
+    <div className=”rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5 md:p-6”>
+      <form onSubmit={onSubmit} className=”space-y-5”>
         <div>
-          <label htmlFor="job-name" className="block text-sm font-medium text-white/85">
+          <label htmlFor=”job-name” className=”block text-sm font-medium text-white/85”>
             Job name
           </label>
-          <p className="mt-1 text-xs leading-5 text-white/50">
-            Use the customer or site name plus the job type. Example: “Oak Street re-roof”.
+          <p className=”mt-1 text-xs leading-5 text-[var(--text-faint)]”>
+            Use the customer or site name plus the job type — e.g. “Oak Street re-roof”.
           </p>
 
           <input
-            id="job-name"
-            name="jobName"
-            type="text"
-            autoComplete="off"
+            id=”job-name”
+            name=”jobName”
+            type=”text”
+            autoComplete=”off”
             value={jobName}
             onChange={(e) => setJobName(e.target.value)}
-            placeholder="Oak Street re-roof"
+            placeholder=”Oak Street re-roof”
             disabled={submitting}
-            className="mt-3 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none transition focus:border-white/20"
+            className=”mt-3 w-full rounded-2xl border border-[var(--gold-border)] bg-black/40 px-4 py-3 text-sm text-white/90 placeholder:text-white/25 outline-none transition focus:border-[rgba(212,168,83,0.4)]”
           />
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-          <div className="text-xs uppercase tracking-[0.12em] text-white/40">What happens next</div>
-          <ul className="mt-3 space-y-2 text-sm text-white/65">
-            <li>• Create the job through a portal-safe route</li>
-            <li>• Keep this flow deterministic and out of Ask Chief</li>
-            <li>• Return you to the dashboard workspace after success</li>
+        <div className=”rounded-2xl border border-[var(--gold-border)] bg-white/[0.02] p-4”>
+          <div className=”text-xs uppercase tracking-[0.12em] text-[var(--text-faint)]”>Once created</div>
+          <ul className=”mt-3 space-y-2 text-sm text-[var(--text-muted)]”>
+            <li>• Expenses and revenue logged to this job update its P&amp;L in real time</li>
+            <li>• Ask Chief “job kpis [job name]” to see margin and cost breakdown</li>
+            <li>• Assign crew time entries to track labour cost per job</li>
           </ul>
         </div>
 
@@ -214,16 +214,16 @@ export default function CreateJobForm() {
             className={cls(
               "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition",
               submitting || !trimmedName
-                ? "cursor-not-allowed bg-white/20 text-white/45"
-                : "bg-white text-black hover:bg-white/90"
+                ? "cursor-not-allowed bg-white/10 text-white/30"
+                : "bg-[var(--gold)] text-black hover:bg-[#C49843]"
             )}
           >
             {submitting ? "Creating…" : "Create job"}
           </button>
 
           <Link
-            href="/app/dashboard"
-            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 transition hover:bg-white/10"
+            href="/app/jobs"
+            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-[var(--text-muted)] transition hover:bg-white/10"
           >
             Cancel
           </Link>

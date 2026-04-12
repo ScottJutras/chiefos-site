@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       // Push country + province from pending signup → chiefos_tenants
       const { data: pending } = await admin
         .from("chiefos_pending_signups")
-        .select("country, province, owner_phone")
+        .select("country, province, owner_phone, requested_plan_key")
         .eq("email", email)
         .maybeSingle();
 
@@ -149,6 +149,28 @@ export async function POST(req: Request) {
 
       if (updErr) {
         return json(500, { ok: false, error: updErr.message || "Failed to update tenant meta." });
+      }
+
+      // Seed public.users row so the jobs FK constraint is satisfied.
+      // Normally created when owner first messages via WhatsApp; portal
+      // signups with a phone number need to bootstrap it here instead.
+      if (pending.owner_phone) {
+        const planKey = clean(pending.requested_plan_key).toLowerCase();
+        const normalizedPlan =
+          planKey.includes("pro") ? "pro" :
+          planKey.includes("starter") ? "starter" : "free";
+
+        await admin.from("users").upsert(
+          {
+            user_id: pending.owner_phone,
+            owner_id: pending.owner_phone,
+            plan_key: normalizedPlan,
+            country: pending.country ?? null,
+            province: pending.province ?? null,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id", ignoreDuplicates: true }
+        ).then(() => null).catch(() => null); // best-effort — don't block signup on failure
       }
 
       return json(200, { ok: true });
