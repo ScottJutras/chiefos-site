@@ -64,6 +64,7 @@ export async function GET(req: Request) {
         id,
         email,
         owner_name,
+        owner_phone,
         company_name,
         country,
         province,
@@ -117,11 +118,11 @@ export async function POST(req: Request) {
       // Push country + province from pending signup → chiefos_tenants
       const { data: pending } = await admin
         .from("chiefos_pending_signups")
-        .select("country, province")
+        .select("country, province, owner_phone")
         .eq("email", email)
         .maybeSingle();
 
-      if (!pending?.country && !pending?.province) {
+      if (!pending?.country && !pending?.province && !pending?.owner_phone) {
         return json(200, { ok: true, skipped: true });
       }
 
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
       const update: Record<string, any> = {};
       if (pending.country) update.country = pending.country;
       if (pending.province) update.province = pending.province;
+      if (pending.owner_phone) update.owner_id = pending.owner_phone;
 
       const { error: updErr } = await admin
         .from("chiefos_tenants")

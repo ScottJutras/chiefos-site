@@ -18,6 +18,7 @@ type PendingSignup = {
   id: string;
   email: string;
   owner_name: string | null;
+  owner_phone: string | null;
   company_name: string | null;
   country: string | null;
   province: string | null;

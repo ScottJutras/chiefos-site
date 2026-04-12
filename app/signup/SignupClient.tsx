@@ -76,6 +76,7 @@ export default function SignupClient() {
 
   const [ownerName, setOwnerName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -162,6 +163,7 @@ export default function SignupClient() {
           turnstileToken,
 
           ownerName: ownerName.trim() || null,
+          ownerPhone: phone.replace(/\D/g, "") || null,
           companyName: companyName.trim(),
           country: country || null,
           province: province || null,
@@ -258,6 +260,23 @@ export default function SignupClient() {
                   placeholder="Your first name"
                   autoComplete="given-name"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#A8A090]">WhatsApp phone number</label>
+                <input
+                  id="phone"
+                  name="phone"
+                  className="mt-1 w-full rounded-md border border-[rgba(212,168,83,0.2)] bg-[#0F0E0C] px-3 py-2 text-[#E8E2D8] placeholder:text-[#706A60] outline-none focus:border-[rgba(212,168,83,0.5)] focus:ring-1 focus:ring-[rgba(212,168,83,0.2)]"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+1 (416) 555-1234"
+                  type="tel"
+                  autoComplete="tel"
+                />
+                <p className="mt-1.5 text-xs text-[#706A60]">
+                  Include your country code. This links your WhatsApp messages to your account.
+                </p>
               </div>
 
               <div>

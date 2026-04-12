@@ -79,6 +79,7 @@ export async function POST(req: Request) {
     const turnstileToken = cleanText(body?.turnstileToken);
 
     const ownerName = cleanText(body?.ownerName) || null;
+    const ownerPhone = cleanText(body?.ownerPhone).replace(/\D/g, "") || null;
     const companyName = cleanText(body?.companyName);
     const rawCountry = cleanText(body?.country).toUpperCase();
     const country = rawCountry === "CA" || rawCountry === "US" ? rawCountry : null;
@@ -162,6 +163,7 @@ export async function POST(req: Request) {
         {
           email,
           owner_name: ownerName,
+          owner_phone: ownerPhone,
           company_name: companyName || null,
           country: country || null,
           province: province || null,
