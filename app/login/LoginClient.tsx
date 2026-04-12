@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import SiteHeader from "@/app/components/SiteHeader";
 import TurnstileBox from "@/app/components/TurnstileBox";
 import { normalizeAuthMessage } from "@/lib/authErrors";
 
@@ -115,16 +114,14 @@ export default function LoginClient() {
 
   return (
     <main className="min-h-screen bg-[#0C0B0A] text-[#E8E2D8]" style={{ paddingTop: "var(--early-access-banner-h)" }}>
-      <SiteHeader rightLabel="Create account" rightHref="/signup" />
-
-      <div className="max-w-md mx-auto px-6 pt-24 pb-20">
+      <div className="max-w-md mx-auto px-6 pt-10 pb-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
           Early access portal
         </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">Log in</h1>
-        <p className="mt-2 text-[#A8A090]">If you just signed up, confirm your email first — then log in.</p>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">Sign in</h1>
+        <p className="mt-2 text-[#A8A090]">If you just signed up, confirm your email first, then sign in.</p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
@@ -183,7 +180,7 @@ export default function LoginClient() {
             disabled={loading}
             type="submit"
           >
-            {loading ? "Signing in..." : "Log in"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
       </div>
