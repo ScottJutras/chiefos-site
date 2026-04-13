@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 type BannerKind = "tester" | "auth" | "app";
 
@@ -11,6 +12,7 @@ export default function EarlyAccessBanner() {
   const ref = useRef<HTMLDivElement | null>(null);
 
   const [signupMode, setSignupMode] = useState<string>("");
+  const [tenantName, setTenantName] = useState<string | null>(null);
 
   const show =
     pathname === "/login" ||
@@ -39,6 +41,36 @@ export default function EarlyAccessBanner() {
     } catch {
       setSignupMode("");
     }
+  }, [pathname]);
+
+  // Fetch business name when inside the app
+  useEffect(() => {
+    if (!pathname.startsWith("/app")) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        const userId = u?.user?.id;
+        if (!userId) return;
+        const { data: pu } = await supabase
+          .from("chiefos_portal_users")
+          .select("tenant_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        const tenantId = (pu as any)?.tenant_id;
+        if (!tenantId) return;
+        const { data: tenant } = await supabase
+          .from("chiefos_tenants")
+          .select("name")
+          .eq("id", tenantId)
+          .maybeSingle();
+        const name = (tenant as any)?.name as string | null;
+        if (alive && name) setTenantName(name);
+      } catch {
+        // non-blocking
+      }
+    })();
+    return () => { alive = false; };
   }, [pathname]);
 
   useEffect(() => {
@@ -83,7 +115,7 @@ export default function EarlyAccessBanner() {
     if (pathname.startsWith("/app")) {
       return {
         kind: "app" as BannerKind,
-        badge: "CHIEFOS",
+        badge: tenantName || "CHIEFOS",
         message: "Your workspace is active.",
       };
     }
@@ -101,7 +133,7 @@ export default function EarlyAccessBanner() {
       badge: "TAKE COMMAND",
       message: "Your AI-powered business OS is ready to deploy.",
     };
-  }, [pathname, signupMode]);
+  }, [pathname, signupMode, tenantName]);
 
   if (!show) return null;
 
