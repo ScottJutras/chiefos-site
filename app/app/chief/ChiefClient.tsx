@@ -287,7 +287,7 @@ function ChiefClientInner() {
         "  • Everything in Starter, plus:",
         "  • Crew self-logging via WhatsApp",
         "  • Time approvals & edit requests",
-        "  • Unlimited jobs · up to 50 employees",
+        "  • Jobs (no cap) · up to 50 employees",
         "  • Up to 5 board members",
         "  • 7-year history",
         "",

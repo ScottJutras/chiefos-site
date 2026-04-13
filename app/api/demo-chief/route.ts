@@ -60,7 +60,7 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 - Web & WhatsApp portals
 - Conversational logging: text & audio
 - Ask Chief: 2,000 questions/month
-- Unlimited jobs
+- Jobs (no cap)
 - Up to 50 employees
 - Up to 5 board members (no access to financial intelligence — keeps sensitive data owner-only)
 - Everything in Starter, plus: forecasting, crew self-logging via WhatsApp, time approvals & edit requests

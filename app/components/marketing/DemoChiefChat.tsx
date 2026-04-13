@@ -85,7 +85,7 @@ Give the crew tools. Keep control.
 • Web & WhatsApp portals
 • Conversational logging: text & audio
 • Ask Chief: 2,000 questions / month
-• Unlimited jobs · up to 50 employees
+• Jobs (no cap) · up to 50 employees
 • Up to 5 board members*
 • Everything in Starter, plus:
 • Forecasting
