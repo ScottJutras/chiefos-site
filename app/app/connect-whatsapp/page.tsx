@@ -50,6 +50,7 @@ export default function ConnectWhatsAppPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [autoChecking, setAutoChecking] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
@@ -175,12 +176,22 @@ export default function ConnectWhatsAppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gateLoading, userId, tenantId, returnTo]);
 
-  // ✅ auto-check every 1.5s once we have a code
+  // ✅ auto-check every 1.5s once we have a code (silently — does not affect manual button state)
   useEffect(() => {
     if (!codeRow?.code) return;
 
-    const t = setInterval(() => {
-      checkLinked().catch(() => null);
+    const t = setInterval(async () => {
+      if (autoChecking) return; // skip if already running
+      setAutoChecking(true);
+      try {
+        if (!userId || !tenantId) return;
+        const linked = await isLinkedNow();
+        if (linked) router.replace(returnTo);
+      } catch {
+        // silent
+      } finally {
+        setAutoChecking(false);
+      }
     }, 1500);
 
     return () => clearInterval(t);
@@ -217,11 +228,23 @@ export default function ConnectWhatsAppPage() {
         </div>
       ) : null}
 
-      {/* Link code */}
-      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 1</div>
+      {/* Step 1 — Add Chief */}
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-4">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 1 — Add Chief on WhatsApp</div>
         <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-          Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> to ChiefOS on WhatsApp:
+          Save this number in your phone contacts, then open a WhatsApp chat with Chief:
+        </p>
+        <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-4 text-center">
+          <div className="font-mono text-2xl tracking-widest text-[var(--gold)]">+1 (231) 680-2664</div>
+          <div className="mt-1 text-xs text-[var(--text-faint)]">Save as "Chief" in your contacts</div>
+        </div>
+      </div>
+
+      {/* Step 2 — Send code */}
+      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
+        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 2 — Send your link code</div>
+        <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+          Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> as a message to Chief on WhatsApp:
         </p>
 
         <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-5 font-mono text-3xl tracking-[0.35em] text-[var(--gold)] text-center">
@@ -266,7 +289,9 @@ export default function ConnectWhatsAppPage() {
           </button>
 
           <a
-            href={has6Digits ? `https://wa.me/?text=${encodeURIComponent(codeDigits)}` : undefined}
+            href={has6Digits ? `https://wa.me/12316802664?text=${encodeURIComponent(codeDigits)}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
             className={`rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-4 py-2 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition inline-flex items-center ${
               !has6Digits ? "pointer-events-none opacity-40" : ""
             }`}
