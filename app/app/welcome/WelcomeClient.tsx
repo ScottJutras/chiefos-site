@@ -174,15 +174,65 @@ function PlanStep({
   );
 }
 
+function digitsOnly(code: string | null | undefined) {
+  return String(code || "").replace(/\D/g, "");
+}
+
 export default function WelcomeClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [hasWhatsApp, setHasWhatsApp] = useState(false);
   const [hasExpense, setHasExpense] = useState(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [portalUserId, setPortalUserId] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [planKey, setPlanKey] = useState<string | null>(null);
   const [planAcknowledged, setPlanAcknowledged] = useState(false);
+
+  // Link code state
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [phoneNumberCopied, setPhoneNumberCopied] = useState(false);
+
+  async function fetchOrCreateCode(uid: string) {
+    setCodeLoading(true);
+    try {
+      const { data } = await supabase
+        .from("chiefos_link_codes")
+        .select("code")
+        .eq("portal_user_id", uid)
+        .is("used_at", null)
+        .or("expires_at.is.null,expires_at.gt.now()")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data?.code) {
+        setLinkCode(digitsOnly(data.code));
+        return;
+      }
+
+      // No existing code — create one
+      await supabase.rpc("chiefos_create_link_code", {});
+
+      const { data: fresh } = await supabase
+        .from("chiefos_link_codes")
+        .select("code")
+        .eq("portal_user_id", uid)
+        .is("used_at", null)
+        .or("expires_at.is.null,expires_at.gt.now()")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setLinkCode(fresh?.code ? digitsOnly(fresh.code) : null);
+    } catch {
+      // non-blocking
+    } finally {
+      setCodeLoading(false);
+    }
+  }
 
   async function loadState() {
     try {
@@ -197,9 +247,16 @@ export default function WelcomeClient() {
       }
 
       const tid = String(w.tenantId);
+      const uid = String(w.userId);
       setHasWhatsApp(!!w.hasWhatsApp);
       setTenantId(tid);
+      setPortalUserId(uid);
       setPlanKey(w.planKey ?? "free");
+
+      // Fetch/create link code if not yet linked
+      if (!w.hasWhatsApp) {
+        void fetchOrCreateCode(uid);
+      }
 
       // Restore plan acknowledgment from localStorage
       try {
@@ -229,6 +286,18 @@ export default function WelcomeClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!codeCopied) return;
+    const t = setTimeout(() => setCodeCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [codeCopied]);
+
+  useEffect(() => {
+    if (!phoneNumberCopied) return;
+    const t = setTimeout(() => setPhoneNumberCopied(false), 1400);
+    return () => clearTimeout(t);
+  }, [phoneNumberCopied]);
+
   // Auto-redirect to dashboard once all steps are done
   // Free users must acknowledge the plan step first
   const planStepDone = planKey !== "free" || planAcknowledged;
@@ -243,16 +312,22 @@ export default function WelcomeClient() {
     setChecking(true);
     try {
       const w: any = await fetchWhoami();
-      if (w?.ok && w.hasWhatsApp) {
-        setHasWhatsApp(true);
-        // Also recheck expense
-        if (tenantId) {
-          const { count } = await supabase
-            .from("chiefos_portal_expenses")
-            .select("*", { count: "exact", head: true })
-            .eq("tenant_id", tenantId)
-            .limit(1);
-          setHasExpense((count ?? 0) > 0);
+      if (w?.ok) {
+        const linked = !!w.hasWhatsApp;
+        setHasWhatsApp(linked);
+        if (linked) {
+          // Also recheck expense
+          if (tenantId) {
+            const { count } = await supabase
+              .from("chiefos_portal_expenses")
+              .select("*", { count: "exact", head: true })
+              .eq("tenant_id", tenantId)
+              .limit(1);
+            setHasExpense((count ?? 0) > 0);
+          }
+        } else if (!linkCode && portalUserId) {
+          // Still not linked — ensure we have a code ready
+          void fetchOrCreateCode(portalUserId);
         }
       }
     } catch {
@@ -368,33 +443,137 @@ export default function WelcomeClient() {
                     ? "Your phone is connected. Expenses flow automatically."
                     : "Connect your phone so Chief knows it's you logging expenses."}
                 </div>
+
                 {!hasWhatsApp && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <a
-                      href={WA_LINK_LINK}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
-                    >
-                      Open WhatsApp to link
-                    </a>
-                    <Link
-                      href="/app/connect-whatsapp?returnTo=/app/welcome"
-                      className="inline-flex items-center rounded-xl border border-white/15 px-4 py-2 text-xs text-white/70 hover:bg-white/5 transition"
-                    >
-                      Show my link code
-                    </Link>
+                  <div className="mt-5 space-y-5">
+
+                    {/* Sub-step A: Download WhatsApp */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">1 · Get WhatsApp</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Desktop */}
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
+                          <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Desktop</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <a
+                              href="https://www.microsoft.com/store/apps/9NKSQGP7F2NH"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
+                            >
+                              Windows
+                            </a>
+                            <a
+                              href="https://apps.apple.com/app/whatsapp-desktop/id1147396723"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
+                            >
+                              Mac
+                            </a>
+                          </div>
+                        </div>
+                        {/* Mobile */}
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
+                          <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Mobile</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <a
+                              href="https://apps.apple.com/app/whatsapp-messenger/id310633997"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
+                            >
+                              iPhone
+                            </a>
+                            <a
+                              href="https://play.google.com/store/apps/details?id=com.whatsapp"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
+                            >
+                              Android
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sub-step B: Add Chief as a contact */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">2 · Add Chief as a contact</div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText("+12316802664");
+                            setPhoneNumberCopied(true);
+                          } catch { /* ignore */ }
+                        }}
+                        className="flex items-center gap-3 rounded-xl border border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.06)] px-4 py-3 hover:bg-[rgba(212,168,83,0.1)] transition w-full text-left"
+                      >
+                        <span className="font-mono text-base tracking-widest text-[#D4A853]">+1 (231) 680-2664</span>
+                        <span className="ml-auto text-[10px] text-[#D4A853]/60">
+                          {phoneNumberCopied ? "Copied!" : "Tap to copy"}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Sub-step C: Send link code */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">3 · Send this code to Chief on WhatsApp</div>
+                      <div className="rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.05)] px-5 py-4 text-center">
+                        {codeLoading ? (
+                          <span className="text-white/30 text-sm">Generating code…</span>
+                        ) : linkCode ? (
+                          <span className="font-mono text-2xl tracking-[0.35em] text-[#D4A853]">{linkCode}</span>
+                        ) : (
+                          <span className="text-white/30 text-sm">No code available</span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          onClick={async () => {
+                            if (!linkCode) return;
+                            try {
+                              await navigator.clipboard.writeText(linkCode);
+                              setCodeCopied(true);
+                            } catch { /* ignore */ }
+                          }}
+                          disabled={!linkCode}
+                          className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/60 hover:bg-white/10 transition disabled:opacity-40"
+                        >
+                          {codeCopied ? "Copied!" : "Copy code"}
+                        </button>
+                        <a
+                          href={linkCode ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(linkCode)}` : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition ${!linkCode ? "pointer-events-none opacity-40" : ""}`}
+                        >
+                          Open WhatsApp →
+                        </a>
+                        <button
+                          onClick={() => portalUserId && void fetchOrCreateCode(portalUserId)}
+                          disabled={codeLoading || !portalUserId}
+                          className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/50 hover:bg-white/10 transition disabled:opacity-40"
+                        >
+                          {codeLoading ? "…" : "New code"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Check now */}
                     <button
                       onClick={recheckWhatsApp}
                       disabled={checking}
                       className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
                     >
-                      {checking ? "Checking…" : "Already linked?"}
+                      {checking ? "Checking…" : "Already linked? Check now"}
                     </button>
+
+                    {YT_WALKTHROUGH && (
+                      <VideoLink url={YT_WALKTHROUGH} label="Watch 60-second setup walkthrough" />
+                    )}
                   </div>
-                )}
-                {YT_WALKTHROUGH && !hasWhatsApp && (
-                  <VideoLink url={YT_WALKTHROUGH} label="Watch 60-second setup walkthrough" />
                 )}
               </div>
             </div>
