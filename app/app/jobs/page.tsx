@@ -263,7 +263,7 @@ function BusinessPulse({
   if (!hasSomeData && activeJobs.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03]">
+    <div className="mb-6 rounded-[28px] border border-[var(--gold-border)] bg-white/[0.03]">
       {/* Section header */}
       <button
         type="button"

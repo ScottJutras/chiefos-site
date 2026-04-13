@@ -10,6 +10,7 @@ export type RevenueChartRow = {
 };
 
 export type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
+export type MetricKey = "revenue" | "expenses" | "profit";
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   wtd: "WTD",
@@ -19,15 +20,28 @@ const RANGE_LABELS: Record<RangeKey, string> = {
   all: "All",
 };
 
+const LINE_COLOR: Record<MetricKey, string> = {
+  revenue: "#D4A853",
+  expenses: "#f87171",
+  profit: "#34d399",
+};
+const AREA_COLOR: Record<MetricKey, string> = {
+  revenue: "rgba(212,168,83,0.08)",
+  expenses: "rgba(248,113,113,0.08)",
+  profit: "rgba(52,211,153,0.08)",
+};
+
 type Props = {
   txRows: RevenueChartRow[];
   accountCreatedAt: string | null;
   country: string | null;
   loading?: boolean;
-  /** External range control — when provided, hides internal toggle buttons */
+  /** External range — hides internal toggle buttons when provided */
   range?: RangeKey;
   onRangeChange?: (r: RangeKey) => void;
-  /** Compact mode — hides the header row (use when embedded inside another card) */
+  /** Which metric to chart */
+  metric?: MetricKey;
+  /** Compact mode: hides the standalone card header (use when embedded) */
   compact?: boolean;
 };
 
@@ -56,10 +70,11 @@ function shortDate(s: string): string {
 }
 
 function fmtMoney(cents: number, sym: string): string {
-  const d = cents / 100;
-  if (d >= 10_000) return `${sym}${Math.round(d / 1_000)}k`;
-  if (d >= 1_000) return `${sym}${(d / 1_000).toFixed(1)}k`;
-  return `${sym}${Math.round(d)}`;
+  const d = Math.abs(cents) / 100;
+  const prefix = cents < 0 ? "-" : "";
+  if (d >= 10_000) return `${prefix}${sym}${Math.round(d / 1_000)}k`;
+  if (d >= 1_000) return `${prefix}${sym}${(d / 1_000).toFixed(1)}k`;
+  return `${prefix}${sym}${Math.round(d)}`;
 }
 
 function rangeStartKey(range: RangeKey): string | null {
@@ -76,7 +91,6 @@ function rangeStartKey(range: RangeKey): string | null {
     const q = Math.floor(now.getMonth() / 3) * 3;
     d = new Date(now.getFullYear(), q, 1);
   } else {
-    // ytd
     d = new Date(now.getFullYear(), 0, 1);
   }
   d.setHours(0, 0, 0, 0);
@@ -95,14 +109,16 @@ export default function RevenueLineChart({
   loading,
   range: externalRange,
   onRangeChange,
+  metric: externalMetric,
   compact = false,
 }: Props) {
   const [internalRange, setInternalRange] = useState<RangeKey>("all");
 
   const activeRange = externalRange !== undefined ? externalRange : internalRange;
   const handleRange = onRangeChange ?? setInternalRange;
-  // Show toggle buttons only when no external range handler is wired up
   const showToggles = onRangeChange === undefined;
+
+  const activeMetric: MetricKey = externalMetric ?? "revenue";
 
   const sym = country === "CA" ? "CA$" : "$";
   const code = country === "CA" ? "CAD" : "USD";
@@ -110,7 +126,6 @@ export default function RevenueLineChart({
   const chart = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
 
-    // Compute x-axis start: range start or account creation date
     const rStart = rangeStartKey(activeRange);
     const rawAccount = toIsoDate(accountCreatedAt);
     const accountStart = rawAccount && rawAccount <= today ? rawAccount : today;
@@ -118,23 +133,44 @@ export default function RevenueLineChart({
     const endKey = today;
     const span = daysBetween(startKey, endKey);
 
-    // Build daily revenue buckets
-    const map = new Map<string, number>();
+    // Bucket revenue and expenses separately
+    const revMap = new Map<string, number>();
+    const expMap = new Map<string, number>();
     for (const row of txRows) {
-      if (String(row.kind || "").toLowerCase() !== "revenue") continue;
       const k = toIsoDate(row.date || row.created_at);
       if (!k || k < startKey || k > endKey) continue;
-      map.set(k, (map.get(k) || 0) + Number(row.amount_cents || 0));
+      const kind = String(row.kind || "").toLowerCase();
+      const cents = Number(row.amount_cents || 0);
+      if (kind === "revenue") revMap.set(k, (revMap.get(k) || 0) + cents);
+      else if (kind === "expense") expMap.set(k, (expMap.get(k) || 0) + cents);
     }
 
-    const maxCents = Math.max(0, ...Array.from(map.values()));
-    const yMax = maxCents > 0 ? maxCents * 1.2 : 50_000;
+    // Select active metric map
+    let map: Map<string, number>;
+    if (activeMetric === "revenue") {
+      map = revMap;
+    } else if (activeMetric === "expenses") {
+      map = expMap;
+    } else {
+      // profit = revenue − expenses per day
+      const allDays = new Set([...revMap.keys(), ...expMap.keys()]);
+      map = new Map();
+      for (const k of allDays) map.set(k, (revMap.get(k) || 0) - (expMap.get(k) || 0));
+    }
+
+    const values = Array.from(map.values());
+    const rawMin = Math.min(0, ...(values.length ? values : [0]));
+    const rawMax = Math.max(0, ...(values.length ? values : [0]));
+    const pad = (rawMax - rawMin) * 0.15 || 5_000;
+    const yMin = rawMin < 0 ? rawMin - pad : 0;
+    const yMax = rawMax > 0 ? rawMax + pad : 50_000;
+    const yRange = yMax - yMin;
 
     function xAt(key: string): number {
       return span === 0 ? SVG_W / 2 : (daysBetween(startKey, key) / span) * SVG_W;
     }
     function yAt(cents: number): number {
-      return SVG_H * (1 - cents / yMax);
+      return SVG_H * (1 - (cents - yMin) / yRange);
     }
 
     const pts = Array.from(map.entries())
@@ -143,41 +179,48 @@ export default function RevenueLineChart({
 
     let linePath = "";
     let areaPath = "";
+    const baselineY = yAt(0);
     if (pts.length >= 2) {
       linePath =
         `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)} ` +
         pts.slice(1).map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
       areaPath =
-        `${linePath} L ${pts[pts.length - 1].x.toFixed(2)} ${SVG_H} ` +
-        `L ${pts[0].x.toFixed(2)} ${SVG_H} Z`;
+        `${linePath} L ${pts[pts.length - 1].x.toFixed(2)} ${baselineY.toFixed(2)} ` +
+        `L ${pts[0].x.toFixed(2)} ${baselineY.toFixed(2)} Z`;
     } else if (pts.length === 1) {
       const py = pts[0].y.toFixed(2);
       linePath = `M ${Math.max(0, pts[0].x - 3).toFixed(2)} ${py} L ${Math.min(SVG_W, pts[0].x + 3).toFixed(2)} ${py}`;
     }
 
-    // Y-axis labels: top (max) → bottom (0)
+    // Y-axis labels (5 ticks, top → bottom)
     const yLabels = [1, 0.75, 0.5, 0.25, 0].map((f) =>
-      fmtMoney(Math.round(yMax * f), sym)
+      fmtMoney(Math.round(yMin + yRange * f), sym)
     );
 
-    // X-axis: 5 evenly spaced date labels
+    // X-axis labels (5 evenly spaced)
     const xLabels = Array.from({ length: 5 }, (_, i) => {
       const offset = Math.round((i / 4) * span);
       return shortDate(addDays(startKey, offset));
     });
 
-    // Horizontal grid lines at 0%, 25%, 50%, 75%, 100%
+    // Horizontal grid lines (0%, 25%, 50%, 75%, 100%)
     const gridLines = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
       y: (SVG_H * f).toFixed(2),
       strong: f === 0 || f === 1,
     }));
 
-    return { linePath, areaPath, yLabels, xLabels, gridLines, hasData: map.size > 0 };
-  }, [txRows, accountCreatedAt, activeRange, sym]);
+    // Zero line (only meaningful when profit has negative values)
+    const zeroLineY = yMin < 0 ? baselineY : null;
+
+    return {
+      linePath, areaPath, yLabels, xLabels, gridLines,
+      zeroLineY, hasData: map.size > 0,
+    };
+  }, [txRows, accountCreatedAt, activeRange, activeMetric, sym]);
 
   if (loading) {
     return (
-      <div className="rounded-[20px] border border-white/8 bg-white/[0.02] px-4 py-5">
+      <div className={compact ? "" : "rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5"}>
         <div className="flex h-[140px] items-center justify-center">
           <span className="text-xs text-white/30">Loading&#x2026;</span>
         </div>
@@ -185,15 +228,20 @@ export default function RevenueLineChart({
     );
   }
 
+  const lineColor = LINE_COLOR[activeMetric];
+  const areaColor = AREA_COLOR[activeMetric];
+
   return (
     <div className={compact ? "" : "rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5"}>
-      {/* Header row — hidden in compact mode */}
+      {/* Standalone header — hidden in compact/embedded mode */}
       {!compact && (
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Revenue</div>
             <h2 className="mt-1 text-lg font-semibold text-white/95">Revenue over time</h2>
-            <div className="mt-0.5 text-xs text-white/40">{code} &#x2022; {activeRange === "all" ? "from account creation" : "filtered by selected range"}</div>
+            <div className="mt-0.5 text-xs text-white/40">
+              {code} &#x2022; {activeRange === "all" ? "from account creation" : "filtered by range"}
+            </div>
           </div>
           {showToggles && (
             <div className="flex flex-wrap gap-2">
@@ -228,40 +276,37 @@ export default function RevenueLineChart({
           ))}
         </div>
 
-        {/* Chart area + X labels */}
+        {/* SVG + X labels */}
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="h-[130px] w-full">
             <svg
               viewBox={`0 0 ${SVG_W} ${SVG_H}`}
               preserveAspectRatio="none"
               className="h-full w-full"
-              aria-label="Revenue line chart"
+              aria-label="Chart"
             >
               {/* Grid lines */}
               {chart.gridLines.map(({ y, strong }) => (
-                <line
-                  key={y}
-                  x1="0" y1={y} x2={SVG_W} y2={y}
+                <line key={y} x1="0" y1={y} x2={SVG_W} y2={y}
                   stroke={strong ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)"}
-                  strokeWidth="0.5"
-                />
+                  strokeWidth="0.5" />
               ))}
+
+              {/* Zero baseline for profit metric */}
+              {chart.zeroLineY !== null && (
+                <line x1="0" y1={chart.zeroLineY.toFixed(2)} x2={SVG_W} y2={chart.zeroLineY.toFixed(2)}
+                  stroke="rgba(255,255,255,0.20)" strokeWidth="0.6" />
+              )}
 
               {/* Area fill */}
               {chart.areaPath && (
-                <path d={chart.areaPath} fill="rgba(212,168,83,0.08)" />
+                <path d={chart.areaPath} fill={areaColor} />
               )}
 
-              {/* Revenue line */}
+              {/* Data line */}
               {chart.linePath && (
-                <path
-                  d={chart.linePath}
-                  fill="none"
-                  stroke="#D4A853"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
+                <path d={chart.linePath} fill="none" stroke={lineColor}
+                  strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
               )}
             </svg>
           </div>
@@ -269,9 +314,7 @@ export default function RevenueLineChart({
           {/* X-axis labels */}
           <div className="flex justify-between">
             {chart.xLabels.map((label, i) => (
-              <span key={i} className="text-[9px] leading-none text-white/25">
-                {label}
-              </span>
+              <span key={i} className="text-[9px] leading-none text-white/25">{label}</span>
             ))}
           </div>
         </div>
@@ -280,7 +323,7 @@ export default function RevenueLineChart({
       {/* Empty state */}
       {!chart.hasData && (
         <p className="mt-3 text-center text-[10px] italic text-white/20">
-          No revenue logged {activeRange === "all" ? "yet" : "in this range"} &#x2014; your line will appear here as you log data
+          No {activeMetric} logged {activeRange === "all" ? "yet" : "in this range"} &#x2014; your line will appear as you log data
         </p>
       )}
     </div>

@@ -8,7 +8,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import OnboardingWidget from "@/app/app/components/OnboardingWidget";
-import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
+import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
@@ -547,7 +547,7 @@ function CenterWorkspace({
         />
       </div>
 
-      {/* Pulse chart */}
+      {/* Business pulse — line chart embedded inside, responds to metric + range */}
       <BusinessPulseChart
         points={pulsePoints}
         activeJobs={summary.activeJobs}
@@ -557,14 +557,9 @@ function CenterWorkspace({
         loading={pulseLoading}
         range={pulseRange}
         onRangeChange={setPulseRange}
-      />
-
-      {/* Revenue line chart — all-time from account creation */}
-      <RevenueLineChart
         txRows={pulseRows as RevenueChartRow[]}
-        accountCreatedAt={tenantCreatedAt}
         country={tenantCountry}
-        loading={pulseLoading}
+        accountCreatedAt={tenantCreatedAt}
       />
 
       {/* Records panel */}

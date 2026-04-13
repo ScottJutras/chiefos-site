@@ -7,7 +7,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
-import { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
@@ -116,44 +115,6 @@ function fmtHours(h: number) {
 }
 
 
-function buildPulsePoints(rows: TxRow[], range: "wtd" | "mtd" | "qtd" | "ytd" | "all"): PulsePoint[] {
-  const now = new Date();
-  const starts: Record<string, Date | null> = {
-    wtd: (() => { const d = new Date(now); const day = d.getDay(); d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); d.setHours(0,0,0,0); return d; })(),
-    mtd: (() => { const d = new Date(now); d.setDate(1); d.setHours(0,0,0,0); return d; })(),
-    qtd: (() => { const d = new Date(now); d.setMonth(Math.floor(d.getMonth() / 3) * 3, 1); d.setHours(0,0,0,0); return d; })(),
-    ytd: (() => { const d = new Date(now); d.setMonth(0,1); d.setHours(0,0,0,0); return d; })(),
-    all: null,
-  };
-  const start = starts[range];
-  const filtered = rows.filter((r) => {
-    const raw = r.date || r.created_at;
-    if (!raw) return false;
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return false;
-    return !start || d >= start;
-  });
-  const buckets = new Map<string, { revenue: number; expenses: number }>();
-  for (const r of filtered) {
-    const raw = r.date || r.created_at;
-    if (!raw) continue;
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) continue;
-    const key = d.toISOString().slice(0, 10);
-    const b = buckets.get(key) || { revenue: 0, expenses: 0 };
-    const cents = Number(r.amount_cents || 0);
-    if (r.kind === "revenue") b.revenue += cents; else b.expenses += cents;
-    buckets.set(key, b);
-  }
-  return Array.from(buckets.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([key, v]) => ({
-      label: new Date(`${key}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      revenueCents: v.revenue,
-      expenseCents: v.expenses,
-      profitCents: v.revenue - v.expenses,
-    }));
-}
 
 async function getBearerToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -1057,15 +1018,11 @@ const RANGE_LABELS: Record<RangeKey, string> = { wtd: "WTD", mtd: "MTD", qtd: "Q
 
 // ─── Job Performance Chart ────────────────────────────────────────────────────
 
-const ML = 62, MR = 16, MT = 18, MB = 44;
-const SVG_W = 560, SVG_H = 230;
-const PW = SVG_W - ML - MR;
-const PH = SVG_H - MT - MB;
-
 function JobPerformanceChart({ jobId, country }: { jobId: number; country?: string | null }) {
   const [txRows, setTxRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>("mtd");
+  const [metric, setMetric] = useState<"revenue" | "expenses" | "profit">("profit");
 
   useEffect(() => {
     supabase.from("transactions").select("id, date, amount_cents, kind, job_name, job_id, created_at")
@@ -1073,118 +1030,47 @@ function JobPerformanceChart({ jobId, country }: { jobId: number; country?: stri
       .then(({ data }) => { setTxRows((data as TxRow[]) || []); setLoading(false); });
   }, [jobId]);
 
-  const points = useMemo(() => buildPulsePoints(txRows, range), [txRows, range]);
-  const n = points.length;
-
-  const allVals = points.flatMap((p) => [p.revenueCents, p.expenseCents, p.profitCents]);
-  const yMin = Math.min(0, ...(allVals.length ? allVals : [0]));
-  const yMax = Math.max(1, ...(allVals.length ? allVals : [1]));
-  const yRange = yMax - yMin || 1;
-
-  function toY(v: number) { return MT + PH * (1 - (v - yMin) / yRange); }
-  function toX(i: number) { return n <= 1 ? ML + PW / 2 : ML + (i / (n - 1)) * PW; }
-  function makePath(vals: number[]) {
-    return vals.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`).join(" ");
-  }
-
-  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (yRange / 4) * i);
-  const xLabels: { x: number; label: string }[] = n === 0 ? [] : n === 1
-    ? [{ x: toX(0), label: points[0].label }]
-    : [
-        { x: toX(0), label: points[0].label },
-        ...(n >= 3 ? [{ x: toX(Math.floor((n - 1) / 2)), label: points[Math.floor((n - 1) / 2)].label }] : []),
-        { x: toX(n - 1), label: points[n - 1].label },
-      ];
-
   return (
     <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5">
-      {/* Header + range toggles */}
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Performance</div>
           <h2 className="mt-1 text-lg font-semibold text-white/95">Job overview</h2>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {(["wtd", "mtd", "qtd", "ytd", "all"] as const).map((k) => (
-            <button key={k} type="button" onClick={() => setRange(k)}
-              className={["rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                range === k
-                  ? "border-[var(--gold)] bg-[var(--gold)] text-black"
-                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
-              ].join(" ")}>
-              {RANGE_LABELS[k]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Multi-line chart: revenue / expenses / profit */}
-      <div className="mt-5 overflow-x-auto">
-        {loading ? (
-          <div className="flex h-[200px] items-center justify-center">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
-          </div>
-        ) : n === 0 ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-white/40">
-            No transactions in this range yet.
-          </div>
-        ) : (
-          <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full" preserveAspectRatio="xMidYMid meet" style={{ height: 200 }}>
-            {yTicks.map((v, i) => {
-              const y = toY(v);
-              const isZero = Math.abs(v) < yRange * 0.01;
-              return (
-                <g key={i}>
-                  <line x1={ML} x2={ML + PW} y1={y.toFixed(1)} y2={y.toFixed(1)}
-                    stroke={isZero ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)"}
-                    strokeWidth={isZero ? "0.8" : "0.5"}
-                    strokeDasharray={isZero ? undefined : "3 3"} />
-                  <text x={(ML - 5).toFixed(0)} y={y.toFixed(1)} textAnchor="end" dominantBaseline="middle"
-                    fill="rgba(255,255,255,0.35)" fontSize="8">
-                    {v === 0 ? "$0" : fmtMoney(Math.round(v))}
-                  </text>
-                </g>
-              );
-            })}
-            <line x1={ML} x2={ML + PW} y1={SVG_H - MB} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-            <line x1={ML} x2={ML} y1={MT} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-            {xLabels.map(({ x, label }, i) => (
-              <text key={i} x={x.toFixed(1)} y={(SVG_H - MB + 14).toFixed(0)} textAnchor="middle"
-                fill="rgba(255,255,255,0.35)" fontSize="8">{label}</text>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Metric toggles */}
+          <div className="flex flex-wrap gap-2">
+            {(["profit", "revenue", "expenses"] as const).map((m) => (
+              <button key={m} type="button" onClick={() => setMetric(m)}
+                className={["rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                  metric === m
+                    ? "border-[var(--gold)] bg-[var(--gold)] text-black"
+                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+                ].join(" ")}>
+                {m === "profit" ? "Profit" : m === "revenue" ? "Revenue" : "Expenses"}
+              </button>
             ))}
-            <path d={makePath(points.map((p) => p.revenueCents))} fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-            <path d={makePath(points.map((p) => p.expenseCents))} fill="none" stroke="#f87171" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-            <path d={makePath(points.map((p) => p.profitCents))} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
-          </svg>
-        )}
-      </div>
-
-      {/* Legend */}
-      {n > 0 && (
-        <div className="mt-3 flex flex-wrap gap-5 text-xs">
-          {[
-            { color: "#34d399", label: "Revenue", dashed: false },
-            { color: "#f87171", label: "Expenses", dashed: false },
-            { color: "rgba(255,255,255,0.75)", label: "Profit", dashed: true },
-          ].map(({ color, label, dashed }) => (
-            <div key={label} className="flex items-center gap-2">
-              <svg width="22" height="10" className="shrink-0">
-                <line x1="0" y1="5" x2="22" y2="5" stroke={color} strokeWidth="2" strokeDasharray={dashed ? "4 2" : undefined} />
-              </svg>
-              <span className="text-white/50">{label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Gold revenue line chart — shares the same range toggle */}
-      <div className="mt-5 border-t border-white/8 pt-5">
-        <div className="mb-2">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Revenue trend</div>
-          <div className="mt-0.5 text-[10px] text-white/25">
-            {country === "CA" ? "CAD" : "USD"} &#x2022; {range === "all" ? "all time" : RANGE_LABELS[range]}
+          </div>
+          <div className="h-4 w-px bg-white/10" aria-hidden />
+          {/* Range toggles */}
+          <div className="flex flex-wrap gap-2">
+            {(["wtd", "mtd", "qtd", "ytd", "all"] as const).map((k) => (
+              <button key={k} type="button" onClick={() => setRange(k)}
+                className={["rounded-full border px-3 py-1.5 text-xs font-medium transition",
+                  range === k
+                    ? "border-[var(--gold)] bg-[var(--gold)] text-black"
+                    : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+                ].join(" ")}>
+                {RANGE_LABELS[k]}
+              </button>
+            ))}
           </div>
         </div>
+      </div>
+
+      {/* Single line chart — responds to both metric + range toggles */}
+      <div className="mt-5">
         <RevenueLineChart
           txRows={txRows as RevenueChartRow[]}
           accountCreatedAt={null}
@@ -1192,6 +1078,7 @@ function JobPerformanceChart({ jobId, country }: { jobId: number; country?: stri
           loading={loading}
           range={range}
           onRangeChange={setRange}
+          metric={metric}
           compact
         />
       </div>
