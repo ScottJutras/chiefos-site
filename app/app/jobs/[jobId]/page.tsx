@@ -1062,7 +1062,7 @@ const SVG_W = 560, SVG_H = 230;
 const PW = SVG_W - ML - MR;
 const PH = SVG_H - MT - MB;
 
-function JobPerformanceChart({ jobId }: { jobId: number }) {
+function JobPerformanceChart({ jobId, country }: { jobId: number; country?: string | null }) {
   const [txRows, setTxRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>("mtd");
@@ -1097,7 +1097,8 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
       ];
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-5">
+      {/* Header + range toggles */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Performance</div>
@@ -1107,7 +1108,9 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
           {(["wtd", "mtd", "qtd", "ytd", "all"] as const).map((k) => (
             <button key={k} type="button" onClick={() => setRange(k)}
               className={["rounded-full border px-3 py-1.5 text-xs font-medium transition",
-                range === k ? "border-white/20 bg-white text-black" : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
+                range === k
+                  ? "border-[var(--gold)] bg-[var(--gold)] text-black"
+                  : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10",
               ].join(" ")}>
               {RANGE_LABELS[k]}
             </button>
@@ -1115,6 +1118,7 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
         </div>
       </div>
 
+      {/* Multi-line chart: revenue / expenses / profit */}
       <div className="mt-5 overflow-x-auto">
         {loading ? (
           <div className="flex h-[200px] items-center justify-center">
@@ -1126,7 +1130,6 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
           </div>
         ) : (
           <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full" preserveAspectRatio="xMidYMid meet" style={{ height: 200 }}>
-            {/* Horizontal grid lines + Y axis labels */}
             {yTicks.map((v, i) => {
               const y = toY(v);
               const isZero = Math.abs(v) < yRange * 0.01;
@@ -1143,24 +1146,14 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
                 </g>
               );
             })}
-
-            {/* X axis line */}
             <line x1={ML} x2={ML + PW} y1={SVG_H - MB} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-
-            {/* Y axis line */}
             <line x1={ML} x2={ML} y1={MT} y2={SVG_H - MB} stroke="rgba(255,255,255,0.10)" strokeWidth="0.5" />
-
-            {/* X axis date labels */}
             {xLabels.map(({ x, label }, i) => (
               <text key={i} x={x.toFixed(1)} y={(SVG_H - MB + 14).toFixed(0)} textAnchor="middle"
                 fill="rgba(255,255,255,0.35)" fontSize="8">{label}</text>
             ))}
-
-            {/* Revenue line */}
             <path d={makePath(points.map((p) => p.revenueCents))} fill="none" stroke="#34d399" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-            {/* Expenses line */}
             <path d={makePath(points.map((p) => p.expenseCents))} fill="none" stroke="#f87171" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-            {/* Profit line (dashed) */}
             <path d={makePath(points.map((p) => p.profitCents))} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
           </svg>
         )}
@@ -1183,6 +1176,25 @@ function JobPerformanceChart({ jobId }: { jobId: number }) {
           ))}
         </div>
       )}
+
+      {/* Gold revenue line chart — shares the same range toggle */}
+      <div className="mt-5 border-t border-white/8 pt-5">
+        <div className="mb-2">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">Revenue trend</div>
+          <div className="mt-0.5 text-[10px] text-white/25">
+            {country === "CA" ? "CAD" : "USD"} &#x2022; {range === "all" ? "all time" : RANGE_LABELS[range]}
+          </div>
+        </div>
+        <RevenueLineChart
+          txRows={txRows as RevenueChartRow[]}
+          accountCreatedAt={null}
+          country={country ?? null}
+          loading={loading}
+          range={range}
+          onRangeChange={setRange}
+          compact
+        />
+      </div>
     </div>
   );
 }
@@ -2772,8 +2784,6 @@ export default function JobDetailPage() {
   const [phases, setPhases] = useState<PhaseRow[]>([]);
   const [businessName, setBusinessName] = useState("");
   const [tenantCountry, setTenantCountry] = useState<string | null>(null);
-  const [jobChartRows, setJobChartRows] = useState<RevenueChartRow[]>([]);
-  const [jobChartLoading, setJobChartLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -2829,21 +2839,6 @@ export default function JobDetailPage() {
         // phases fail-soft — tab just won't show
       }
 
-      // Load job-scoped revenue transactions for the line chart
-      try {
-        const { data: revTx } = await supabase
-          .from("transactions")
-          .select("date, amount_cents, kind, created_at")
-          .eq("job_id", jobId)
-          .in("kind", ["revenue"])
-          .order("date", { ascending: true })
-          .limit(2000);
-        setJobChartRows((revTx as RevenueChartRow[]) || []);
-      } catch {
-        // fail-soft
-      } finally {
-        setJobChartLoading(false);
-      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -2990,15 +2985,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Performance chart — always visible */}
-        <JobPerformanceChart jobId={job.id} />
-
-        {/* Revenue line chart — job-scoped, from job creation to today */}
-        <RevenueLineChart
-          txRows={jobChartRows}
-          accountCreatedAt={job.start_date || job.created_at}
-          country={tenantCountry}
-          loading={jobChartLoading}
-        />
+        <JobPerformanceChart jobId={job.id} country={tenantCountry} />
 
         {/* Contact information */}
         {tenantId && (
