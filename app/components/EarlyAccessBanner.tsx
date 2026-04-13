@@ -88,10 +88,18 @@ export default function EarlyAccessBanner() {
       };
     }
 
+    if (pathname === "/login") {
+      return {
+        kind: "auth" as BannerKind,
+        badge: "COMMAND ACCESS",
+        message: "Your business data is live. Sign in and take control.",
+      };
+    }
+
     return {
       kind: "auth" as BannerKind,
-      badge: "SECURE ACCESS",
-      message: "Create your workspace and continue setup.",
+      badge: "TAKE COMMAND",
+      message: "Your AI-powered business OS is ready to deploy.",
     };
   }, [pathname, signupMode]);
 
