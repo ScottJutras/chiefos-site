@@ -681,7 +681,7 @@ function DocumentsTab({
             <div className="mt-0.5 text-xs text-white/50 leading-relaxed max-w-md">
               {suggestedName
                 ? `Looks like this job might be for ${suggestedName}. Add contact info below to include it on your quotes and invoices.`
-                : "Add customer contact info to include it on your quotes, contracts, and invoices."}
+                : "Add customer contact info above \u2191 to include it on your quotes, contracts, change orders, invoices and receipts."}
             </div>
           </div>
           {suggestedName && (

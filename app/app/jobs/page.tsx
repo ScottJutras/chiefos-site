@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
+import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -447,10 +448,14 @@ function JobCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function JobsPage() {
-  const { loading: gateLoading, planKey } = useTenantGate({ requireWhatsApp: false });
+  const { loading: gateLoading, planKey, tenantId } = useTenantGate({ requireWhatsApp: false });
   const FREE_JOB_LIMIT = 3;
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [tenantCreatedAt, setTenantCreatedAt] = useState<string | null>(null);
+  const [tenantCountry, setTenantCountry] = useState<string | null>(null);
+  const [chartRows, setChartRows] = useState<RevenueChartRow[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
   const [expenses, setExpenses] = useState<Record<number, number>>({});
   const [revenue, setRevenue] = useState<Record<number, number>>({});
   const [labour, setLabour] = useState<Record<number, number>>({});
@@ -546,6 +551,42 @@ export default function JobsPage() {
   useEffect(() => {
     if (!gateLoading) void load();
   }, [gateLoading, load]);
+
+  useEffect(() => {
+    if (gateLoading || !tenantId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: tenant } = await supabase
+          .from("chiefos_tenants")
+          .select("created_at, country")
+          .eq("id", tenantId)
+          .maybeSingle();
+
+        if (alive && tenant) {
+          setTenantCreatedAt((tenant as any).created_at ?? null);
+          setTenantCountry((tenant as any).country ?? null);
+        }
+
+        const { data: txData } = await supabase
+          .from("transactions")
+          .select("date, amount_cents, kind, created_at")
+          .eq("tenant_id", tenantId)
+          .in("kind", ["revenue"])
+          .order("date", { ascending: true })
+          .limit(5000);
+
+        if (alive) {
+          setChartRows((txData as RevenueChartRow[]) || []);
+        }
+      } catch {
+        // fail-soft
+      } finally {
+        if (alive) setChartLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [gateLoading, tenantId]);
 
   const counts = useMemo(() => {
     const out = { all: 0, active: 0, paused: 0, closed: 0, other: 0, archived: 0 };
@@ -697,6 +738,16 @@ export default function JobsPage() {
         revenue={revenue}
         labour={labour}
       />
+
+      {/* Revenue line chart */}
+      <div className="mb-6">
+        <RevenueLineChart
+          txRows={chartRows}
+          accountCreatedAt={tenantCreatedAt}
+          country={tenantCountry}
+          loading={chartLoading}
+        />
+      </div>
 
       {/* Job grid */}
       {filtered.length === 0 ? (

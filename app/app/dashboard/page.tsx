@@ -8,6 +8,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import OnboardingWidget from "@/app/app/components/OnboardingWidget";
+import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
@@ -406,6 +407,8 @@ function CenterWorkspace({
   marginAlerts,
   onDismissAlert,
   txCount,
+  tenantCreatedAt,
+  tenantCountry,
 }: {
   view: ViewKey;
   setView: (v: ViewKey) => void;
@@ -420,6 +423,8 @@ function CenterWorkspace({
   marginAlerts: MarginAlert[];
   onDismissAlert: (id: number, signalKey: string) => void;
   txCount: number;
+  tenantCreatedAt: string | null;
+  tenantCountry: string | null;
 }) {
   const isEmptyState = !pulseLoading && pulseRows.length === 0 && summary.totalJobs === 0;
   // Range-filtered financial totals
@@ -554,6 +559,14 @@ function CenterWorkspace({
         onRangeChange={setPulseRange}
       />
 
+      {/* Revenue line chart — all-time from account creation */}
+      <RevenueLineChart
+        txRows={pulseRows as RevenueChartRow[]}
+        accountCreatedAt={tenantCreatedAt}
+        country={tenantCountry}
+        loading={pulseLoading}
+      />
+
       {/* Records panel */}
       <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
@@ -600,6 +613,8 @@ export default function DashboardPage() {
   const [monthlyOverhead, setMonthlyOverhead] = useState(0);
   const [marginAlerts, setMarginAlerts] = useState<MarginAlert[]>([]);
   const [txCount, setTxCount] = useState(0);
+  const [tenantCreatedAt, setTenantCreatedAt] = useState<string | null>(null);
+  const [tenantCountry, setTenantCountry] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<Summary>({
     pendingReview: 0,
@@ -632,9 +647,14 @@ export default function DashboardPage() {
 
         const { data: tenant } = await supabase
           .from("chiefos_tenants")
-          .select("name, owner_id")
+          .select("name, owner_id, country, created_at")
           .eq("id", tenantId)
           .maybeSingle();
+
+        if (alive && tenant) {
+          setTenantCreatedAt((tenant as any).created_at ?? null);
+          setTenantCountry((tenant as any).country ?? null);
+        }
 
         try {
           const { data: jobsData } = await supabase
@@ -805,6 +825,8 @@ export default function DashboardPage() {
         marginAlerts={marginAlerts}
         onDismissAlert={handleDismissAlert}
         txCount={txCount}
+        tenantCreatedAt={tenantCreatedAt}
+        tenantCountry={tenantCountry}
       />
     </div>
   );
