@@ -11,7 +11,7 @@ type Quota = { used: number; limit: number; planKey: string };
  * - Gold "C" circle matching the homepage DemoChiefChat FAB
  * - Pulsing ring animation while closed
  * - Quota indicator below the circle:
- *     Free (limit 3)   → 3 dots, bright = remaining, dim = used
+ *     Free (limit 10)  → "1/10"
  *     Starter (250)    → "1/250"
  *     Pro (2,000)      → "1/2,000"
  * - Disappears while the Chief panel is open
@@ -163,34 +163,17 @@ function ChiefPullTabInner() {
         {/* Quota indicator */}
         {quota !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            {isFree ? (
-              /* 3 dots: bright = remaining, dim = used */
-              <div style={{ display: "flex", gap: 3 }}>
-                {Array.from({ length: 3 }).map((_, i) => {
-                  const isRemaining = i < remaining!;
-                  return (
-                    <span key={i} style={{
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: isRemaining ? "rgba(212,168,83,0.85)" : "rgba(212,168,83,0.2)",
-                      boxShadow: isRemaining ? "0 0 4px rgba(212,168,83,0.4)" : "none",
-                      transition: "background 0.3s ease",
-                    }} />
-                  );
-                })}
-              </div>
-            ) : (
-              /* X/250 or X/2,000 */
-              <span style={{
-                fontFamily: "'Space Mono', monospace",
-                fontSize: 9,
-                fontWeight: 600,
-                color: remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
-                letterSpacing: "0.02em",
-                whiteSpace: "nowrap",
-              }}>
-                {quota.used}/{isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}
-              </span>
-            )}
+            {/* X/10, X/250, or X/2,000 */}
+            <span style={{
+              fontFamily: "'Space Mono', monospace",
+              fontSize: 9,
+              fontWeight: 600,
+              color: remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
+            }}>
+              {quota.used}/{isFree ? "10" : isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}
+            </span>
           </div>
         )}
       </button>

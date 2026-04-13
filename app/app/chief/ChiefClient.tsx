@@ -268,7 +268,7 @@ function ChiefClientInner() {
         "ChiefOS has three plans. Start with Free, upgrade when you're ready.",
         "",
         "FREE — $0/month",
-        "  • Ask Chief: 3 questions/month",
+        "  • Ask Chief: 10 questions/month",
         "  • Expense & revenue logging (web + WhatsApp)",
         "  • Up to 3 active jobs · up to 3 employees",
         "  • Time clock & labour hours",
@@ -631,7 +631,7 @@ function ChiefClientInner() {
       let actions: Array<{ label: string; href?: string; onClick?: () => void; kind?: "primary" | "secondary" }> = [];
 
       if (resp.code === "PLAN_REQUIRED") {
-        body = "You've used your 3 free questions this month. Upgrade to Starter for 250 questions/month, or Pro for 2,000.";
+        body = "You've used your 10 free questions this month. Upgrade to Starter for 250 questions/month, or Pro for 2,000.";
         actions = [
           { label: "Upgrade to Starter", href: resp.upgrade_url || "/app/settings/billing", kind: "primary" },
           { label: "See what's included", href: "/pricing", kind: "secondary" },
@@ -795,7 +795,7 @@ function ChiefClientInner() {
               <PlanGateBanner
                 featureName="Ask Chief"
                 availableOn="Starter and Pro"
-                freeNote="Free plan includes 3 questions/month."
+                freeNote="Free plan includes 10 questions/month."
                 upgradeUrl="/app/settings/billing"
               />
             </div>

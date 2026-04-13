@@ -238,7 +238,7 @@ export default function PricingPage({ searchParams }: { searchParams?: any }) {
             features={[
               "Web & WhatsApp portals (iOS & Android app — late Spring 2026)",
               "Conversational logging: text only",
-              "Ask Chief: 3 questions / month",
+              "Ask Chief: 10 questions / month",
               "Up to 3 active jobs",
               "Up to 3 employees",
               "Expense & revenue logging",

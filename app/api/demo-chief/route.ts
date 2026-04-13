@@ -39,7 +39,7 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 **Free Plan ($0/month — Field Capture)**
 - Web & WhatsApp portals (iOS/Android app coming late Spring 2026)
 - Conversational logging: text only
-- Ask Chief: 3 questions/month
+- Ask Chief: 10 questions/month
 - Up to 3 active jobs
 - Up to 3 employees
 - Expense & revenue logging, time clock, tasks, reminders, mileage tracking, overhead & recurring expense tracking

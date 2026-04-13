@@ -35,7 +35,7 @@ const PLAN_UI = {
     label: "Free",
     badge: "Field Capture",
     price: "$0",
-    highlights: ["Text logging via WhatsApp", "Up to 3 jobs · 3 employees", "Ask Chief: 3 questions/month", "CSV export · 90-day history"],
+    highlights: ["Text logging via WhatsApp", "Up to 3 jobs · 3 employees", "Ask Chief: 10 questions/month", "CSV export · 90-day history"],
   },
   starter: {
     label: "Starter",

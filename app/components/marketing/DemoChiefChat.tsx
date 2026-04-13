@@ -59,7 +59,7 @@ FREE — Field Capture · $0/mo
 No credit card required.
 • Web & WhatsApp portals
 • Conversational logging: text only
-• Ask Chief: 3 questions / month
+• Ask Chief: 10 questions / month
 • Up to 3 active jobs · up to 3 employees
 • Expense & revenue logging
 • Time clock & labour hours tracking

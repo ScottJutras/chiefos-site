@@ -100,7 +100,7 @@ const FREE_LOCKED = [
 const FREE_INCLUDED = [
   "Expense capture via WhatsApp",
   "Time tracking · 3 jobs · 3 employees",
-  "Ask Chief: 3 questions/month",
+  "Ask Chief: 10 questions/month",
   "CSV export · 90-day history",
 ];
 

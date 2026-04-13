@@ -635,7 +635,7 @@ const plans = [
     features: [
       "Web & WhatsApp portals",
       "Conversational logging: text only",
-      "Ask Chief: 3 questions / month",
+      "Ask Chief: 10 questions / month",
       "Up to 3 active jobs",
       "Up to 3 employees",
       "Expense & revenue logging",
