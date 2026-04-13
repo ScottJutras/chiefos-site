@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
+import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ type JobRow = {
   active: boolean | null;
   start_date: string | null;
   end_date: string | null;
+  created_at: string | null;
   material_budget_cents: number | null;
   labour_hours_budget: number | null;
   contract_value_cents: number | null;
@@ -2769,6 +2771,9 @@ export default function JobDetailPage() {
   const [documentFiles, setDocumentFiles] = useState<JobDocumentFile[]>([]);
   const [phases, setPhases] = useState<PhaseRow[]>([]);
   const [businessName, setBusinessName] = useState("");
+  const [tenantCountry, setTenantCountry] = useState<string | null>(null);
+  const [jobChartRows, setJobChartRows] = useState<RevenueChartRow[]>([]);
+  const [jobChartLoading, setJobChartLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<"archive" | "delete" | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
@@ -2783,12 +2788,13 @@ export default function JobDetailPage() {
     if (!tenantId || isNaN(jobId)) return;
     setLoading(true);
     try {
-      const { data: jobData } = await supabase.from("jobs").select("id, job_no, job_name, name, status, active, start_date, end_date, material_budget_cents, labour_hours_budget, contract_value_cents").eq("id", jobId).is("deleted_at", null).single();
+      const { data: jobData } = await supabase.from("jobs").select("id, job_no, job_name, name, status, active, start_date, end_date, created_at, material_budget_cents, labour_hours_budget, contract_value_cents").eq("id", jobId).is("deleted_at", null).single();
       if (!jobData) { setNotFound(true); setLoading(false); return; }
       setJob(jobData as JobRow);
 
-      const { data: tenantRes } = await supabase.from("chiefos_tenants").select("business_name, name, company_name").eq("id", tenantId).maybeSingle();
+      const { data: tenantRes } = await supabase.from("chiefos_tenants").select("business_name, name, company_name, country").eq("id", tenantId).maybeSingle();
       setBusinessName(tenantRes?.business_name || tenantRes?.company_name || tenantRes?.name || "");
+      setTenantCountry((tenantRes as any)?.country ?? null);
 
       const { data: docData } = await supabase.from("job_documents").select("id, stage, lead_notes, lead_source, customer_id").eq("job_id", jobId).maybeSingle();
       if (docData) {
@@ -2821,6 +2827,22 @@ export default function JobDetailPage() {
         }
       } catch {
         // phases fail-soft — tab just won't show
+      }
+
+      // Load job-scoped revenue transactions for the line chart
+      try {
+        const { data: revTx } = await supabase
+          .from("transactions")
+          .select("date, amount_cents, kind, created_at")
+          .eq("job_id", jobId)
+          .in("kind", ["revenue"])
+          .order("date", { ascending: true })
+          .limit(2000);
+        setJobChartRows((revTx as RevenueChartRow[]) || []);
+      } catch {
+        // fail-soft
+      } finally {
+        setJobChartLoading(false);
       }
     } catch (e) {
       console.error(e);
@@ -2969,6 +2991,14 @@ export default function JobDetailPage() {
 
         {/* Performance chart — always visible */}
         <JobPerformanceChart jobId={job.id} />
+
+        {/* Revenue line chart — job-scoped, from job creation to today */}
+        <RevenueLineChart
+          txRows={jobChartRows}
+          accountCreatedAt={job.start_date || job.created_at}
+          country={tenantCountry}
+          loading={jobChartLoading}
+        />
 
         {/* Contact information */}
         {tenantId && (
