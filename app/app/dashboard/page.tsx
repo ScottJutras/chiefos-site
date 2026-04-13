@@ -7,7 +7,6 @@ import { useTenantGate } from "@/lib/useTenantGate";
 
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
-import OnboardingWidget from "@/app/app/components/OnboardingWidget";
 import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
@@ -233,54 +232,21 @@ function moneyFmt(cents: number) {
   });
 }
 
-const WA_NUMBER = "12316802664";
-
-function EmptyStateBanner({ hasWhatsApp }: { hasWhatsApp: boolean }) {
-  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $150 Home Depot")}`;
+function SetupBanner({ setupComplete }: { setupComplete: boolean }) {
+  if (setupComplete) return null;
   return (
     <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-6 py-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="text-sm font-medium text-white/90">Your dashboard is ready — nothing here yet.</div>
-          <div className="mt-1 text-xs text-white/50 max-w-md leading-relaxed">
-            {hasWhatsApp
-              ? "Start logging in WhatsApp and your numbers will appear here automatically."
-              : "Link WhatsApp first, then log your first expense — it takes about 30 seconds."}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {hasWhatsApp ? (
-              <a
-                href={waLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
-              >
-                Log first expense in WhatsApp
-              </a>
-            ) : (
-              <Link
-                href="/app/welcome"
-                className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
-              >
-                Complete setup
-              </Link>
-            )}
-            <a
-              href={`https://wa.me/${WA_NUMBER}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/60 hover:bg-white/5 transition"
-            >
-              Open WhatsApp
-            </a>
-          </div>
-        </div>
-        <div className="text-right hidden sm:block">
-          <div className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Try texting Chief</div>
-          <div className="font-mono text-xs text-white/50 bg-black/20 border border-white/10 rounded-lg px-3 py-2">
-            expense $150 Home Depot
-          </div>
-        </div>
+      <div className="text-sm font-medium text-white/90">Complete your account setup here</div>
+      <div className="mt-1 text-xs text-white/50 max-w-md leading-relaxed">
+        Finish setting up your workspace so Chief can start tracking your job profitability.
+      </div>
+      <div className="mt-3">
+        <Link
+          href="/app/welcome"
+          className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+        >
+          Complete setup
+        </Link>
       </div>
     </div>
   );
@@ -403,7 +369,7 @@ function CenterWorkspace({
   setPulseRange,
   pulseLoading,
   monthlyOverhead,
-  hasWhatsApp,
+  setupComplete,
   marginAlerts,
   onDismissAlert,
   txCount,
@@ -419,14 +385,13 @@ function CenterWorkspace({
   setPulseRange: (v: RangeKey) => void;
   pulseLoading: boolean;
   monthlyOverhead: number;
-  hasWhatsApp: boolean;
+  setupComplete: boolean;
   marginAlerts: MarginAlert[];
   onDismissAlert: (id: number, signalKey: string) => void;
   txCount: number;
   tenantCreatedAt: string | null;
   tenantCountry: string | null;
 }) {
-  const isEmptyState = !pulseLoading && pulseRows.length === 0 && summary.totalJobs === 0;
   // Range-filtered financial totals
   const { rangeRevenue, rangeExpenses, rangeNet } = useMemo(() => {
     const now = new Date();
@@ -486,11 +451,8 @@ function CenterWorkspace({
       {/* Margin alerts — shown when active jobs have low/declining margins */}
       <MarginAlertsBanner alerts={marginAlerts} onDismiss={onDismissAlert} />
 
-      {/* Empty state guidance — shown only when there's no data yet */}
-      {isEmptyState && <EmptyStateBanner hasWhatsApp={hasWhatsApp} />}
-
-      {/* Onboarding progress — compact widget, hides itself when setup is done */}
-      <OnboardingWidget hasWhatsApp={hasWhatsApp} hasData={txCount > 0} />
+      {/* Setup banner — shown until WhatsApp is linked and first transaction exists */}
+      <SetupBanner setupComplete={setupComplete} />
 
       {/* Ask Chief nudge — surfaces once ≥ 3 transactions exist */}
       <AskChiefNudge txCount={txCount} />
@@ -816,7 +778,7 @@ export default function DashboardPage() {
         setPulseRange={setPulseRange}
         pulseLoading={pulseLoading}
         monthlyOverhead={monthlyOverhead}
-        hasWhatsApp={hasWhatsApp}
+        setupComplete={hasWhatsApp && txCount > 0}
         marginAlerts={marginAlerts}
         onDismissAlert={handleDismissAlert}
         txCount={txCount}

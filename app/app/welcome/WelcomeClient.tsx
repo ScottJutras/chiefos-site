@@ -7,14 +7,10 @@ import { fetchWhoami } from "@/lib/whoami";
 import { supabase } from "@/lib/supabase";
 
 const WA_NUMBER = "12316802664";
-const WA_EXPENSE_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $150 Home Depot")}`;
-const WA_LINK_LINK = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("LINK")}`;
-
 // YouTube walkthrough links — set NEXT_PUBLIC_YOUTUBE_* in your env to enable
 const YT_WALKTHROUGH = process.env.NEXT_PUBLIC_YOUTUBE_WALKTHROUGH || "";
 const YT_EXPENSE     = process.env.NEXT_PUBLIC_YOUTUBE_EXPENSE_GUIDE || "";
 const YT_JOB_PNL     = process.env.NEXT_PUBLIC_YOUTUBE_JOB_PNL_GUIDE || "";
-const YT_EXPORTS     = process.env.NEXT_PUBLIC_YOUTUBE_EXPORTS_GUIDE || "";
 
 type Step = {
   id: string;
@@ -43,32 +39,32 @@ function VideoLink({ url, label }: { url: string; label: string }) {
 
 const NEXT_STEPS = [
   {
+    icon: "🏗️",
+    title: "Create a Job",
+    description: "ChiefOS is job-based. Every expense, revenue entry, and time log should be linked to a job. Create your first job before you start logging so everything stays organized.",
+    action: { label: "Create a job", href: "/app/jobs/new", external: false },
+    videoUrl: () => "",
+  },
+  {
+    icon: "📥",
+    title: "Import historical data",
+    description: "Have past invoices or expense records? Import them as a CSV — expenses, revenue, or time entries. Build your financial baseline fast.",
+    action: { label: "Go to Import", href: "/app/import", external: false },
+    videoUrl: () => "",
+  },
+  {
     icon: "💸",
     title: "Log an expense",
-    description: "Text Chief in WhatsApp: expense $50 Canadian Tire. It gets attached to your job automatically.",
+    description: "Text Chief in WhatsApp: expense $50 Canadian Tire [Job Name]. It gets attached to your job automatically.",
     action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $50 Canadian Tire")}`, external: true },
     videoUrl: () => YT_EXPENSE,
   },
   {
     icon: "📊",
     title: "Check job profitability",
-    description: "After logging a few expenses, ask Chief: job kpis [job name]. You'll see revenue, costs, and margin.",
+    description: "After logging a few expenses, ask Chief: job kpis [job name]. You'll see revenue, costs, and margin — so you know which jobs actually make money.",
     action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("job kpis ")}`, external: true },
     videoUrl: () => YT_JOB_PNL,
-  },
-  {
-    icon: "📄",
-    title: "Send a quote",
-    description: "Open any job in your portal and create a quote from the Documents tab — ready to share as a PDF link.",
-    action: { label: "Go to Jobs", href: "/app/jobs", external: false },
-    videoUrl: () => "",
-  },
-  {
-    icon: "📥",
-    title: "Export to your accountant",
-    description: "Download expense spreadsheets, timesheet with labor cost, and job P&L PDFs — all ready for bookkeeping.",
-    action: { label: "Go to Exports", href: "/app/exports", external: false },
-    videoUrl: () => YT_EXPORTS,
   },
 ];
 
@@ -579,7 +575,7 @@ export default function WelcomeClient() {
             </div>
           </div>
 
-          {/* Step 3 — Log first expense */}
+          {/* Step 3 — Get started: choose your path */}
           <div className={[
             "rounded-[20px] border p-5 transition-all",
             hasExpense
@@ -591,7 +587,7 @@ export default function WelcomeClient() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className={["font-medium text-sm", hasExpense ? "text-white/70" : "text-white/92"].join(" ")}>
-                    Log your first expense
+                    Get started — choose your path
                   </div>
                   {hasExpense && (
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
@@ -599,34 +595,44 @@ export default function WelcomeClient() {
                 </div>
                 <div className="mt-1 text-xs text-white/45">
                   {hasExpense
-                    ? "Chief is tracking. Ask him how a job is doing."
-                    : "Try it now — text Chief directly in WhatsApp."}
+                    ? "You're in — Chief is tracking your data."
+                    : "Pick the approach that fits where you are."}
                 </div>
                 {!hasExpense && (
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-xs text-white/70">
-                      expense $150 Home Depot
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <a
-                        href={WA_EXPENSE_LINK}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+                    {/* Option A: Import */}
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+                      <div className="text-xs font-semibold text-white/80">Option A — Import financial history</div>
+                      <div className="text-xs text-white/45 leading-relaxed">
+                        Already have past invoices, expenses, or revenue records? Import them as a CSV to build your financial baseline fast.
+                      </div>
+                      <Link
+                        href="/app/import"
+                        className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
                       >
-                        Try it in WhatsApp
-                      </a>
-                      <button
-                        onClick={recheckExpense}
-                        disabled={checking}
-                        className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
-                      >
-                        {checking ? "Checking…" : "I already logged one"}
-                      </button>
+                        Import data →
+                      </Link>
                     </div>
-                    {YT_EXPENSE && (
-                      <VideoLink url={YT_EXPENSE} label="Watch: how expense logging works" />
-                    )}
+                    {/* Option B: Create job */}
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+                      <div className="text-xs font-semibold text-white/80">Option B — Create a job &amp; start logging</div>
+                      <div className="text-xs text-white/45 leading-relaxed">
+                        Starting fresh? Create your first job in the portal, then text Chief to log expenses, time, and revenue as you go.
+                      </div>
+                      <Link
+                        href="/app/jobs/new"
+                        className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition"
+                      >
+                        Create a job →
+                      </Link>
+                    </div>
+                    <button
+                      onClick={recheckExpense}
+                      disabled={checking}
+                      className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
+                    >
+                      {checking ? "Checking…" : "I've already started — check now"}
+                    </button>
                   </div>
                 )}
               </div>
@@ -635,9 +641,32 @@ export default function WelcomeClient() {
 
         </div>
 
+        {/* Job-based philosophy blurb */}
+        <div className="mt-8 rounded-[16px] border border-white/8 bg-white/[0.025] p-5 space-y-3">
+          <div className="text-sm font-semibold text-white/85">ChiefOS is built around Jobs.</div>
+          <div className="text-xs text-white/50 leading-relaxed">
+            Every expense, revenue entry, and time log should be assigned to a Job. This is how Chief understands where your money is going and whether each project is actually profitable.
+          </div>
+          <ul className="space-y-1.5">
+            {[
+              "Keep jobs up to date — create a new job before you start a project",
+              "Assign everything to a job — the more you tag, the more insight Chief can give you",
+              "The more you log, the smarter Chief gets — Chief can only surface useful data when it has real records to work with",
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2 text-xs text-white/55">
+                <span className="mt-0.5 shrink-0 text-emerald-400">→</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          <div className="pt-1 text-xs text-white/40 leading-relaxed border-t border-white/8">
+            <span className="font-medium text-white/55">Have a lot of historical data?</span> If your past records aren&apos;t organized by jobs, that&apos;s fine — import them as a batch to establish your baseline. Going forward, organize everything by job so Chief can show you which projects make money and which don&apos;t.
+          </div>
+        </div>
+
         {/* What to try next — shown once setup is underway */}
         <div className="mt-8">
-          <div className="text-[11px] uppercase tracking-[0.15em] text-white/30 mb-3">What to try first</div>
+          <div className="text-[11px] uppercase tracking-[0.15em] text-white/30 mb-3">Your next steps</div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {NEXT_STEPS.map((step) => {
               const videoUrl = step.videoUrl();
