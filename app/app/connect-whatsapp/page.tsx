@@ -1,7 +1,7 @@
 "use client";
 
 import { useTenantGate } from "@/lib/useTenantGate";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { fetchWhoami } from "@/lib/whoami";
@@ -29,7 +29,6 @@ function digitsOnly(code: string | null | undefined) {
 
 function safeReturnTo(input: string | null | undefined) {
   const s = String(input || "").trim();
-  // Allow only internal paths (no protocol / host)
   if (!s) return "/app/dashboard";
   if (!s.startsWith("/")) return "/app/dashboard";
   if (s.startsWith("//")) return "/app/dashboard";
@@ -40,37 +39,33 @@ function safeReturnTo(input: string | null | undefined) {
 export default function ConnectWhatsAppPage() {
   const router = useRouter();
 
-  // Gate (auth + tenant)
   const { loading: gateLoading, userId, tenantId } = useTenantGate({ requireWhatsApp: false });
 
-  // returnTo (read client-side to avoid Next Suspense requirement)
   const [returnTo, setReturnTo] = useState<string>("/app/dashboard");
-
-  // Page state
   const [pageLoading, setPageLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [autoChecking, setAutoChecking] = useState(false);
+  const [pollingActive, setPollingActive] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // ✅ hooks must run unconditionally — no early return above this line
+  // null = unknown, true = linked, false = not linked
+  const [isLinked, setIsLinked] = useState<boolean | null>(null);
+
   const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
   const has6Digits = codeDigits.length === 6;
 
-  // Read returnTo once on mount (client-only)
   useEffect(() => {
     try {
       const sp = new URLSearchParams(window.location.search);
       setReturnTo(safeReturnTo(sp.get("returnTo")));
-        } catch {
+    } catch {
       setReturnTo("/app/dashboard");
     }
   }, []);
 
-  // RPC
   const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
   const LINK_CODE_RPC_ARGS: Record<string, any> = {};
 
@@ -89,7 +84,7 @@ export default function ConnectWhatsAppPage() {
     return (data as LinkCodeRow | null) ?? null;
   }
 
-     async function isLinkedNow() {
+  async function checkLinkStatus(): Promise<boolean> {
     const w: any = await fetchWhoami();
     if (!w?.ok) return false;
     return !!w.hasWhatsApp;
@@ -129,18 +124,15 @@ export default function ConnectWhatsAppPage() {
     try {
       if (!userId || !tenantId) return;
 
-      // If already linked, go back to where user wanted
-      const linked = await isLinkedNow();
-      if (linked) {
-        router.replace(returnTo);
-        return;
-      }
+      const linked = await checkLinkStatus();
+      setIsLinked(linked);
 
-      const latest = await fetchLatestUnexpiredUnusedCode(userId);
-      setCodeRow(latest);
-
-      if (!latest) {
-        await createNewCode();
+      if (!linked) {
+        const latest = await fetchLatestUnexpiredUnusedCode(userId);
+        setCodeRow(latest);
+        if (!latest) {
+          await createNewCode();
+        }
       }
     } catch (e: any) {
       setError(e?.message ?? "Unknown error loading connect page.");
@@ -149,19 +141,14 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
-  async function checkLinked() {
+  async function handleCheckNow() {
     setError(null);
     setChecking(true);
 
     try {
       if (!userId || !tenantId) return;
-
-      const linked = await isLinkedNow();
-      if (linked) {
-        router.replace(returnTo);
-      }
-      // Do NOT call load() here — that causes a reload loop every 1.5 s.
-      // The interval is only checking link status, not refreshing the page.
+      const linked = await checkLinkStatus();
+      setIsLinked(linked);
     } catch (e: any) {
       setError(e?.message ?? "Unknown error checking link status.");
     } finally {
@@ -169,34 +156,54 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
-  // ✅ wait for gate to finish
+  // Load on gate ready
   useEffect(() => {
     if (gateLoading) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateLoading, userId, tenantId, returnTo]);
+  }, [gateLoading, userId, tenantId]);
 
-  // ✅ auto-check every 1.5s once we have a code (silently — does not affect manual button state)
+  // Poll every 3s to detect link status changes in either direction
   useEffect(() => {
-    if (!codeRow?.code) return;
+    if (gateLoading || pageLoading) return;
+    if (!userId || !tenantId) return;
 
     const t = setInterval(async () => {
-      if (autoChecking) return; // skip if already running
-      setAutoChecking(true);
+      if (pollingActive) return;
+      setPollingActive(true);
       try {
-        if (!userId || !tenantId) return;
-        const linked = await isLinkedNow();
-        if (linked) router.replace(returnTo);
+        const linked = await checkLinkStatus();
+        setIsLinked(linked);
+        // If now unlinked and no code exists, fetch/create one
+        if (!linked) {
+          setCodeRow((prev) => prev); // keep existing code, don't reset
+        }
       } catch {
         // silent
       } finally {
-        setAutoChecking(false);
+        setPollingActive(false);
       }
-    }, 1500);
+    }, 3000);
 
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codeRow?.code, userId, tenantId, returnTo]);
+  }, [gateLoading, pageLoading, userId, tenantId]);
+
+  // If we detect unlinked during polling and have no code, fetch one
+  useEffect(() => {
+    if (isLinked === false && !codeRow && userId && tenantId && !pageLoading) {
+      fetchLatestUnexpiredUnusedCode(userId)
+        .then((latest) => {
+          if (latest) {
+            setCodeRow(latest);
+          } else {
+            createNewCode();
+          }
+        })
+        .catch(() => null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLinked, codeRow, userId, tenantId, pageLoading]);
 
   // Reset "Copied!" after a moment
   useEffect(() => {
@@ -205,7 +212,6 @@ export default function ConnectWhatsAppPage() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  // ✅ early returns AFTER hooks
   if (gateLoading) return <div className="p-8 text-[var(--text-muted)]">Loading…</div>;
   if (pageLoading) return <div className="p-8 text-[var(--text-muted)]">Loading…</div>;
 
@@ -228,82 +234,121 @@ export default function ConnectWhatsAppPage() {
         </div>
       ) : null}
 
-      {/* Step 1 — Add Chief */}
-      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 1 — Add Chief on WhatsApp</div>
-        <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-          Save this number in your phone contacts, then open a WhatsApp chat with Chief:
-        </p>
-        <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-4 text-center">
-          <div className="font-mono text-2xl tracking-widest text-[var(--gold)]">+1 (231) 680-2664</div>
-          <div className="mt-1 text-xs text-[var(--text-faint)]">Save as "Chief" in your contacts</div>
+      {/* LINKED STATE */}
+      {isLinked ? (
+        <div className="rounded-[28px] border border-emerald-500/30 bg-emerald-500/10 p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-lg">
+              ✓
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-emerald-300">WhatsApp linked</div>
+              <div className="text-xs text-emerald-500/70 mt-0.5">
+                This page will notify you if your link is ever lost.
+              </div>
+            </div>
+          </div>
+          <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+            You can now send expenses, revenue, and time entries to Chief on WhatsApp at{" "}
+            <span className="font-mono font-semibold text-[var(--text-primary)]">+1 (231) 680-2664</span>.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              onClick={() => router.push(returnTo)}
+              className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-5 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/25 transition"
+            >
+              Continue →
+            </button>
+            <a
+              href="https://wa.me/12316802664"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-4 py-2 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition inline-flex items-center"
+            >
+              Open WhatsApp
+            </a>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Step 1 — Add Chief */}
+          <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-4">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 1 — Add Chief on WhatsApp</div>
+            <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+              Save this number in your phone contacts, then open a WhatsApp chat with Chief:
+            </p>
+            <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-4 text-center">
+              <div className="font-mono text-2xl tracking-widest text-[var(--gold)]">+1 (231) 680-2664</div>
+              <div className="mt-1 text-xs text-[var(--text-faint)]">Save as "Chief" in your contacts</div>
+            </div>
+          </div>
 
-      {/* Step 2 — Send code */}
-      <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 2 — Send your link code</div>
-        <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-          Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> as a message to Chief on WhatsApp:
-        </p>
+          {/* Step 2 — Send code */}
+          <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 2 — Send your link code</div>
+            <p className="text-sm text-[var(--text-muted)] leading-relaxed">
+              Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> as a message to Chief on WhatsApp:
+            </p>
 
-        <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-5 font-mono text-3xl tracking-[0.35em] text-[var(--gold)] text-center">
-          {has6Digits ? codeDigits : <span className="text-[var(--text-faint)] text-base tracking-normal">No code available</span>}
-        </div>
+            <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-5 font-mono text-3xl tracking-[0.35em] text-[var(--gold)] text-center">
+              {has6Digits ? codeDigits : <span className="text-[var(--text-faint)] text-base tracking-normal">No code available</span>}
+            </div>
 
-        {codeRow?.expires_at ? (
-          <div className="text-xs text-[var(--text-faint)]">Expires at {fmtTime(codeRow.expires_at)} — this page checks automatically.</div>
-        ) : null}
+            {codeRow?.expires_at ? (
+              <div className="text-xs text-[var(--text-faint)]">Expires at {fmtTime(codeRow.expires_at)} — this page checks automatically.</div>
+            ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={createNewCode}
-            disabled={creating}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {creating ? "Generating…" : "Get a new code"}
-          </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={createNewCode}
+                disabled={creating}
+                className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creating ? "Generating…" : "Get a new code"}
+              </button>
 
-          <button
-            onClick={checkLinked}
-            disabled={checking}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {checking ? "Checking…" : "Check now"}
-          </button>
+              <button
+                onClick={handleCheckNow}
+                disabled={checking}
+                className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {checking ? "Checking…" : "Check now"}
+              </button>
 
-          <button
-            onClick={async () => {
-              if (!has6Digits) return;
-              try {
-                await navigator.clipboard.writeText(codeDigits);
-                setCopied(true);
-              } catch {
-                // ignore
-              }
-            }}
-            disabled={!has6Digits}
-            className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {copied ? "Copied!" : "Copy code"}
-          </button>
+              <button
+                onClick={async () => {
+                  if (!has6Digits) return;
+                  try {
+                    await navigator.clipboard.writeText(codeDigits);
+                    setCopied(true);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                disabled={!has6Digits}
+                className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-white/[0.09] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {copied ? "Copied!" : "Copy code"}
+              </button>
 
-          <a
-            href={has6Digits ? `https://wa.me/12316802664?text=${encodeURIComponent(codeDigits)}` : undefined}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-4 py-2 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition inline-flex items-center ${
-              !has6Digits ? "pointer-events-none opacity-40" : ""
-            }`}
-          >
-            Open WhatsApp
-          </a>
-        </div>
+              <a
+                href={has6Digits ? `https://wa.me/12316802664?text=${encodeURIComponent(codeDigits)}` : undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-4 py-2 text-sm font-semibold text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition inline-flex items-center ${
+                  !has6Digits ? "pointer-events-none opacity-40" : ""
+                }`}
+              >
+                Open WhatsApp
+              </a>
+            </div>
 
-        <p className="text-xs text-[var(--text-faint)]">
-          Once you send the code, this page detects the link automatically.
-        </p>
-      </div>
+            <p className="text-xs text-[var(--text-faint)]">
+              Once you send the code, this page detects the link automatically.
+            </p>
+          </div>
+        </>
+      )}
     </main>
   );
 }
