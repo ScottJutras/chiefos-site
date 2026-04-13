@@ -117,7 +117,7 @@ export default function LoginClient() {
       <div className="max-w-md mx-auto px-6 pt-10 pb-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.08)] px-3 py-1 text-xs text-[#D4A853]">
           <span className="h-2 w-2 rounded-full bg-emerald-400" />
-          Early access portal
+          Command access
         </div>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">Sign in</h1>
