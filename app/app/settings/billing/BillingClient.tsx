@@ -21,33 +21,80 @@ type BillingStatus =
         | null;
       effective_plan: "free" | "starter" | "pro" | string;
       cancel_at_period_end?: boolean | null;
-      current_period_start?: number | null; // unix seconds (or null)
-      current_period_end?: number | null; // unix seconds (or null)
-      stripe_customer_id?: string | null; // ✅ was boolean (typo), should be string|null
+      current_period_start?: number | null;
+      current_period_end?: number | null;
+      stripe_customer_id?: string | null;
     };
 
 const STATUS_URL = "/app/settings/billing/status";
 const CHECKOUT_URL = "/app/settings/billing/checkout";
 const PORTAL_URL = "/app/settings/billing/portal";
 
+const C = {
+  gold: "#D4A853",
+  goldFaint: "rgba(212,168,83,0.08)",
+  goldBorder: "rgba(212,168,83,0.25)",
+  goldBorderStrong: "rgba(212,168,83,0.5)",
+  bg: "#0C0B0A",
+  bgCard: "#0F0E0C",
+  bgCardAlt: "#111009",
+  text: "#E8E2D8",
+  textMuted: "#A8A090",
+  textFaint: "#706A60",
+  border: "rgba(212,168,83,0.15)",
+};
+
 const PLAN_UI = {
   free: {
     label: "Free",
     badge: "Field Capture",
     price: "$0",
-    highlights: ["Text logging via WhatsApp", "Up to 3 jobs · 3 employees", "Ask Chief: 10 questions/month", "CSV export · 90-day history"],
+    period: "forever",
+    highlights: [
+      "Web & WhatsApp portals",
+      "Conversational logging: text only",
+      "Ask Chief: 10 questions / month",
+      "Up to 3 active jobs · 3 employees",
+      "Expense & revenue logging",
+      "Time clock & labour hours",
+      "Tasks, reminders & mileage",
+      "CSV export · 90-day history",
+    ],
   },
   starter: {
     label: "Starter",
     badge: "Owner Mode",
-    price: "$59/mo",
-    highlights: ["Text & audio logging", "Receipt scanner (OCR) · documents builder", "Ask Chief: 250 questions/month", "Up to 25 jobs · 10 employees", "PDF, CSV & XLS exports · 3-year history"],
+    price: "$59",
+    period: "per month",
+    highlights: [
+      "Web & WhatsApp portals",
+      "Conversational logging: text & audio",
+      "Ask Chief: 250 questions / month",
+      "Up to 25 active jobs · 10 employees",
+      "Everything in Free, plus:",
+      "Receipt scanner (OCR)",
+      "Documents builder — quotes, contracts, invoices & more",
+      "Job site photo storage & notes",
+      "Bulk imports",
+      "Exports: PDF, CSV, XLS · 3-year history",
+    ],
   },
   pro: {
     label: "Pro",
     badge: "Crew + Control",
-    price: "$149/mo",
-    highlights: ["Crew self-logging via WhatsApp", "Ask Chief: 2,000 questions/month", "Unlimited jobs · 50 employees · 5 board members", "Forecasting · time approvals", "7-year history"],
+    price: "$149",
+    period: "per month",
+    highlights: [
+      "Web & WhatsApp portals",
+      "Conversational logging: text & audio",
+      "Ask Chief: 2,000 questions / month",
+      "Unlimited jobs · 50 employees · 5 board members",
+      "Everything in Starter, plus:",
+      "Bulk imports (unlimited)",
+      "Crew self-logging via WhatsApp",
+      "Forecasting · time approvals",
+      "Exports: PDF, CSV, XLS · 7-year history",
+    ],
   },
 } as const;
 
@@ -59,18 +106,14 @@ async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?:
   const timeoutMs = opts?.timeoutMs ?? 2500;
   const intervalMs = opts?.intervalMs ?? 150;
   const started = Date.now();
-
   while (Date.now() - started < timeoutMs) {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token || "";
       if (token) return token;
-    } catch {
-      // ignore
-    }
+    } catch {}
     await sleep(intervalMs);
   }
-
   return "";
 }
 
@@ -93,51 +136,30 @@ function normalizePlanKey(x: unknown): "free" | "starter" | "pro" {
 async function apiFetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) throw new Error("Missing session. Please log in again.");
-
   const headers = new Headers(init?.headers || {});
   headers.set("Accept", "application/json");
   headers.set("Authorization", `Bearer ${token}`);
   if (init?.body && !headers.get("Content-Type")) headers.set("Content-Type", "application/json");
-
   const resp = await fetch(url, { ...init, headers, cache: "no-store" });
-
   const text = await resp.text();
   let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {}
-
+  try { json = text ? JSON.parse(text) : null; } catch {}
   if (!resp.ok) {
     const raw = json?.error ?? json?.message ?? null;
-    const msg =
-      typeof raw === "string"
-        ? raw
-        : raw
-          ? JSON.stringify(raw)
-          : `Request failed (${resp.status})`;
+    const msg = typeof raw === "string" ? raw : raw ? JSON.stringify(raw) : `Request failed (${resp.status})`;
     throw new Error(msg);
   }
-
   return json as T;
 }
 
-function StatusPill({
-  label,
-  tone = "neutral",
-}: {
-  label: string;
-  tone?: "neutral" | "good" | "warn" | "bad";
-}) {
-  const cls =
-    tone === "good"
-      ? "bg-emerald-500/10 text-emerald-200 border-emerald-500/20"
-      : tone === "warn"
-        ? "bg-amber-500/10 text-amber-200 border-amber-500/20"
-        : tone === "bad"
-          ? "bg-rose-500/10 text-rose-200 border-rose-500/20"
-          : "bg-white/5 text-white/80 border-white/10";
-
-  return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs ${cls}`}>{label}</span>;
+function subStatusLabel(s: string | null): string {
+  if (!s || s === "free") return "Free";
+  if (s === "active") return "Active";
+  if (s === "trialing") return "Trial";
+  if (s === "past_due") return "Payment issue";
+  if (s === "canceled" || s === "cancelled") return "Canceled";
+  if (s === "unpaid") return "Unpaid";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function BillingClient() {
@@ -156,10 +178,8 @@ export default function BillingClient() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
   const [activating, setActivating] = useState(false);
   const [activationTarget, setActivationTarget] = useState<"starter" | "pro" | null>(null);
-
   const pollingRef = useRef<{ stop: () => void } | null>(null);
 
   const linked = useMemo(() => {
@@ -172,13 +192,6 @@ export default function BillingClient() {
     if (!status) return "free";
     if ("linked" in status && status.linked === false) return "free";
     return normalizePlanKey((status as any).effective_plan);
-  }, [status]);
-
-  const planKey = useMemo(() => {
-    if (!status) return "free";
-    if ("linked" in status && status.linked === false) return "free";
-    const s = status as Exclude<BillingStatus, { linked: false }>;
-    return normalizePlanKey(s.plan_key || s.effective_plan);
   }, [status]);
 
   const subStatus = useMemo(() => {
@@ -202,7 +215,6 @@ export default function BillingClient() {
     pollingRef.current = null;
   }
 
-  // ✅ FIX: central “clear activating” (used for back/bfcache + timeouts)
   function clearActivating() {
     stopPolling();
     setActivating(false);
@@ -217,10 +229,6 @@ export default function BillingClient() {
       return out;
     } catch (e: any) {
       const msg = String(e?.message || "Failed to load billing status");
-
-      // Account not yet linked to an owner — treat as free plan.
-      // Show the billing page normally so the user can view and select a plan.
-      // Do NOT redirect to link-phone; linking is not required to upgrade.
       if (
         msg.toLowerCase().includes("not_linked") ||
         msg.toLowerCase().includes("missing dashboard token") ||
@@ -229,7 +237,6 @@ export default function BillingClient() {
         setStatus({ linked: false });
         return { linked: false } as BillingStatus;
       }
-
       setErr(msg);
       setStatus(null);
       return null;
@@ -248,80 +255,49 @@ export default function BillingClient() {
     stopPolling();
     setActivating(true);
     setActivationTarget(target);
-
     const startedAt = Date.now();
     const maxMs = 20_000;
-    const intervalMs = 2500;
-
     let cancelled = false;
-
     const tick = async () => {
       if (cancelled) return;
-
       const out = await refreshStatus();
       if (cancelled) return;
-
       const eff =
         out && !("linked" in out && out.linked === false)
           ? normalizePlanKey((out as any).effective_plan)
           : "free";
-
       if (eff === target) {
-        // ✅ FIX: success — stop + clear + remove session_id/plan so it won’t retrigger on refresh
         clearActivating();
         router.replace("/app/settings/billing");
         return;
       }
-
       if (Date.now() - startedAt >= maxMs) {
         clearActivating();
-        setErr("Payment received, but plan activation is still propagating. Refresh in a minute or open “Manage billing”.");
+        setErr("Payment received, but plan activation is still propagating. Refresh in a moment or open Manage billing.");
       }
     };
-
-    const id = window.setInterval(tick, intervalMs);
+    const id = window.setInterval(tick, 2500);
     window.setTimeout(tick, 800);
-
-    pollingRef.current = {
-      stop: () => {
-        cancelled = true;
-        window.clearInterval(id);
-      },
-    };
+    pollingRef.current = { stop: () => { cancelled = true; window.clearInterval(id); } };
   }
 
-  // Auto polling when returning from Stripe (session_id in URL)
   useEffect(() => {
     if (!hasSessionId) return;
-
     const target = (preferredPlan || "starter") as "starter" | "pro";
     startPolling(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSessionId, preferredPlan]);
 
-  // ✅ FIX: if user backed out of Stripe (no session_id), don’t stay “Activating…”
-  // This catches bfcache restores + “Back” behavior.
   useEffect(() => {
     if (!activating) return;
     if (hasSessionId) return;
-
-    const t = window.setTimeout(() => {
-      // If we’re “activating” but not in the return-from-Stripe state,
-      // we should unlock the UI.
-      clearActivating();
-    }, 350);
-
+    const t = window.setTimeout(() => clearActivating(), 350);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activating, hasSessionId]);
 
-  // ✅ FIX: bfcache restore hook (Safari/Chrome can restore state on back)
   useEffect(() => {
-    const onPageShow = () => {
-      if (!sp.get("session_id")) {
-        clearActivating();
-      }
-    };
+    const onPageShow = () => { if (!sp.get("session_id")) clearActivating(); };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -329,17 +305,13 @@ export default function BillingClient() {
 
   async function startCheckout(planKey: "starter" | "pro") {
     setErr(null);
-
-    // Keep the nice UX (“Activating…”), but it will now auto-clear on Back.
     setActivating(true);
     setActivationTarget(planKey);
-
     try {
       const out = await apiFetchJSON<{ url: string }>(CHECKOUT_URL, {
         method: "POST",
         body: JSON.stringify({ planKey }),
       });
-
       if (out?.url) window.location.href = out.url;
       else throw new Error("Checkout failed.");
     } catch (e: any) {
@@ -359,233 +331,240 @@ export default function BillingClient() {
     }
   }
 
-  const headline = useMemo(() => {
-    if (effectivePlan === "pro") return "Pro — Crew + Control";
-    if (effectivePlan === "starter") return "Starter — Owner Mode";
-    return "Free — Field Capture";
-  }, [effectivePlan]);
-
-  const statusTone = useMemo<"neutral" | "good" | "warn" | "bad">(() => {
-    if (!subStatus) return "neutral";
-    if (subStatus === "active" || subStatus === "trialing") return "good";
-    if (subStatus === "past_due") return "warn";
-    return "bad";
-  }, [subStatus]);
+  const planUi = PLAN_UI[effectivePlan as keyof typeof PLAN_UI] ?? PLAN_UI.free;
 
   return (
-    <div>
-      <div className="mb-6">
-        <div className="text-xs text-white/55">Settings</div>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Plans & Billing</h1>
-        <p className="mt-2 text-sm text-white/70">
-          Billing controls access — enforcement happens server-side. This page reflects your current system state.
+    <div style={{ color: C.text, fontFamily: "var(--font-dm-sans, sans-serif)" }}>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: C.textFaint, fontFamily: "var(--font-space-mono, monospace)" }}>
+          Settings
+        </div>
+        <h1 style={{ marginTop: 8, fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", color: C.text }}>
+          Plans &amp; Billing
+        </h1>
+        <p style={{ marginTop: 8, fontSize: 14, color: C.textMuted, lineHeight: 1.6 }}>
+          Upgrade anytime. Downgrade or cancel through the billing portal. Your data is always yours.
         </p>
       </div>
 
+      {/* Activating banner */}
       {activating && (
-        <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div style={{ marginBottom: 20, borderRadius: 16, border: `1px solid rgba(212,168,83,0.3)`, background: "rgba(212,168,83,0.07)", padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div className="text-sm font-medium">Activating your plan…</div>
-              <div className="mt-1 text-xs text-white/70">This usually takes a few seconds.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.gold }}>Activating your plan…</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: C.textMuted }}>This usually takes a few seconds after checkout.</div>
             </div>
-            <StatusPill label={`Activating → ${activationTarget || "starter"}`} tone="warn" />
+            <span style={{ borderRadius: 999, border: `1px solid rgba(212,168,83,0.3)`, background: "rgba(212,168,83,0.1)", padding: "4px 12px", fontSize: 11, color: C.gold, letterSpacing: "0.5px" }}>
+              {activationTarget ? activationTarget.charAt(0).toUpperCase() + activationTarget.slice(1) : "Starter"}
+            </span>
           </div>
         </div>
       )}
 
+      {/* Billing issue banner */}
       {billingIssue && (
-        <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div style={{ marginBottom: 20, borderRadius: 16, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.08)", padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div className="text-sm font-medium text-amber-100">
-                Payment issue — update billing to restore Starter/Pro features.
-              </div>
-              <div className="mt-1 text-xs text-amber-100/80">
-                While Stripe shows past-due, the effective plan is Free until it becomes active again.
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#FCD34D" }}>Payment issue — update your billing to restore access.</div>
+              <div style={{ marginTop: 4, fontSize: 12, color: "#FDE68A" }}>Your plan is temporarily on Free until the payment is resolved.</div>
             </div>
-            <button
-              onClick={openPortal}
-              className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
-            >
+            <button onClick={openPortal} style={{ borderRadius: 10, background: C.gold, color: C.bg, border: "none", padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               Manage billing
             </button>
           </div>
         </div>
       )}
 
+      {/* Error */}
       {err && (
-        <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
-          <div className="text-sm font-medium text-rose-100">Couldn’t complete that action</div>
-          <div className="mt-1 text-xs text-rose-100/80">{err}</div>
+        <div style={{ marginBottom: 20, borderRadius: 16, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", padding: "16px 20px" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#FCA5A5" }}>Couldn't complete that action</div>
+          <div style={{ marginTop: 4, fontSize: 12, color: "#FECACA" }}>{err}</div>
         </div>
       )}
 
+      {/* Not linked */}
       {linked === false && (
-        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">
-          Your account isn’t linked to a workspace yet — you’re on Free.{" "}
-          <a href="/app/link-phone?next=/app/settings/billing" className="text-white/80 underline underline-offset-2 hover:text-white">
+        <div style={{ marginBottom: 20, borderRadius: 12, border: C.border, background: C.goldFaint, padding: "12px 16px", fontSize: 13, color: C.textMuted }}>
+          Your account isn't linked to a workspace yet — you're on Free.{" "}
+          <a href="/app/link-phone?next=/app/settings/billing" style={{ color: C.gold, textDecoration: "underline" }}>
             Link your phone
           </a>{" "}
           after upgrading to activate your plan.
         </div>
       )}
 
-      {(
-        <>
-          <div className="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 md:grid-cols-3">
-            <div className="md:col-span-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-lg font-semibold">{headline}</h2>
-                <StatusPill label={subStatus ? subStatus.toUpperCase() : "—"} tone={statusTone} />
-                <StatusPill label={`Effective: ${effectivePlan}`} />
-              </div>
-
-              <div className="mt-3 text-sm text-white/70">
-                {effectivePlan !== "free" && periodEnd ? (
-                  <>
-                    Current period ends <span className="text-white/90">{periodEnd}</span>.
-                  </>
-                ) : (
-                  <>You’re in Free mode. Upgrade only when a gate matters.</>
-                )}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  onClick={() => refreshStatus()}
-                  className="rounded-xl border border-white/15 bg-transparent px-4 py-2 text-sm font-medium text-white hover:bg-white/5"
-                >
-                  Refresh
-                </button>
-
-                <button
-                  onClick={openPortal}
-                  className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
-                  title="Opens Stripe billing portal"
-                >
-                  Manage billing
-                </button>
-              </div>
-
-              <div className="mt-4 text-xs text-white/50">
-                You can always export your records. Paid plans are for speed, answers, and control — not lock-in.
-              </div>
+      {/* Current plan summary */}
+      <div style={{ marginBottom: 28, borderRadius: 20, border: C.goldBorder, background: C.bgCard, padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: C.textFaint, fontFamily: "var(--font-space-mono, monospace)" }}>
+              Current plan
             </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="text-xs text-white/60">Plan details</div>
-              <div className="mt-2 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/70">Plan key</span>
-                  <span className="font-medium">{planKey}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/70">Effective</span>
-                  <span className="font-medium">{effectivePlan}</span>
-                </div>
-              </div>
+            <div style={{ marginTop: 8, fontSize: 22, fontWeight: 700, color: C.text }}>
+              {planUi.label} — {planUi.badge}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 13, color: C.textMuted }}>
+              {effectivePlan !== "free" && periodEnd
+                ? <>Current period ends <span style={{ color: C.text }}>{periodEnd}</span>.</>
+                : "You're on the free plan. Upgrade when you want more speed, answers, and control."}
             </div>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {subStatus && subStatus !== "free" && (
+              <span style={{
+                borderRadius: 999,
+                border: subStatus === "active" || subStatus === "trialing"
+                  ? "1px solid rgba(52,211,153,0.3)" : "1px solid rgba(212,168,83,0.25)",
+                background: subStatus === "active" || subStatus === "trialing"
+                  ? "rgba(52,211,153,0.1)" : C.goldFaint,
+                padding: "4px 12px",
+                fontSize: 11,
+                color: subStatus === "active" || subStatus === "trialing" ? "#6EE7B7" : C.gold,
+                letterSpacing: "0.5px",
+                fontFamily: "var(--font-space-mono, monospace)",
+              }}>
+                {subStatusLabel(subStatus)}
+              </span>
+            )}
+          </div>
+        </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {(["free", "starter", "pro"] as const).map((k) => {
-              const ui = PLAN_UI[k];
-              const isCurrent = effectivePlan === k;
-              const isPreferred = preferredPlan === k;
+        <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={() => refreshStatus()}
+            style={{ borderRadius: 10, border: C.goldBorder, background: "transparent", color: C.textMuted, padding: "8px 16px", fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+          >
+            Refresh
+          </button>
+          <button
+            onClick={openPortal}
+            style={{ borderRadius: 10, background: C.gold, color: C.bg, border: "none", padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            Manage billing
+          </button>
+        </div>
 
-              return (
-                <div
-                  key={k}
-                  className={[
-                    "rounded-2xl border p-5",
-                    isCurrent ? "border-white/30 bg-white/10" : "border-white/10 bg-white/5",
-                    isPreferred && !isCurrent ? "ring-1 ring-white/20" : "",
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm text-white/70">{ui.badge}</div>
-                      <div className="mt-1 text-lg font-semibold">{ui.label}</div>
-                    </div>
-                    {isCurrent ? <StatusPill label="Current" tone="good" /> : <StatusPill label={ui.price} />}
+        <div style={{ marginTop: 16, fontSize: 12, color: C.textFaint }}>
+          Your records are always exportable — paid plans are for speed, answers, and control, not lock-in.
+        </div>
+      </div>
+
+      {/* Plan tier cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 8 }}>
+        {(["free", "starter", "pro"] as const).map((k) => {
+          const ui = PLAN_UI[k];
+          const isCurrent = effectivePlan === k;
+          const isHighlighted = k === "starter" && effectivePlan === "free";
+
+          return (
+            <div
+              key={k}
+              style={{
+                borderRadius: 20,
+                border: isCurrent
+                  ? `1.5px solid ${C.goldBorderStrong}`
+                  : isHighlighted
+                    ? `1px solid ${C.goldBorder}`
+                    : `1px solid ${C.border}`,
+                background: isCurrent ? "rgba(212,168,83,0.07)" : C.bgCard,
+                padding: 22,
+                position: "relative",
+                boxShadow: isCurrent ? `0 0 0 1px rgba(212,168,83,0.1) inset` : "none",
+              }}
+            >
+              {isCurrent && (
+                <div style={{
+                  position: "absolute", top: -12, left: 18,
+                  borderRadius: 999, border: `1px solid ${C.goldBorder}`, background: C.bg,
+                  padding: "3px 12px", fontSize: 11, color: C.gold, letterSpacing: "0.5px",
+                  fontFamily: "var(--font-space-mono, monospace)",
+                }}>
+                  Current plan
+                </div>
+              )}
+
+              <div style={{ fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: C.textFaint, fontFamily: "var(--font-space-mono, monospace)" }}>
+                {ui.badge}
+              </div>
+              <div style={{ marginTop: 6, fontSize: 20, fontWeight: 700, color: C.text }}>{ui.label}</div>
+              <div style={{ marginTop: 4, display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 28, fontWeight: 700, color: isCurrent ? C.gold : C.text }}>{ui.price}</span>
+                <span style={{ fontSize: 12, color: C.textFaint }}>{ui.period}</span>
+              </div>
+
+              <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+                {ui.highlights.map((h) => (
+                  <div key={h} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <span style={{
+                      marginTop: 4, flexShrink: 0,
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: isCurrent ? C.gold : "rgba(212,168,83,0.4)",
+                    }} />
+                    <span style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.5 }}>{h}</span>
                   </div>
+                ))}
+              </div>
 
-                  <ul className="mt-4 space-y-2 text-sm text-white/75">
-                    {ui.highlights.map((h) => (
-                      <li key={h} className="flex gap-2">
-                        <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-white/40" />
-                        <span>{h}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-5">
-                    {k === "free" ? (
-                      isCurrent ? (
-                        <button
-                          disabled
-                          className="w-full cursor-not-allowed rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/50"
-                        >
-                          Current
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={openPortal}
-                            disabled={activating}
-                            className="w-full rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90 disabled:opacity-60"
-                          >
-                            Switch to Free
-                          </button>
-                          <div className="mt-2 text-xs text-white/50">
-                            Free is applied by cancelling/downgrading in Stripe (portal).
-                          </div>
-                        </>
-                      )
-                    ) : (
-                      <button
-                        onClick={() => startCheckout(k)}
-                        disabled={isCurrent || activating}
-                        className={[
-                          "w-full rounded-xl px-4 py-2 text-sm font-medium",
-                          isCurrent || activating
-                            ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/50"
-                            : "bg-white text-black hover:bg-white/90",
-                        ].join(" ")}
-                      >
-                        {k === "starter" ? "Upgrade to Starter" : "Upgrade to Pro"}
+              <div style={{ marginTop: 22 }}>
+                {k === "free" ? (
+                  isCurrent ? (
+                    <button disabled style={{
+                      width: "100%", borderRadius: 10, border: C.border,
+                      background: "transparent", color: C.textFaint,
+                      padding: "10px 16px", fontSize: 13, fontWeight: 500, cursor: "not-allowed",
+                    }}>
+                      Current plan
+                    </button>
+                  ) : (
+                    <>
+                      <button onClick={openPortal} disabled={activating} style={{
+                        width: "100%", borderRadius: 10, border: C.goldBorder,
+                        background: C.goldFaint, color: C.gold,
+                        padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: activating ? "not-allowed" : "pointer",
+                        opacity: activating ? 0.6 : 1,
+                      }}>
+                        Switch to Free
                       </button>
-                    )}
-
-                    {k !== "free" && (
-                      <div className="mt-2 text-xs text-white/50">
-                        You’ll see “Activating…” briefly after checkout while the plan updates.
+                      <div style={{ marginTop: 8, fontSize: 11, color: C.textFaint }}>
+                        Cancel your subscription through the billing portal.
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startCheckout(k)}
+                      disabled={isCurrent || activating}
+                      style={{
+                        width: "100%", borderRadius: 10, border: "none",
+                        background: isCurrent || activating ? "rgba(212,168,83,0.12)" : C.gold,
+                        color: isCurrent || activating ? C.textFaint : C.bg,
+                        padding: "10px 16px", fontSize: 13, fontWeight: 600,
+                        cursor: isCurrent || activating ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {isCurrent ? "Current plan" : k === "starter" ? "Upgrade to Starter" : "Upgrade to Pro"}
+                    </button>
+                    {!isCurrent && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: C.textFaint }}>
+                        You'll see a brief "Activating…" notice after checkout.
                       </div>
                     )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="text-sm font-medium">Notes</div>
-            <div className="mt-2 text-sm text-white/70">
-              <ul className="list-disc space-y-2 pl-5">
-                <li>
-                  If Stripe shows <span className="text-white/90">past_due</span>, the effective plan becomes{" "}
-                  <span className="text-white/90">Free</span> until the subscription is active again.
-                </li>
-                <li>Enforcement is server-side. This UI reflects your effective plan.</li>
-                <li>If “Activating…” persists, click <span className="text-white/90">Manage billing</span> or refresh.</li>
-              </ul>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          );
+        })}
+      </div>
 
-          {loading && <div className="mt-6 text-sm text-white/60">Loading billing status…</div>}
-        </>
+      {loading && (
+        <div style={{ marginTop: 24, fontSize: 13, color: C.textFaint }}>Loading billing status…</div>
       )}
     </div>
   );
