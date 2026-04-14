@@ -720,7 +720,7 @@ export default function CrewMembersPage() {
                               : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
                           ].join(" ")}
                         >
-                          {inv?.busy ? "Sending…" : "Send portal invite"}
+                          {inv?.busy ? "Sending…" : "Send invite"}
                         </button>
 
                         {inv?.url ? (
