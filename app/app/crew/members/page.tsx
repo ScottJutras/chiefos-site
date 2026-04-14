@@ -401,18 +401,6 @@ export default function CrewMembersPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Members & Board</h1>
-          <div className="mt-1 text-sm text-white/70">
-            {quota ? (
-              <>
-                Employees: <span className={employeeCount >= quota.employees_limit ? "text-amber-400 font-medium" : ""}>{employeeCount}/{quota.employees_limit}</span>
-                {quota.board_limit > 0 && <> · Board: {boardCount}/{quota.board_limit}</>}
-                {" · "}
-                <span className="capitalize">{quota.plan_key}</span>
-              </>
-            ) : (
-              <>Employees: {employeeCount} · Board: {boardCount}</>
-            )}
-          </div>
         </div>
 
         <Link
@@ -422,6 +410,53 @@ export default function CrewMembersPage() {
           Back
         </Link>
       </div>
+
+      {/* Employee quota counter */}
+      {quota && (() => {
+        const limit = quota.employees_limit;
+        const used = quota.employees_used;
+        const atLimit = used >= limit;
+        const dotCount = Math.min(limit, 10);
+        const filledDots = limit <= 10
+          ? used
+          : Math.round((used / limit) * dotCount);
+        const upgradeHint =
+          quota.plan_key === "free" ? "Upgrade to Starter for 10 →" :
+          quota.plan_key === "starter" ? "Upgrade to Pro for 50 →" : null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-white/8 bg-white/[0.025] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-white/55">
+                <span className="font-semibold text-white/80">{used}</span>
+                <span className="text-white/35"> of </span>
+                <span className="font-semibold text-white/80">{limit}</span>
+                <span className="text-white/35"> {quota.plan_key} employees used</span>
+              </div>
+              <div className="flex gap-1">
+                {Array.from({ length: dotCount }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={[
+                      "h-1.5 w-4 rounded-full transition-colors",
+                      i < filledDots
+                        ? (atLimit ? "bg-amber-400" : "bg-white/50")
+                        : "bg-white/10",
+                    ].join(" ")}
+                  />
+                ))}
+              </div>
+            </div>
+            {upgradeHint && atLimit && (
+              <a
+                href="/app/settings/billing"
+                className="text-xs text-amber-400 hover:text-amber-300 transition"
+              >
+                {upgradeHint}
+              </a>
+            )}
+          </div>
+        );
+      })()}
 
       {err && (
         <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">
@@ -436,10 +471,10 @@ export default function CrewMembersPage() {
           {quota && employeeCount >= quota.employees_limit && (
             <span className="text-xs text-amber-400">
               {quota.plan_key === "free"
-                ? "Free plan: 3 employee max · Upgrade to Starter for 25"
+                ? "Free: 3 max · Upgrade to Starter for 10"
                 : quota.plan_key === "starter"
-                ? "Starter plan: 25 employee max · Upgrade to Pro for 150"
-                : "Employee limit reached"}
+                ? "Starter: 10 max · Upgrade to Pro for 50"
+                : "Employee limit reached (50)"}
             </span>
           )}
         </div>
