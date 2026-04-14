@@ -10,6 +10,7 @@ const primaryItems = [
   { href: "/app/jobs",               label: "Jobs"      },
   { href: "/app/activity/expenses",  label: "My Books"  },
   { href: "/app/uploads",            label: "Inbox"     },
+  { href: "/app/crew/members",       label: "Crew"      },
 ];
 
 // "More" dropdown — secondary pages

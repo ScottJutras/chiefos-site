@@ -238,12 +238,6 @@ export default function SettingsPage() {
           sub="Manage your WhatsApp linkage and connection health."
           href="/app/connect-whatsapp"
         />
-        <Tile
-          title="Roles & Permissions"
-          sub="Control who can log, approve, and view records."
-          href="/app/settings"
-          badge="Coming soon"
-        />
       </div>
 
       <div className="rounded-[28px] border border-red-500/20 bg-red-500/[0.06] p-6">
