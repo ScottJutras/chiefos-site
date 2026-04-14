@@ -7,18 +7,17 @@ import { fetchWhoami } from "@/lib/whoami";
 import { supabase } from "@/lib/supabase";
 
 const WA_NUMBER = "12316802664";
-// YouTube walkthrough links — set NEXT_PUBLIC_YOUTUBE_* in your env to enable
 const YT_WALKTHROUGH = process.env.NEXT_PUBLIC_YOUTUBE_WALKTHROUGH || "";
-const YT_EXPENSE     = process.env.NEXT_PUBLIC_YOUTUBE_EXPENSE_GUIDE || "";
-const YT_JOB_PNL     = process.env.NEXT_PUBLIC_YOUTUBE_JOB_PNL_GUIDE || "";
 
-type Step = {
-  id: string;
-  label: string;
-  description: string;
-  done: boolean;
-  action?: React.ReactNode;
-};
+type UsageMode = "web" | "whatsapp" | "microapp" | "all" | null;
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+
+function digitsOnly(code: string | null | undefined) {
+  return String(code || "").replace(/\D/g, "");
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function VideoLink({ url, label }: { url: string; label: string }) {
   if (!url) return null;
@@ -37,37 +36,6 @@ function VideoLink({ url, label }: { url: string; label: string }) {
   );
 }
 
-const NEXT_STEPS = [
-  {
-    icon: "🏗️",
-    title: "Create a Job",
-    description: "ChiefOS is job-based. Every expense, revenue entry, and time log should be linked to a job. Create your first job before you start logging so everything stays organized.",
-    action: { label: "Create a job", href: "/app/jobs/new", external: false },
-    videoUrl: () => "",
-  },
-  {
-    icon: "📥",
-    title: "Import historical data",
-    description: "Have past invoices or expense records? Import them as a CSV — expenses, revenue, or time entries. Build your financial baseline fast.",
-    action: { label: "Go to Import", href: "/app/import", external: false },
-    videoUrl: () => "",
-  },
-  {
-    icon: "💸",
-    title: "Log an expense",
-    description: "Text Chief in WhatsApp: expense $50 Canadian Tire [Job Name]. It gets attached to your job automatically.",
-    action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("expense $50 Canadian Tire")}`, external: true },
-    videoUrl: () => YT_EXPENSE,
-  },
-  {
-    icon: "📊",
-    title: "Check job profitability",
-    description: "After logging a few expenses, ask Chief: job kpis [job name]. You'll see revenue, costs, and margin — so you know which jobs actually make money.",
-    action: { label: "Open WhatsApp", href: `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent("job kpis ")}`, external: true },
-    videoUrl: () => YT_JOB_PNL,
-  },
-];
-
 function CheckIcon({ done }: { done: boolean }) {
   if (done) {
     return (
@@ -85,21 +53,6 @@ function CheckIcon({ done }: { done: boolean }) {
   );
 }
 
-const FREE_LOCKED = [
-  "Revenue tracking",
-  "Audio logging + receipt scanner",
-  "PDF exports + job P&L",
-  "Ask Chief: 250 questions/month",
-  "Up to 25 jobs, 10 employees",
-];
-
-const FREE_INCLUDED = [
-  "Expense capture via WhatsApp",
-  "Time tracking · 3 jobs · 3 employees",
-  "Ask Chief: 10 questions/month",
-  "CSV export · 90-day history",
-];
-
 function PlanStep({
   onContinue,
   onUpgrade,
@@ -107,6 +60,20 @@ function PlanStep({
   onContinue: () => void;
   onUpgrade: () => void;
 }) {
+  const FREE_INCLUDED = [
+    "Expense capture via WhatsApp",
+    "Time tracking · 3 jobs · 3 employees",
+    "Ask Chief: 10 questions/month",
+    "CSV export · 90-day history",
+  ];
+  const FREE_LOCKED = [
+    "Revenue tracking",
+    "Audio logging + receipt scanner",
+    "PDF exports + job P&L",
+    "Ask Chief: 250 questions/month",
+    "Up to 25 jobs, 10 employees",
+  ];
+
   return (
     <div className="rounded-[20px] border border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.05)] p-5">
       <div className="flex items-start gap-4">
@@ -114,9 +81,7 @@ function PlanStep({
           <div className="h-2.5 w-2.5 rounded-full bg-[#D4A853]" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="font-medium text-white/92 text-sm">Choose your plan</div>
-          </div>
+          <div className="font-medium text-white/92 text-sm">Choose your plan</div>
 
           <div className="mt-3 space-y-3">
             <div>
@@ -132,7 +97,6 @@ function PlanStep({
                 ))}
               </ul>
             </div>
-
             <div>
               <div className="text-[10px] uppercase tracking-[0.14em] text-white/40 mb-1.5">Unlock with Starter</div>
               <ul className="space-y-1">
@@ -170,9 +134,131 @@ function PlanStep({
   );
 }
 
-function digitsOnly(code: string | null | undefined) {
-  return String(code || "").replace(/\D/g, "");
-}
+// ─── Plan feature data ────────────────────────────────────────────────────────
+
+type FeatureCard = {
+  icon: string;
+  title: string;
+  description: string;
+  href?: string;
+};
+
+const FREE_FEATURES: FeatureCard[] = [
+  {
+    icon: "🏗️",
+    title: "Create a Job",
+    description: "Every expense, revenue entry, and time log should belong to a job. Create one before you start logging so everything stays organized.",
+    href: "/app/jobs/new",
+  },
+  {
+    icon: "💸",
+    title: "Log an Expense",
+    description: "Text Chief on WhatsApp: expense $50 Canadian Tire [Job Name]. It attaches to your job automatically.",
+  },
+  {
+    icon: "⏱️",
+    title: "Time Clock — Track Labour Hours",
+    description: "Text Chief: clock in [Job Name] when you start, clock out when you finish. Chief logs your hours and links them to the job.",
+  },
+  {
+    icon: "🔁",
+    title: "Set Overhead & Recurring Costs",
+    description: "Fixed costs like rent, insurance, and subscriptions. Set them once and Chief factors them into every job P&L automatically.",
+    href: "/app/overhead",
+  },
+  {
+    icon: "🤖",
+    title: "Ask Chief (10 questions/month)",
+    description: "Ask anything about your business: job kpis [job name], how much did I spend last week?, what's my margin on [job]?",
+  },
+  {
+    icon: "📥",
+    title: "Import Historical Data",
+    description: "Bring in past records via CSV — expenses, revenue, or time entries. Build your financial baseline fast.",
+    href: "/app/import",
+  },
+];
+
+const STARTER_FEATURES: FeatureCard[] = [
+  {
+    icon: "📷",
+    title: "Receipt Scanner (OCR)",
+    description: "Send a photo of any receipt on WhatsApp. Chief reads it, extracts the amount and vendor, and logs the expense.",
+  },
+  {
+    icon: "🎙️",
+    title: "Voice Expense Logging",
+    description: "Send a voice memo to Chief describing an expense. It gets transcribed and logged automatically.",
+  },
+  {
+    icon: "✅",
+    title: "Create and Assign Tasks",
+    description: "Create tasks on jobs and assign them to crew members. Track status and completion across your projects.",
+    href: "/app/tasks",
+  },
+  {
+    icon: "🔔",
+    title: "Set Reminders",
+    description: "Ask Chief to remind you of anything at any time. Works via WhatsApp — just say remind me to [thing] on [date].",
+  },
+  {
+    icon: "📄",
+    title: "Documents — Quotes, Invoices, Contracts",
+    description: "Generate professional quotes, invoices, and contracts directly from job data. Send them to clients in seconds.",
+    href: "/app/documents",
+  },
+  {
+    icon: "👷",
+    title: "Add Employees (up to 10)",
+    description: "Invite crew members to log time and expenses under your account. Keep everything organized by employee.",
+    href: "/app/settings/team",
+  },
+  {
+    icon: "📸",
+    title: "Job Site Photos & Notes",
+    description: "Attach photos, notes, and documents to jobs for a complete project record. All stored and searchable.",
+  },
+  {
+    icon: "📊",
+    title: "Exports — PDF, CSV, XLS",
+    description: "Download job P&L reports, expense summaries, and time logs in any format. Share with your accountant or bank.",
+  },
+  {
+    icon: "🤖",
+    title: "Ask Chief (250 questions/month)",
+    description: "Full conversational access to your business data. Ask anything — Chief knows your jobs, costs, and history.",
+  },
+];
+
+const PRO_FEATURES: FeatureCard[] = [
+  {
+    icon: "📱",
+    title: "Crew Self-Logging via WhatsApp",
+    description: "Employees log their own time and expenses directly from their phones on WhatsApp — no portal login required.",
+  },
+  {
+    icon: "✔️",
+    title: "Time Approvals & Edit Requests",
+    description: "Review and approve time entries submitted by crew members. Employees can request edits; you approve them.",
+  },
+  {
+    icon: "📈",
+    title: "Forecasting",
+    description: "Chief projects future costs and revenue based on job history, overhead, and current pipeline.",
+  },
+  {
+    icon: "🤖",
+    title: "Ask Chief (2,000 questions/month)",
+    description: "Unlimited conversational access for power users. Ask complex multi-part questions about your entire operation.",
+  },
+  {
+    icon: "👥",
+    title: "Up to 50 Employees, 5 Board Members",
+    description: "Scale your crew tracking and give board-level visibility to partners or investors — all within one workspace.",
+  },
+];
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function WelcomeClient() {
   const router = useRouter();
@@ -190,6 +276,42 @@ export default function WelcomeClient() {
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [phoneNumberCopied, setPhoneNumberCopied] = useState(false);
+
+  // New onboarding state
+  const [usageMode, setUsageModeState] = useState<UsageMode>(null);
+  const [receiptMethods, setReceiptMethodsState] = useState<string[]>([]);
+  const [overheadSkipped, setOverheadSkippedState] = useState(false);
+  const [emailCaptureAddress, setEmailCaptureAddress] = useState<string | null>(null);
+
+  // ── Persisted state helpers ──────────────────────────────────────────────────
+
+  function setUsageMode(mode: UsageMode) {
+    setUsageModeState(mode);
+    if (tenantId) {
+      try { localStorage.setItem(`chief_usage_mode_${tenantId}`, mode ?? ""); } catch { /* ignore */ }
+    }
+  }
+
+  function toggleReceiptMethod(method: string) {
+    setReceiptMethodsState((prev) => {
+      const next = prev.includes(method)
+        ? prev.filter((m) => m !== method)
+        : [...prev, method];
+      if (tenantId) {
+        try { localStorage.setItem(`chief_receipt_methods_${tenantId}`, next.join(",")); } catch { /* ignore */ }
+      }
+      return next;
+    });
+  }
+
+  function skipOverhead() {
+    setOverheadSkippedState(true);
+    if (tenantId) {
+      try { localStorage.setItem(`chief_overhead_skipped_${tenantId}`, "1"); } catch { /* ignore */ }
+    }
+  }
+
+  // ── Link code ────────────────────────────────────────────────────────────────
 
   async function fetchOrCreateCode(uid: string) {
     setCodeLoading(true);
@@ -209,7 +331,6 @@ export default function WelcomeClient() {
         return;
       }
 
-      // No existing code — create one
       await supabase.rpc("chiefos_create_link_code", {});
 
       const { data: fresh } = await supabase
@@ -230,6 +351,8 @@ export default function WelcomeClient() {
     }
   }
 
+  // ── Load state ───────────────────────────────────────────────────────────────
+
   async function loadState() {
     try {
       const w: any = await fetchWhoami();
@@ -249,27 +372,42 @@ export default function WelcomeClient() {
       setPortalUserId(uid);
       setPlanKey(w.planKey ?? "free");
 
-      // Fetch/create link code if not yet linked
       if (!w.hasWhatsApp) {
         void fetchOrCreateCode(uid);
       }
 
-      // Restore plan acknowledgment from localStorage
+      // Restore persisted state
       try {
-        const stored = localStorage.getItem(`chief_plan_ack_${tid}`);
-        if (stored === "1") setPlanAcknowledged(true);
-      } catch {
-        // ignore storage errors
-      }
+        if (localStorage.getItem(`chief_plan_ack_${tid}`) === "1") setPlanAcknowledged(true);
+        const storedMode = localStorage.getItem(`chief_usage_mode_${tid}`);
+        if (storedMode) setUsageModeState(storedMode as UsageMode);
+        const storedMethods = localStorage.getItem(`chief_receipt_methods_${tid}`);
+        if (storedMethods) setReceiptMethodsState(storedMethods.split(",").filter(Boolean));
+        if (localStorage.getItem(`chief_overhead_skipped_${tid}`) === "1") setOverheadSkippedState(true);
+      } catch { /* ignore */ }
 
-      // Check if user has logged at least one expense/revenue
+      // Check at least one expense/revenue logged
       const { count } = await supabase
         .from("chiefos_portal_expenses")
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tid)
         .limit(1);
-
       setHasExpense((count ?? 0) > 0);
+
+      // Fetch email capture address
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const res = await fetch("/api/settings/email-capture", {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            const d = await res.json();
+            if (d.capture_address) setEmailCaptureAddress(d.capture_address);
+          }
+        }
+      } catch { /* non-blocking */ }
+
     } catch {
       // non-blocking — show page anyway
     } finally {
@@ -294,15 +432,7 @@ export default function WelcomeClient() {
     return () => clearTimeout(t);
   }, [phoneNumberCopied]);
 
-  // Auto-redirect to dashboard once all steps are done
-  // Free users must acknowledge the plan step first
-  const planStepDone = planKey !== "free" || planAcknowledged;
-  useEffect(() => {
-    if (!loading && hasWhatsApp && hasExpense && planStepDone) {
-      const t = setTimeout(() => router.replace("/app/dashboard"), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [loading, hasWhatsApp, hasExpense, planStepDone, router]);
+  // ── Actions ──────────────────────────────────────────────────────────────────
 
   async function recheckWhatsApp() {
     setChecking(true);
@@ -311,24 +441,18 @@ export default function WelcomeClient() {
       if (w?.ok) {
         const linked = !!w.hasWhatsApp;
         setHasWhatsApp(linked);
-        if (linked) {
-          // Also recheck expense
-          if (tenantId) {
-            const { count } = await supabase
-              .from("chiefos_portal_expenses")
-              .select("*", { count: "exact", head: true })
-              .eq("tenant_id", tenantId)
-              .limit(1);
-            setHasExpense((count ?? 0) > 0);
-          }
+        if (linked && tenantId) {
+          const { count } = await supabase
+            .from("chiefos_portal_expenses")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .limit(1);
+          setHasExpense((count ?? 0) > 0);
         } else if (!linkCode && portalUserId) {
-          // Still not linked — ensure we have a code ready
           void fetchOrCreateCode(portalUserId);
         }
       }
-    } catch {
-      // ignore
-    } finally {
+    } catch { /* ignore */ } finally {
       setChecking(false);
     }
   }
@@ -344,9 +468,7 @@ export default function WelcomeClient() {
           .limit(1);
         setHasExpense((count ?? 0) > 0);
       }
-    } catch {
-      // ignore
-    } finally {
+    } catch { /* ignore */ } finally {
       setChecking(false);
     }
   }
@@ -358,7 +480,19 @@ export default function WelcomeClient() {
     }
   }
 
-  const allDone = hasWhatsApp && hasExpense && planStepDone;
+  // ── Derived ──────────────────────────────────────────────────────────────────
+
+  const planStepDone = planKey !== "free" || planAcknowledged;
+  const showWA = usageMode === "whatsapp" || usageMode === "all";
+  const showWeb = usageMode === "web" || usageMode === "all";
+  const showMicro = usageMode === "microapp" || usageMode === "all";
+  const usageSectionDone = usageMode !== null && (!showWA || hasWhatsApp);
+  const receiptSectionDone = receiptMethods.length > 0;
+
+  const isStarterOrPro = planKey === "starter" || planKey === "pro";
+  const isPro = planKey === "pro";
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -368,6 +502,152 @@ export default function WelcomeClient() {
     );
   }
 
+  // ── WhatsApp sub-steps (reused in section 4) ─────────────────────────────────
+
+  const whatsAppSubSteps = (
+    <div className="mt-5 space-y-5">
+      {/* Sub-step A */}
+      <div className="space-y-2">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">1 · Get WhatsApp</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
+            <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Desktop</div>
+            <div className="flex flex-wrap gap-1.5">
+              <a href="https://www.microsoft.com/store/apps/9NKSQGP7F2NH" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition">
+                Windows
+              </a>
+              <a href="https://apps.apple.com/app/whatsapp-desktop/id1147396723" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition">
+                Mac
+              </a>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
+            <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Mobile</div>
+            <div className="flex flex-wrap gap-1.5">
+              <a href="https://apps.apple.com/app/whatsapp-messenger/id310633997" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition">
+                iPhone
+              </a>
+              <a href="https://play.google.com/store/apps/details?id=com.whatsapp" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition">
+                Android
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-step B */}
+      <div className="space-y-2">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">2 · Add Chief as a contact</div>
+        <button
+          onClick={async () => {
+            try { await navigator.clipboard.writeText("+12316802664"); setPhoneNumberCopied(true); } catch { /* ignore */ }
+          }}
+          className="flex items-center gap-3 rounded-xl border border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.06)] px-4 py-3 hover:bg-[rgba(212,168,83,0.1)] transition w-full text-left"
+        >
+          <span className="font-mono text-base tracking-widest text-[#D4A853]">+1 (231) 680-2664</span>
+          <span className="ml-auto text-[10px] text-[#D4A853]/60">{phoneNumberCopied ? "Copied!" : "Tap to copy"}</span>
+        </button>
+      </div>
+
+      {/* Sub-step C */}
+      <div className="space-y-2">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">3 · Send this code to Chief on WhatsApp</div>
+        <div className="rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.05)] px-5 py-4 text-center">
+          {codeLoading ? (
+            <span className="text-white/30 text-sm">Generating code…</span>
+          ) : linkCode ? (
+            <span className="font-mono text-2xl tracking-[0.35em] text-[#D4A853]">{linkCode}</span>
+          ) : (
+            <span className="text-white/30 text-sm">No code available</span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            onClick={async () => {
+              if (!linkCode) return;
+              try { await navigator.clipboard.writeText(linkCode); setCodeCopied(true); } catch { /* ignore */ }
+            }}
+            disabled={!linkCode}
+            className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/60 hover:bg-white/10 transition disabled:opacity-40"
+          >
+            {codeCopied ? "Copied!" : "Copy code"}
+          </button>
+          <a
+            href={linkCode ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(linkCode)}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition ${!linkCode ? "pointer-events-none opacity-40" : ""}`}
+          >
+            Open WhatsApp →
+          </a>
+          <button
+            onClick={() => portalUserId && void fetchOrCreateCode(portalUserId)}
+            disabled={codeLoading || !portalUserId}
+            className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/50 hover:bg-white/10 transition disabled:opacity-40"
+          >
+            {codeLoading ? "…" : "New code"}
+          </button>
+        </div>
+      </div>
+
+      {/* Check now */}
+      <div className="space-y-1.5">
+        <button
+          onClick={recheckWhatsApp}
+          disabled={checking}
+          className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
+        >
+          {checking ? "Checking…" : "Already linked? Check now"}
+        </button>
+        <p className="text-[11px] text-white/35 leading-relaxed">
+          Already sent the code to Chief? Tap this to confirm — it checks your account in real time without refreshing the page.
+        </p>
+      </div>
+
+      {YT_WALKTHROUGH && (
+        <VideoLink url={YT_WALKTHROUGH} label="Watch 60-second setup walkthrough" />
+      )}
+    </div>
+  );
+
+  // ── Feature card renderer ─────────────────────────────────────────────────────
+
+  function FeatureCardItem({ card, locked }: { card: FeatureCard; locked: boolean }) {
+    return (
+      <div className={[
+        "rounded-[16px] border p-4 flex flex-col gap-2 relative",
+        locked
+          ? "border-white/5 bg-white/[0.015] opacity-60"
+          : "border-white/8 bg-white/[0.025]",
+      ].join(" ")}>
+        {locked && (
+          <div className="absolute top-3 right-3">
+            <svg className="h-3.5 w-3.5 text-white/25" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+        )}
+        <div className="text-lg leading-none">{card.icon}</div>
+        <div className="text-sm font-medium text-white/85 pr-5">{card.title}</div>
+        <div className="text-xs text-white/45 leading-relaxed flex-1">{card.description}</div>
+        {!locked && card.href && (
+          <Link
+            href={card.href}
+            className="inline-flex items-center text-xs text-white/55 hover:text-white/90 transition mt-1"
+          >
+            {card.title.startsWith("Create") ? "Create now" : card.title.startsWith("Add") ? "Manage team" : card.title.startsWith("Import") ? "Go to Import" : "Open"} →
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0f1117] px-4 py-12 text-white">
       <div className="mx-auto w-full max-w-lg">
@@ -375,35 +655,24 @@ export default function WelcomeClient() {
         {/* Header */}
         <div className="mb-10 text-center">
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-3">ChiefOS</div>
-          <h1 className="text-3xl font-semibold text-white">
-            {allDone ? "You're all set." : "Your financial reality starts here."}
-          </h1>
+          <h1 className="text-3xl font-semibold text-white">Your financial reality starts here.</h1>
           <p className="mt-3 text-white/55 text-sm leading-relaxed">
-            {allDone
-              ? "Taking you to your dashboard…"
-              : "Complete three quick steps and Chief will start tracking your job profitability."}
+            Follow these steps to get set up, then explore everything Chief can do for your business.
           </p>
         </div>
 
-        {/* Steps */}
         <div className="space-y-3">
 
-          {/* Step 0 — Plan selection (free users only, until acknowledged) */}
+          {/* Plan selection — free users only */}
           {planKey === "free" && !planAcknowledged && (
             <PlanStep
               onContinue={acknowledgePlan}
-              onUpgrade={() => {
-                acknowledgePlan();
-                router.push("/app/settings/billing");
-              }}
+              onUpgrade={() => { acknowledgePlan(); router.push("/app/settings/billing"); }}
             />
           )}
 
-          {/* Step 1 — Account created */}
-          <div className={[
-            "rounded-[20px] border p-5 transition-all",
-            "border-white/10 bg-white/[0.03]",
-          ].join(" ")}>
+          {/* ── 1. Account Created ─────────────────────────────────────────────── */}
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-5">
             <div className="flex items-start gap-4">
               <CheckIcon done={true} />
               <div className="flex-1 min-w-0">
@@ -416,171 +685,361 @@ export default function WelcomeClient() {
             </div>
           </div>
 
-          {/* Step 2 — Link WhatsApp */}
+          {/* ── 2. How do you want to use ChiefOS? ──────────────────────────────── */}
           <div className={[
             "rounded-[20px] border p-5 transition-all",
-            hasWhatsApp
-              ? "border-white/10 bg-white/[0.03]"
-              : "border-white/15 bg-white/[0.05]",
+            usageSectionDone ? "border-white/10 bg-white/[0.03]" : "border-white/15 bg-white/[0.05]",
           ].join(" ")}>
             <div className="flex items-start gap-4">
-              <CheckIcon done={hasWhatsApp} />
+              <CheckIcon done={usageSectionDone} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className={["font-medium text-sm", hasWhatsApp ? "text-white/70" : "text-white/92"].join(" ")}>
-                    Link WhatsApp
+                  <div className={["font-medium text-sm", usageSectionDone ? "text-white/70" : "text-white/92"].join(" ")}>
+                    How do you want to use ChiefOS?
                   </div>
-                  {hasWhatsApp && (
+                  {usageSectionDone && (
                     <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
                   )}
                 </div>
-                <div className="mt-1 text-xs text-white/45">
-                  {hasWhatsApp
-                    ? "Your phone is connected. Expenses flow automatically."
-                    : "Connect your phone so Chief knows it's you logging expenses."}
+                <div className="mt-1 text-xs text-white/45">Choose how you&apos;ll access Chief — you can use all three.</div>
+
+                {/* Mode selector */}
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { value: "web", label: "Web Portal", sub: "From your computer" },
+                      { value: "whatsapp", label: "WhatsApp Portal", sub: "Log from your phone" },
+                      { value: "microapp", label: "Mobile App (PWA)", sub: "Add to home screen" },
+                      { value: "all", label: "All of the above", sub: "Recommended" },
+                    ] as { value: UsageMode; label: string; sub: string }[]
+                  ).map(({ value, label, sub }) => (
+                    <button
+                      key={value!}
+                      type="button"
+                      onClick={() => setUsageMode(usageMode === value ? null : value)}
+                      className={[
+                        "rounded-xl border p-3 text-left transition",
+                        usageMode === value
+                          ? "border-[rgba(212,168,83,0.5)] bg-[rgba(212,168,83,0.08)]"
+                          : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                      ].join(" ")}
+                    >
+                      <div className={["text-xs font-semibold", usageMode === value ? "text-[#D4A853]" : "text-white/80"].join(" ")}>{label}</div>
+                      <div className="text-[11px] text-white/40 mt-0.5">{sub}</div>
+                    </button>
+                  ))}
                 </div>
 
-                {!hasWhatsApp && (
-                  <div className="mt-5 space-y-5">
+                {/* Conditional instructions */}
+                {usageMode && (
+                  <div className="mt-5 space-y-4">
 
-                    {/* Sub-step A: Download WhatsApp */}
-                    <div className="space-y-2">
-                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">1 · Get WhatsApp</div>
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Desktop */}
-                        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
-                          <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Desktop</div>
-                          <div className="flex flex-wrap gap-1.5">
-                            <a
-                              href="https://www.microsoft.com/store/apps/9NKSQGP7F2NH"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
-                            >
-                              Windows
-                            </a>
-                            <a
-                              href="https://apps.apple.com/app/whatsapp-desktop/id1147396723"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
-                            >
-                              Mac
-                            </a>
-                          </div>
-                        </div>
-                        {/* Mobile */}
-                        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2">
-                          <div className="text-[10px] text-white/40 font-medium uppercase tracking-wide">Mobile</div>
-                          <div className="flex flex-wrap gap-1.5">
-                            <a
-                              href="https://apps.apple.com/app/whatsapp-messenger/id310633997"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
-                            >
-                              iPhone
-                            </a>
-                            <a
-                              href="https://play.google.com/store/apps/details?id=com.whatsapp"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/70 hover:bg-white/10 transition"
-                            >
-                              Android
-                            </a>
-                          </div>
+                    {showWeb && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-1">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">Web Portal</div>
+                        <div className="text-xs text-white/55 leading-relaxed">
+                          You&apos;re already here. The portal at <span className="text-white/75 font-medium">app.usechiefos.com</span> gives you dashboards, job P&L, expense history, and all settings from any browser. Bookmark it for quick access.
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Sub-step B: Add Chief as a contact */}
-                    <div className="space-y-2">
-                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">2 · Add Chief as a contact</div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await navigator.clipboard.writeText("+12316802664");
-                            setPhoneNumberCopied(true);
-                          } catch { /* ignore */ }
-                        }}
-                        className="flex items-center gap-3 rounded-xl border border-[rgba(212,168,83,0.25)] bg-[rgba(212,168,83,0.06)] px-4 py-3 hover:bg-[rgba(212,168,83,0.1)] transition w-full text-left"
-                      >
-                        <span className="font-mono text-base tracking-widest text-[#D4A853]">+1 (231) 680-2664</span>
-                        <span className="ml-auto text-[10px] text-[#D4A853]/60">
-                          {phoneNumberCopied ? "Copied!" : "Tap to copy"}
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* Sub-step C: Send link code */}
-                    <div className="space-y-2">
-                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">3 · Send this code to Chief on WhatsApp</div>
-                      <div className="rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.05)] px-5 py-4 text-center">
-                        {codeLoading ? (
-                          <span className="text-white/30 text-sm">Generating code…</span>
-                        ) : linkCode ? (
-                          <span className="font-mono text-2xl tracking-[0.35em] text-[#D4A853]">{linkCode}</span>
+                    {showWA && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium mb-1">WhatsApp Portal</div>
+                        <div className="text-xs text-white/55 leading-relaxed mb-2">
+                          Link your phone number so Chief knows it&apos;s you when you text in expenses, clock in/out, and ask questions.
+                        </div>
+                        {hasWhatsApp ? (
+                          <div className="flex items-center gap-2 text-xs text-emerald-400">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            WhatsApp is connected. Expenses flow automatically.
+                          </div>
                         ) : (
-                          <span className="text-white/30 text-sm">No code available</span>
+                          whatsAppSubSteps
                         )}
                       </div>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <button
-                          onClick={async () => {
-                            if (!linkCode) return;
-                            try {
-                              await navigator.clipboard.writeText(linkCode);
-                              setCodeCopied(true);
-                            } catch { /* ignore */ }
-                          }}
-                          disabled={!linkCode}
-                          className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/60 hover:bg-white/10 transition disabled:opacity-40"
-                        >
-                          {codeCopied ? "Copied!" : "Copy code"}
-                        </button>
-                        <a
-                          href={linkCode ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(linkCode)}` : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-white/90 transition ${!linkCode ? "pointer-events-none opacity-40" : ""}`}
-                        >
-                          Open WhatsApp →
-                        </a>
-                        <button
-                          onClick={() => portalUserId && void fetchOrCreateCode(portalUserId)}
-                          disabled={codeLoading || !portalUserId}
-                          className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/50 hover:bg-white/10 transition disabled:opacity-40"
-                        >
-                          {codeLoading ? "…" : "New code"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Check now */}
-                    <button
-                      onClick={recheckWhatsApp}
-                      disabled={checking}
-                      className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
-                    >
-                      {checking ? "Checking…" : "Already linked? Check now"}
-                    </button>
-
-                    {YT_WALKTHROUGH && (
-                      <VideoLink url={YT_WALKTHROUGH} label="Watch 60-second setup walkthrough" />
                     )}
+
+                    {showMicro && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">Mobile App (PWA)</div>
+                        <div className="text-xs text-white/55 leading-relaxed">
+                          Add ChiefOS to your home screen for a native app experience — no app store required.
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1">
+                            <div className="text-[10px] text-white/50 font-semibold uppercase tracking-wide">iPhone (Safari)</div>
+                            <ol className="space-y-0.5 text-[11px] text-white/45 list-decimal list-inside">
+                              <li>Open <span className="text-white/65">app.usechiefos.com</span> in Safari</li>
+                              <li>Tap the <span className="text-white/65">Share</span> button (box with arrow)</li>
+                              <li>Tap <span className="text-white/65">&quot;Add to Home Screen&quot;</span></li>
+                              <li>Tap <span className="text-white/65">Add</span></li>
+                            </ol>
+                          </div>
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1">
+                            <div className="text-[10px] text-white/50 font-semibold uppercase tracking-wide">Android (Chrome)</div>
+                            <ol className="space-y-0.5 text-[11px] text-white/45 list-decimal list-inside">
+                              <li>Open <span className="text-white/65">app.usechiefos.com</span> in Chrome</li>
+                              <li>Tap the <span className="text-white/65">three-dot menu</span></li>
+                              <li>Tap <span className="text-white/65">&quot;Add to Home Screen&quot;</span></li>
+                              <li>Tap <span className="text-white/65">Add</span></li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Step 3 — Get started: choose your path */}
+          {/* ── 3. How do you want to process Receipts? ────────────────────────── */}
           <div className={[
             "rounded-[20px] border p-5 transition-all",
-            hasExpense
-              ? "border-white/10 bg-white/[0.03]"
-              : "border-white/15 bg-white/[0.05]",
+            receiptSectionDone ? "border-white/10 bg-white/[0.03]" : "border-white/15 bg-white/[0.05]",
+          ].join(" ")}>
+            <div className="flex items-start gap-4">
+              <CheckIcon done={receiptSectionDone} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={["font-medium text-sm", receiptSectionDone ? "text-white/70" : "text-white/92"].join(" ")}>
+                    How do you want to process receipts?
+                  </div>
+                  {receiptSectionDone && (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Done</span>
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-white/45">Select all the methods you&apos;d like to use.</div>
+
+                <div className="mt-4 space-y-2">
+
+                  {/* WhatsApp receipt */}
+                  <div className={[
+                    "rounded-xl border transition cursor-pointer",
+                    receiptMethods.includes("whatsapp")
+                      ? "border-[rgba(212,168,83,0.4)] bg-[rgba(212,168,83,0.05)]"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                  ].join(" ")}>
+                    <button
+                      type="button"
+                      onClick={() => toggleReceiptMethod("whatsapp")}
+                      className="flex w-full items-center justify-between p-3 text-left"
+                    >
+                      <div>
+                        <div className={["text-xs font-semibold", receiptMethods.includes("whatsapp") ? "text-[#D4A853]" : "text-white/80"].join(" ")}>
+                          WhatsApp
+                        </div>
+                        <div className="text-[11px] text-white/40 mt-0.5">Text, voice, or photo</div>
+                      </div>
+                      <div className={[
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        receiptMethods.includes("whatsapp") ? "border-[#D4A853] bg-[#D4A853]" : "border-white/25",
+                      ].join(" ")}>
+                        {receiptMethods.includes("whatsapp") && (
+                          <svg className="h-2.5 w-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                    {receiptMethods.includes("whatsapp") && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-white/8 pt-3">
+                        <div className="space-y-2">
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-white/35">A · Text message</div>
+                          <div className="rounded-lg bg-white/[0.04] border border-white/8 px-3 py-2 font-mono text-xs text-[#D4A853]">
+                            expense $45 Home Depot [Job Name]
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-[10px] uppercase tracking-[0.12em] text-white/35">B · Voice message</div>
+                          <div className="text-xs text-white/50 leading-relaxed">
+                            Send a voice note describing the expense. Chief transcribes it and logs the amount automatically.
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="text-[10px] uppercase tracking-[0.12em] text-white/35">C · Photo of receipt</div>
+                            {!isStarterOrPro && (
+                              <span className="rounded-full bg-[rgba(212,168,83,0.15)] px-1.5 py-0.5 text-[9px] font-semibold text-[#D4A853] uppercase tracking-wide">Starter+</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-white/50 leading-relaxed">
+                            Send a photo of any receipt. Chief reads the amount and vendor using OCR and asks you to confirm the job.
+                            {!isStarterOrPro && (
+                              <span className="block mt-1 text-[#D4A853]/70">Requires Starter plan or above.</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Email receipt */}
+                  <div className={[
+                    "rounded-xl border transition cursor-pointer",
+                    receiptMethods.includes("email")
+                      ? "border-[rgba(212,168,83,0.4)] bg-[rgba(212,168,83,0.05)]"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                  ].join(" ")}>
+                    <button
+                      type="button"
+                      onClick={() => toggleReceiptMethod("email")}
+                      className="flex w-full items-center justify-between p-3 text-left"
+                    >
+                      <div>
+                        <div className={["text-xs font-semibold", receiptMethods.includes("email") ? "text-[#D4A853]" : "text-white/80"].join(" ")}>
+                          Email
+                        </div>
+                        <div className="text-[11px] text-white/40 mt-0.5">Forward receipts to your ChiefOS inbox</div>
+                      </div>
+                      <div className={[
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        receiptMethods.includes("email") ? "border-[#D4A853] bg-[#D4A853]" : "border-white/25",
+                      ].join(" ")}>
+                        {receiptMethods.includes("email") && (
+                          <svg className="h-2.5 w-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                    {receiptMethods.includes("email") && (
+                      <div className="px-3 pb-3 space-y-3 border-t border-white/8 pt-3">
+                        <div className="text-xs text-white/55 leading-relaxed">
+                          Forward any receipt email to your unique ChiefOS inbox address. Chief parses the amount, vendor, and date automatically.
+                        </div>
+                        {emailCaptureAddress ? (
+                          <div>
+                            <div className="text-[10px] uppercase tracking-[0.12em] text-white/35 mb-1.5">Your capture address</div>
+                            <div className="rounded-lg bg-white/[0.04] border border-white/8 px-3 py-2 font-mono text-xs text-[#D4A853] break-all">
+                              {emailCaptureAddress}
+                            </div>
+                            <p className="mt-1.5 text-[11px] text-white/35">Forward receipts here from any email client. You can rotate this address in Settings.</p>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-white/40">
+                            Your capture address is available in{" "}
+                            <Link href="/app/settings" className="text-[#D4A853]/80 hover:text-[#D4A853] transition underline underline-offset-2">
+                              Settings → Email Capture
+                            </Link>.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bulk import */}
+                  <div className={[
+                    "rounded-xl border transition cursor-pointer",
+                    receiptMethods.includes("bulk")
+                      ? "border-[rgba(212,168,83,0.4)] bg-[rgba(212,168,83,0.05)]"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                  ].join(" ")}>
+                    <button
+                      type="button"
+                      onClick={() => toggleReceiptMethod("bulk")}
+                      className="flex w-full items-center justify-between p-3 text-left"
+                    >
+                      <div>
+                        <div className={["text-xs font-semibold", receiptMethods.includes("bulk") ? "text-[#D4A853]" : "text-white/80"].join(" ")}>
+                          Bulk Import
+                        </div>
+                        <div className="text-[11px] text-white/40 mt-0.5">Upload CSV files of past records</div>
+                      </div>
+                      <div className={[
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        receiptMethods.includes("bulk") ? "border-[#D4A853] bg-[#D4A853]" : "border-white/25",
+                      ].join(" ")}>
+                        {receiptMethods.includes("bulk") && (
+                          <svg className="h-2.5 w-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                    {receiptMethods.includes("bulk") && (
+                      <div className="px-3 pb-3 space-y-3 border-t border-white/8 pt-3">
+                        <div className="text-xs text-white/55 leading-relaxed">
+                          Import historical expenses, revenue, and time entries as CSV files. Supports standard column formats: amount, date, description, job name.
+                        </div>
+                        <Link
+                          href="/app/import"
+                          className="inline-flex items-center rounded-xl bg-white/[0.08] border border-white/10 px-3 py-2 text-xs text-white/70 hover:bg-white/[0.12] transition"
+                        >
+                          Go to Import →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 4. Overhead & Recurring Costs ──────────────────────────────────── */}
+          <div className={[
+            "rounded-[20px] border p-5 transition-all",
+            overheadSkipped ? "border-white/10 bg-white/[0.03]" : "border-white/15 bg-white/[0.05]",
+          ].join(" ")}>
+            <div className="flex items-start gap-4">
+              <CheckIcon done={overheadSkipped} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className={["font-medium text-sm", overheadSkipped ? "text-white/70" : "text-white/92"].join(" ")}>
+                    Set up overhead expenses
+                  </div>
+                  {overheadSkipped && (
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/50">Skipped</span>
+                  )}
+                </div>
+
+                {overheadSkipped ? (
+                  <div className="mt-2 text-xs text-white/40 leading-relaxed">
+                    You can configure overhead any time from the <Link href="/app/overhead" className="text-[#D4A853]/80 hover:text-[#D4A853] transition underline underline-offset-2">Overhead</Link> tab in the left navigation.
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-1 text-xs text-white/45 leading-relaxed">
+                      Overhead expenses are fixed costs that occur whether or not you&apos;re working on a job — rent, insurance, vehicle leases, subscriptions. Chief uses these to calculate your true profitability. If you skip this, your job margins will appear higher than they actually are.
+                    </div>
+                    <ul className="mt-3 space-y-1">
+                      {["Facility rent & utilities", "Vehicle & equipment leases", "Insurance premiums", "Software & subscriptions"].map((item) => (
+                        <li key={item} className="flex items-center gap-2 text-xs text-white/45">
+                          <span className="shrink-0 text-white/25">·</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link
+                        href="/app/overhead"
+                        className="inline-flex items-center rounded-xl bg-[#D4A853] px-4 py-2 text-xs font-semibold text-black hover:bg-[#C49843] transition"
+                      >
+                        Set up overhead →
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={skipOverhead}
+                        className="inline-flex items-center rounded-xl border border-white/15 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition"
+                      >
+                        Skip for now
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── 5. Get started — choose your path ──────────────────────────────── */}
+          <div className={[
+            "rounded-[20px] border p-5 transition-all",
+            hasExpense ? "border-white/10 bg-white/[0.03]" : "border-white/15 bg-white/[0.05]",
           ].join(" ")}>
             <div className="flex items-start gap-4">
               <CheckIcon done={hasExpense} />
@@ -594,13 +1053,10 @@ export default function WelcomeClient() {
                   )}
                 </div>
                 <div className="mt-1 text-xs text-white/45">
-                  {hasExpense
-                    ? "You're in — Chief is tracking your data."
-                    : "Pick the approach that fits where you are."}
+                  {hasExpense ? "You&apos;re in — Chief is tracking your data." : "Pick the approach that fits where you are."}
                 </div>
                 {!hasExpense && (
                   <div className="mt-4 space-y-3">
-                    {/* Option A: Import */}
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
                       <div className="text-xs font-semibold text-white/80">Option A — Import financial history</div>
                       <div className="text-xs text-white/45 leading-relaxed">
@@ -613,7 +1069,6 @@ export default function WelcomeClient() {
                         Import data →
                       </Link>
                     </div>
-                    {/* Option B: Create job */}
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
                       <div className="text-xs font-semibold text-white/80">Option B — Create a job &amp; start logging</div>
                       <div className="text-xs text-white/45 leading-relaxed">
@@ -626,13 +1081,18 @@ export default function WelcomeClient() {
                         Create a job →
                       </Link>
                     </div>
-                    <button
-                      onClick={recheckExpense}
-                      disabled={checking}
-                      className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
-                    >
-                      {checking ? "Checking…" : "I've already started — check now"}
-                    </button>
+                    <div className="space-y-1.5">
+                      <button
+                        onClick={recheckExpense}
+                        disabled={checking}
+                        className="inline-flex items-center rounded-xl border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 transition disabled:opacity-50"
+                      >
+                        {checking ? "Checking…" : "I've already started — check now"}
+                      </button>
+                      <p className="text-[11px] text-white/35 leading-relaxed">
+                        Already logged an expense or created a job? Tap this to confirm — it checks your account in real time.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -641,7 +1101,7 @@ export default function WelcomeClient() {
 
         </div>
 
-        {/* Job-based philosophy blurb */}
+        {/* ── ChiefOS is built around Jobs ─────────────────────────────────────── */}
         <div className="mt-8 rounded-[16px] border border-white/8 bg-white/[0.025] p-5 space-y-3">
           <div className="text-sm font-semibold text-white/85">ChiefOS is built around Jobs.</div>
           <div className="text-xs text-white/50 leading-relaxed">
@@ -664,65 +1124,101 @@ export default function WelcomeClient() {
           </div>
         </div>
 
-        {/* What to try next — shown once setup is underway */}
+        {/* ── Chief Operating System Functions ─────────────────────────────────── */}
         <div className="mt-8">
-          <div className="text-[11px] uppercase tracking-[0.15em] text-white/30 mb-3">Your next steps</div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {NEXT_STEPS.map((step) => {
-              const videoUrl = step.videoUrl();
-              return (
-                <div
-                  key={step.title}
-                  className="rounded-[16px] border border-white/8 bg-white/[0.025] p-4 flex flex-col gap-2"
-                >
-                  <div className="text-lg leading-none">{step.icon}</div>
-                  <div className="text-sm font-medium text-white/85">{step.title}</div>
-                  <div className="text-xs text-white/45 leading-relaxed flex-1">{step.description}</div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    {step.action.external ? (
-                      <a
-                        href={step.action.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-white/55 hover:text-white/90 transition"
-                      >
-                        {step.action.label} →
-                      </a>
-                    ) : (
-                      <Link
-                        href={step.action.href}
-                        className="inline-flex items-center text-xs text-white/55 hover:text-white/90 transition"
-                      >
-                        {step.action.label} →
-                      </Link>
-                    )}
-                    {videoUrl && (
-                      <VideoLink url={videoUrl} label="Watch walkthrough" />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="text-[11px] uppercase tracking-[0.15em] text-white/30 mb-1">Chief Operating System Functions</div>
+          <div className="text-xs text-white/40 mb-5">Everything Chief can do — and what plan you need to unlock it.</div>
+
+          {/* Free tier */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2.5 py-1 text-[10px] font-semibold text-emerald-400 uppercase tracking-wide">
+                Included on Free
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {FREE_FEATURES.map((card) => (
+                <FeatureCardItem key={card.title} card={card} locked={false} />
+              ))}
+            </div>
           </div>
+
+          {/* Starter tier */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className={[
+                "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                isStarterOrPro
+                  ? "bg-[rgba(212,168,83,0.15)] border-[rgba(212,168,83,0.3)] text-[#D4A853]"
+                  : "bg-white/5 border-white/10 text-white/35",
+              ].join(" ")}>
+                {isStarterOrPro ? "Included on Starter" : "Starter — $59/mo"}
+              </span>
+              {!isStarterOrPro && (
+                <span className="text-[10px] text-white/25">Locked on your plan</span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {STARTER_FEATURES.map((card) => (
+                <FeatureCardItem key={card.title} card={card} locked={!isStarterOrPro} />
+              ))}
+            </div>
+            {!isStarterOrPro && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => router.push("/app/settings/billing")}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#D4A853] px-4 py-2 text-xs font-semibold text-black hover:bg-[#C49843] transition"
+                >
+                  Upgrade to Starter — $59/mo →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Pro tier */}
+          <div className="mb-2">
+            <div className="flex items-center gap-2 mb-3">
+              <span className={[
+                "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide",
+                isPro
+                  ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+                  : "bg-white/5 border-white/10 text-white/35",
+              ].join(" ")}>
+                {isPro ? "Included on Pro" : "Pro — $149/mo"}
+              </span>
+              {!isPro && (
+                <span className="text-[10px] text-white/25">Locked on your plan</span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {PRO_FEATURES.map((card) => (
+                <FeatureCardItem key={card.title} card={card} locked={!isPro} />
+              ))}
+            </div>
+            {!isPro && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => router.push("/app/settings/billing")}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition"
+                >
+                  Upgrade to Pro — $149/mo →
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          {allDone ? (
-            <Link
-              href="/app/dashboard"
-              className="inline-flex items-center rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition"
-            >
-              Go to dashboard
-            </Link>
-          ) : (
-            <Link
-              href="/app/dashboard"
-              className="text-xs text-white/35 underline underline-offset-4 hover:text-white/55 transition"
-            >
-              Skip for now — go to dashboard
-            </Link>
-          )}
+        {/* ── Footer ───────────────────────────────────────────────────────────── */}
+        <div className="mt-10 text-center">
+          <Link
+            href="/app/dashboard"
+            className="inline-flex items-center rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-black hover:bg-white/90 transition"
+          >
+            Go to Dashboard →
+          </Link>
         </div>
 
       </div>
