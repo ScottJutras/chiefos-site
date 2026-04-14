@@ -88,14 +88,9 @@ export default function CrewMembersPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  // Invite form
-  const [inviteName, setInviteName] = useState("");
-  const [invitePhone, setInvitePhone] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"employee" | "board">("employee");
-  const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteResult, setInviteResult] = useState<{ url: string; name: string } | null>(null);
   const [invites, setInvites] = useState<InviteRow[]>([]);
+  // Per-employee invite state: actor_id -> { busy, url }
+  const [empInviteStatus, setEmpInviteStatus] = useState<Record<string, { busy: boolean; url: string | null }>>({});
 
   // Reviewer routing map (NOW hydrated from DB)
   const [assign, setAssign] = useState<Assignment>({});
@@ -113,6 +108,16 @@ export default function CrewMembersPage() {
 
   const employeeCount = employees.length;
   const boardCount = items.filter((m) => m.role === "board").length;
+
+  // Map display_name -> most recent invite row (for per-card invite status)
+  const lastInviteByName = useMemo<Record<string, InviteRow>>(() => {
+    const map: Record<string, InviteRow> = {};
+    for (const inv of invites) {
+      const n = String(inv.employee_name || "").trim();
+      if (n && !map[n]) map[n] = inv; // already sorted desc
+    }
+    return map;
+  }, [invites]);
 
   async function load() {
     setErr(null);
@@ -315,44 +320,28 @@ export default function CrewMembersPage() {
     }
   }
 
-  async function sendInvite() {
-    setErr(null);
-    setInviteResult(null);
+  async function sendEmployeeInvite(m: Member) {
+    const name = (m.display_name || "").trim();
+    if (!name) return setErr("Employee must have a display name to receive an invite.");
+    if (!m.phone_digits && !m.email) return setErr(`${name} needs a phone or email to receive an invite.`);
 
-    const dn = inviteName.trim();
-    const em = inviteEmail.trim().toLowerCase();
-
-    let pd = "";
-    try {
-      pd = normalizePhoneDigitsOrThrow(invitePhone);
-    } catch (e: any) {
-      return setErr(String(e?.message || "Invalid phone number."));
-    }
-
-    if (!dn) return setErr("Employee name is required for invite.");
-    if (!pd && !em) return setErr("Phone or email is required to send invite.");
-
-    setInviteBusy(true);
+    setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: true, url: null } }));
     try {
       const resp = await apiFetch("/api/crew/admin/invite", {
         method: "POST",
         body: JSON.stringify({
-          employee_name: dn,
-          phone: pd || null,
-          email: em || null,
-          role: inviteRole,
+          employee_name: name,
+          phone: m.phone_digits || null,
+          email: m.email || null,
+          role: m.role === "board" ? "board" : "employee",
         }),
       }) as any;
 
-      setInviteResult({ url: resp.item.inviteUrl, name: dn });
-      setInviteName("");
-      setInvitePhone("");
-      setInviteEmail("");
+      setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: false, url: resp.item.inviteUrl } }));
       await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to send invite"));
-    } finally {
-      setInviteBusy(false);
+      setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: false, url: null } }));
     }
   }
 
@@ -526,96 +515,6 @@ export default function CrewMembersPage() {
             {busy === "add" ? "Adding…" : "Add employee"}
           </button>
         </div>
-      </div>
-
-      {/* Send invite link */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-        <div className="font-semibold">Send portal invite</div>
-        <div className="mt-1 text-sm text-white/70">
-          Send an SMS link so employees can log into the web portal (PWA). Phone or email required.
-        </div>
-
-        <div className="mt-3 grid gap-2 md:grid-cols-4">
-          <input
-            value={inviteName}
-            onChange={(e) => setInviteName(e.target.value)}
-            placeholder="Employee name (required)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-          <input
-            value={invitePhone}
-            onChange={(e) => setInvitePhone(e.target.value)}
-            placeholder="Phone (for SMS)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-          <input
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="Email (optional)"
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-          />
-          <select
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value as "employee" | "board")}
-            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
-          >
-            <option value="employee">Employee</option>
-            <option value="board">Board member</option>
-          </select>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            onClick={sendInvite}
-            disabled={inviteBusy}
-            className={[
-              "rounded-xl px-3 py-2 text-sm font-medium transition border",
-              inviteBusy
-                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-            ].join(" ")}
-          >
-            {inviteBusy ? "Sending…" : "Send invite"}
-          </button>
-
-          {inviteResult && (
-            <div className="flex-1 text-xs text-white/70 break-all">
-              Invite sent to <strong>{inviteResult.name}</strong>.{" "}
-              <span className="text-white/40">Link: </span>
-              <a
-                href={inviteResult.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#D4A853] hover:underline"
-              >
-                {inviteResult.url}
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* Recent invites */}
-        {invites.length > 0 && (
-          <div className="mt-4 border-t border-white/10 pt-3">
-            <div className="text-xs text-white/50 mb-2">Recent invites</div>
-            <div className="grid gap-1.5">
-              {invites.slice(0, 5).map((inv) => (
-                <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
-                  <span>
-                    <span className="text-white/80">{inv.employee_name}</span>
-                    {" · "}
-                    {inv.role}
-                    {inv.phone ? ` · ${inv.phone}` : ""}
-                    {inv.email ? ` · ${inv.email}` : ""}
-                  </span>
-                  <span className={inv.claimed_at ? "text-green-400" : new Date(inv.expires_at) < new Date() ? "text-red-400" : "text-white/40"}>
-                    {inv.claimed_at ? "Claimed" : new Date(inv.expires_at) < new Date() ? "Expired" : "Pending"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Members list */}
@@ -804,6 +703,52 @@ export default function CrewMembersPage() {
                       <div className="text-xs text-white/40">Used to calculate labour cost on time entries.</div>
                     </div>
                   )}
+
+                  {/* Portal invite row (all non-owner roles) */}
+                  {m.role !== "owner" && (() => {
+                    const inv = empInviteStatus[m.actor_id];
+                    const lastInv = lastInviteByName[m.display_name || ""];
+                    return (
+                      <div className="mt-3 border-t border-white/10 pt-3 flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => sendEmployeeInvite(m)}
+                          disabled={inv?.busy || !!busy}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                            inv?.busy || !!busy
+                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                          ].join(" ")}
+                        >
+                          {inv?.busy ? "Sending…" : "Send portal invite"}
+                        </button>
+
+                        {inv?.url ? (
+                          <div className="flex-1 text-xs text-white/70 break-all">
+                            <span className="text-white/40">Link: </span>
+                            <a
+                              href={inv.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#D4A853] hover:underline"
+                            >
+                              {inv.url}
+                            </a>
+                          </div>
+                        ) : lastInv ? (
+                          <span className={
+                            lastInv.claimed_at ? "text-xs text-green-400" :
+                            new Date(lastInv.expires_at) < new Date() ? "text-xs text-red-400/70" :
+                            "text-xs text-white/40"
+                          }>
+                            {lastInv.claimed_at ? "Portal access claimed" :
+                             new Date(lastInv.expires_at) < new Date() ? "Invite expired · resend?" :
+                             "Invite pending"}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
