@@ -36,6 +36,14 @@ type Assignment = Record<string, string>; // employee_actor_id -> board_actor_id
 
 type RateMap = Record<string, number>; // employee display_name -> hourly_rate_cents
 
+type Quota = {
+  plan_key: string;
+  employees_used: number;
+  employees_limit: number;
+  board_used: number;
+  board_limit: number;
+};
+
 function fmtDate(s: string) {
   try {
     return new Date(s).toLocaleString();
@@ -73,6 +81,7 @@ export default function CrewMembersPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [items, setItems] = useState<Member[]>([]);
+  const [quota, setQuota] = useState<Quota | null>(null);
 
   // Add employee form
   const [name, setName] = useState("");
@@ -120,6 +129,7 @@ export default function CrewMembersPage() {
 
       const members = Array.isArray(membersResp?.items) ? (membersResp.items as Member[]) : [];
       setItems(members);
+      if (membersResp?.quota) setQuota(membersResp.quota as Quota);
 
       const rows = Array.isArray(assignmentsResp?.items)
         ? (assignmentsResp.items as AssignmentRow[])
@@ -166,9 +176,7 @@ export default function CrewMembersPage() {
       setRates(rateMap);
     } catch (e: any) {
       const msg = String(e?.message || "Unable to load members");
-      if (e?.status === 402 || msg.includes("NOT_INCLUDED")) {
-        setErr("Crew+Control requires Starter or Pro.");
-      } else if (e?.status === 403 || msg.includes("PERMISSION_DENIED")) {
+      if (e?.status === 403 || msg.includes("PERMISSION_DENIED")) {
         setErr("Only the owner/admin can manage crew members.");
       } else {
         setErr(msg);
@@ -394,7 +402,16 @@ export default function CrewMembersPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Members & Board</h1>
           <div className="mt-1 text-sm text-white/70">
-            Employees: {employeeCount}/150 · Board: {boardCount}/25
+            {quota ? (
+              <>
+                Employees: <span className={employeeCount >= quota.employees_limit ? "text-amber-400 font-medium" : ""}>{employeeCount}/{quota.employees_limit}</span>
+                {quota.board_limit > 0 && <> · Board: {boardCount}/{quota.board_limit}</>}
+                {" · "}
+                <span className="capitalize">{quota.plan_key}</span>
+              </>
+            ) : (
+              <>Employees: {employeeCount} · Board: {boardCount}</>
+            )}
           </div>
         </div>
 
@@ -414,7 +431,18 @@ export default function CrewMembersPage() {
 
       {/* Add employee */}
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-        <div className="font-semibold">Add employee</div>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="font-semibold">Add employee</div>
+          {quota && employeeCount >= quota.employees_limit && (
+            <span className="text-xs text-amber-400">
+              {quota.plan_key === "free"
+                ? "Free plan: 3 employee max · Upgrade to Starter for 25"
+                : quota.plan_key === "starter"
+                ? "Starter plan: 25 employee max · Upgrade to Pro for 150"
+                : "Employee limit reached"}
+            </span>
+          )}
+        </div>
         <div className="mt-1 text-sm text-white/70">
           Name + phone or email. This creates an employee actor under this tenant.
         </div>
@@ -452,10 +480,10 @@ export default function CrewMembersPage() {
         <div className="mt-3">
           <button
             onClick={addEmployee}
-            disabled={loading || busy === "add"}
+            disabled={loading || busy === "add" || (quota != null && employeeCount >= quota.employees_limit)}
             className={[
               "rounded-xl px-3 py-2 text-sm font-medium transition border",
-              loading || busy === "add"
+              loading || busy === "add" || (quota != null && employeeCount >= quota.employees_limit)
                 ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
                 : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
             ].join(" ")}
