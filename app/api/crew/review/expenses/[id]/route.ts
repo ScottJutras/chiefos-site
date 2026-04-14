@@ -1,4 +1,4 @@
-import { proxyToCore } from "../../../../../_coreProxy";
+import { proxyToCore } from "../../../../_coreProxy";
 import { type NextRequest } from "next/server";
 
 export const runtime = "nodejs";

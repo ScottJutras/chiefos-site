@@ -26,7 +26,6 @@ async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?:
 
 export type BetaPlan = "free" | "starter" | "pro";
 export type BetaStatus = "requested" | "approved" | "denied";
-
 export type PortalRole = "owner" | "admin" | "employee" | "board" | null;
 
 export type WhoamiOk = {
@@ -48,7 +47,7 @@ export type WhoamiOk = {
   betaEntitlementPlan: BetaPlan | null;
 };
 
-export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string; status?: number; }> {
+export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: string; status?: number }> {
   let token = await getAccessTokenWithRetry({ timeoutMs: 2500, intervalMs: 150 });
   if (!token) return { ok: false, error: "no-session-token" };
 
@@ -83,13 +82,13 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
     const code = j?.code ? String(j.code) : "";
     const message = j?.message ? String(j.message) : "";
     const fallback = j?.error ? String(j.error) : `whoami_${r.status}`;
-    return { ok: false, error: code || message || fallback, status: r.status, };
+    return { ok: false, error: code || message || fallback, status: r.status };
   }
 
-  // ✅ IMPORTANT: return the full contract (do not “pick” fields)
+  // IMPORTANT: return the full contract (do not "pick" fields)
   return {
     ok: true,
-    userId: String(j.userId || “”),
+    userId: String(j.userId || ""),
     tenantId: j.tenantId ? String(j.tenantId) : null,
     hasWhatsApp: !!j.hasWhatsApp,
     email: j.email ?? null,
