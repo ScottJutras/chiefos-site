@@ -89,8 +89,9 @@ export default function CrewMembersPage() {
   const [email, setEmail] = useState("");
 
   const [invites, setInvites] = useState<InviteRow[]>([]);
-  // Per-employee invite state: actor_id -> { busy, url }
-  const [empInviteStatus, setEmpInviteStatus] = useState<Record<string, { busy: boolean; url: string | null }>>({});
+  type EmpInviteState = { busy: boolean; url: string | null; deliveryOk: boolean; deliveryMethod: string | null; deliveryError: string | null };
+  // Per-employee invite state: actor_id -> EmpInviteState
+  const [empInviteStatus, setEmpInviteStatus] = useState<Record<string, EmpInviteState>>({});
 
   // Reviewer routing map (NOW hydrated from DB)
   const [assign, setAssign] = useState<Assignment>({});
@@ -326,7 +327,7 @@ export default function CrewMembersPage() {
     if (deliveryMethod !== "email" && !m.phone_digits) return setErr(`${name} needs a phone number for ${deliveryMethod === "whatsapp" ? "WhatsApp" : "SMS"}.`);
     if (deliveryMethod === "email" && !m.email) return setErr(`${name} needs an email address.`);
 
-    setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: true, url: null } }));
+    setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: true, url: null, deliveryOk: false, deliveryMethod, deliveryError: null } }));
     try {
       const resp = await apiFetch("/api/crew/admin/invite", {
         method: "POST",
@@ -339,11 +340,20 @@ export default function CrewMembersPage() {
         }),
       }) as any;
 
-      setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: false, url: resp.item.inviteUrl } }));
+      setEmpInviteStatus((prev) => ({
+        ...prev,
+        [m.actor_id]: {
+          busy: false,
+          url: resp.item.inviteUrl,
+          deliveryOk: !!resp.item.deliveryOk,
+          deliveryMethod: resp.item.deliveryMethod || deliveryMethod,
+          deliveryError: resp.item.deliveryError || null,
+        },
+      }));
       await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to send invite"));
-      setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: false, url: null } }));
+      setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: false, url: null, deliveryOk: false, deliveryMethod, deliveryError: null } }));
     }
   }
 
@@ -776,23 +786,30 @@ export default function CrewMembersPage() {
 
                         {/* Result / status */}
                         {inv?.url ? (
-                          <div className="mt-2 text-xs text-white/60 break-all">
-                            Sent.{" "}
-                            <button
-                              onClick={() => navigator.clipboard.writeText(inv.url!)}
-                              className="text-[#D4A853] hover:underline"
-                            >
-                              Copy link
-                            </button>
-                            <span className="text-white/30"> · </span>
-                            <a
-                              href={inv.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-white/40 hover:text-white/60 break-all"
-                            >
-                              {inv.url}
-                            </a>
+                          <div className="mt-2 text-xs break-all space-y-1">
+                            {inv.deliveryOk ? (
+                              <span className="text-green-400">✓ Sent via {inv.deliveryMethod === "sms" ? "text message" : inv.deliveryMethod}</span>
+                            ) : inv.deliveryMethod === "email" ? (
+                              <span className="text-white/50">Invite created — copy the link below and email it manually</span>
+                            ) : (
+                              <span className="text-amber-400">⚠ Delivery failed — try Text instead.{inv.deliveryError ? ` (${inv.deliveryError})` : ""}</span>
+                            )}
+                            <div className="text-white/40">
+                              <button
+                                onClick={() => navigator.clipboard.writeText(inv.url!)}
+                                className="text-[#D4A853] hover:underline mr-2"
+                              >
+                                Copy link
+                              </button>
+                              <a
+                                href={inv.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-white/60"
+                              >
+                                {inv.url}
+                              </a>
+                            </div>
                           </div>
                         ) : lastInv ? (
                           <div className="mt-1.5">
