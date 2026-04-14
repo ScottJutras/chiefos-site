@@ -203,9 +203,26 @@ export default function CrewMembersPage() {
     }
   }
 
-  function exportCsv() {
-    // cookie auth / session-based portal endpoint
-    window.location.href = `/api/crew/admin/members/export.csv`;
+  async function exportCsv() {
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (!token) { setErr("Not authenticated."); return; }
+      const r = await fetch("/api/crew/admin/members/export.csv", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) { setErr("Export failed."); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "crew_members.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErr("Export failed.");
+    }
   }
 
   useEffect(() => {
