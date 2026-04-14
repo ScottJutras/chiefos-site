@@ -226,7 +226,7 @@ function InviteClaimInner() {
               ) : (
                 <div className="mt-6">
                   <div className="text-sm text-white/60 mb-3">
-                    Enter your email to receive a sign-in link:
+                    Enter your email to accept this invite and set up your ChiefOS account:
                   </div>
                   <input
                     type="email"

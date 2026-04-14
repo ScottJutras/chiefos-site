@@ -320,10 +320,11 @@ export default function CrewMembersPage() {
     }
   }
 
-  async function sendEmployeeInvite(m: Member) {
+  async function sendEmployeeInvite(m: Member, deliveryMethod: "sms" | "whatsapp" | "email") {
     const name = (m.display_name || "").trim();
     if (!name) return setErr("Employee must have a display name to receive an invite.");
-    if (!m.phone_digits && !m.email) return setErr(`${name} needs a phone or email to receive an invite.`);
+    if (deliveryMethod !== "email" && !m.phone_digits) return setErr(`${name} needs a phone number for ${deliveryMethod === "whatsapp" ? "WhatsApp" : "SMS"}.`);
+    if (deliveryMethod === "email" && !m.email) return setErr(`${name} needs an email address.`);
 
     setEmpInviteStatus((prev) => ({ ...prev, [m.actor_id]: { busy: true, url: null } }));
     try {
@@ -334,6 +335,7 @@ export default function CrewMembersPage() {
           phone: m.phone_digits || null,
           email: m.email || null,
           role: m.role === "board" ? "board" : "employee",
+          delivery_method: deliveryMethod,
         }),
       }) as any;
 
@@ -648,8 +650,8 @@ export default function CrewMembersPage() {
                     </div>
                   </div>
 
-                  {/* Assignment row (only for employees) */}
-                  {m.role === "employee" && (
+                  {/* Assignment row (only for employees on Pro, where board members exist) */}
+                  {m.role === "employee" && (quota?.board_limit ?? 0) > 0 && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <div className="text-xs text-white/60">Reviewer:</div>
                       <select
@@ -708,43 +710,97 @@ export default function CrewMembersPage() {
                   {m.role !== "owner" && (() => {
                     const inv = empInviteStatus[m.actor_id];
                     const lastInv = lastInviteByName[m.display_name || ""];
+                    const hasPhone = !!m.phone_digits;
+                    const hasEmail = !!m.email;
                     return (
-                      <div className="mt-3 border-t border-white/10 pt-3 flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => sendEmployeeInvite(m)}
-                          disabled={inv?.busy || !!busy}
-                          className={[
-                            "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                            inv?.busy || !!busy
-                              ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                              : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                          ].join(" ")}
-                        >
-                          {inv?.busy ? "Sending…" : "Send invite"}
-                        </button>
+                      <div className="mt-3 border-t border-white/10 pt-3">
+                        <div className="text-xs text-white/50 mb-2">Send invite</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* SMS */}
+                          <button
+                            title={hasPhone ? "Send via SMS" : "No phone number"}
+                            onClick={() => !inv?.busy && hasPhone && sendEmployeeInvite(m, "sms")}
+                            disabled={inv?.busy || !hasPhone}
+                            className={[
+                              "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                              inv?.busy || !hasPhone
+                                ? "border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed"
+                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                            ].join(" ")}
+                          >
+                            <span>📱</span>
+                            <span>Text</span>
+                          </button>
 
+                          {/* WhatsApp */}
+                          <button
+                            title={hasPhone ? "Send via WhatsApp" : "No phone number"}
+                            onClick={() => !inv?.busy && hasPhone && sendEmployeeInvite(m, "whatsapp")}
+                            disabled={inv?.busy || !hasPhone}
+                            className={[
+                              "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                              inv?.busy || !hasPhone
+                                ? "border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed"
+                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                            ].join(" ")}
+                          >
+                            <span>💬</span>
+                            <span>WhatsApp</span>
+                          </button>
+
+                          {/* Email (copy link — no mail service yet) */}
+                          <button
+                            title={hasEmail ? "Get invite link to email manually" : "No email address"}
+                            onClick={() => !inv?.busy && hasEmail && sendEmployeeInvite(m, "email")}
+                            disabled={inv?.busy || !hasEmail}
+                            className={[
+                              "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                              inv?.busy || !hasEmail
+                                ? "border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed"
+                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                            ].join(" ")}
+                          >
+                            <span>✉️</span>
+                            <span>Email</span>
+                          </button>
+
+                          {inv?.busy && (
+                            <span className="text-xs text-white/40">Sending…</span>
+                          )}
+                        </div>
+
+                        {/* Result / status */}
                         {inv?.url ? (
-                          <div className="flex-1 text-xs text-white/70 break-all">
-                            <span className="text-white/40">Link: </span>
+                          <div className="mt-2 text-xs text-white/60 break-all">
+                            Sent.{" "}
+                            <button
+                              onClick={() => navigator.clipboard.writeText(inv.url!)}
+                              className="text-[#D4A853] hover:underline"
+                            >
+                              Copy link
+                            </button>
+                            <span className="text-white/30"> · </span>
                             <a
                               href={inv.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[#D4A853] hover:underline"
+                              className="text-white/40 hover:text-white/60 break-all"
                             >
                               {inv.url}
                             </a>
                           </div>
                         ) : lastInv ? (
-                          <span className={
-                            lastInv.claimed_at ? "text-xs text-green-400" :
-                            new Date(lastInv.expires_at) < new Date() ? "text-xs text-red-400/70" :
-                            "text-xs text-white/40"
-                          }>
-                            {lastInv.claimed_at ? "Portal access claimed" :
-                             new Date(lastInv.expires_at) < new Date() ? "Invite expired · resend?" :
-                             "Invite pending"}
-                          </span>
+                          <div className="mt-1.5">
+                            <span className={
+                              lastInv.claimed_at ? "text-xs text-green-400" :
+                              new Date(lastInv.expires_at) < new Date() ? "text-xs text-amber-400/70" :
+                              "text-xs text-white/40"
+                            }>
+                              {lastInv.claimed_at ? "✓ Portal access claimed" :
+                               new Date(lastInv.expires_at) < new Date() ? "Invite expired — resend above" :
+                               "Invite pending"}
+                            </span>
+                          </div>
                         ) : null}
                       </div>
                     );
