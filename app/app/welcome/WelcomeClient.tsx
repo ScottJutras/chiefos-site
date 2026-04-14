@@ -68,6 +68,7 @@ function PlanStep({
   ];
   const FREE_LOCKED = [
     "Revenue tracking",
+    "Tasks & reminders",
     "Audio logging + receipt scanner",
     "PDF exports + job P&L",
     "Ask Chief: 250 questions/month",
