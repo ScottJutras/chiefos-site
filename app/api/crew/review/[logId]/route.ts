@@ -4,6 +4,7 @@ import { proxyToCore } from "@/app/api/_coreProxy";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function PATCH(req: NextRequest, { params }: { params: { logId: string } }) {
-  return proxyToCore(req, `/api/crew/review/${params.logId}`);
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ logId: string }> }) {
+  const { logId } = await params;
+  return proxyToCore(req, `/api/crew/review/${logId}`);
 }
