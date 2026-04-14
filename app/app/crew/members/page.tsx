@@ -14,6 +14,18 @@ type Member = {
   email?: string | null;
 };
 
+type InviteRow = {
+  id: string;
+  token: string;
+  employee_name: string;
+  phone?: string | null;
+  email?: string | null;
+  role: string;
+  expires_at: string;
+  claimed_at?: string | null;
+  created_at: string;
+};
+
 type AssignmentRow = {
   employee_actor_id: string;
   board_actor_id: string;
@@ -67,6 +79,15 @@ export default function CrewMembersPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  // Invite form
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"employee" | "board">("employee");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ url: string; name: string } | null>(null);
+  const [invites, setInvites] = useState<InviteRow[]>([]);
+
   // Reviewer routing map (NOW hydrated from DB)
   const [assign, setAssign] = useState<Assignment>({});
   // Hourly rates keyed by display_name
@@ -89,11 +110,13 @@ export default function CrewMembersPage() {
     setLoading(true);
 
     try {
-      // Load members + assignments in parallel
-      const [membersResp, assignmentsResp] = await Promise.all([
+      // Load members + assignments + invites in parallel
+      const [membersResp, assignmentsResp, invitesResp] = await Promise.all([
         apiFetch("/api/crew/admin/members", { method: "GET" }) as Promise<any>,
         apiFetch("/api/crew/admin/assignments", { method: "GET" }) as Promise<any>,
+        apiFetch("/api/crew/admin/invites", { method: "GET" }).catch(() => ({ items: [] })) as Promise<any>,
       ]);
+      setInvites(Array.isArray(invitesResp?.items) ? invitesResp.items : []);
 
       const members = Array.isArray(membersResp?.items) ? (membersResp.items as Member[]) : [];
       setItems(members);
@@ -267,6 +290,47 @@ export default function CrewMembersPage() {
     }
   }
 
+  async function sendInvite() {
+    setErr(null);
+    setInviteResult(null);
+
+    const dn = inviteName.trim();
+    const em = inviteEmail.trim().toLowerCase();
+
+    let pd = "";
+    try {
+      pd = normalizePhoneDigitsOrThrow(invitePhone);
+    } catch (e: any) {
+      return setErr(String(e?.message || "Invalid phone number."));
+    }
+
+    if (!dn) return setErr("Employee name is required for invite.");
+    if (!pd && !em) return setErr("Phone or email is required to send invite.");
+
+    setInviteBusy(true);
+    try {
+      const resp = await apiFetch("/api/crew/admin/invite", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_name: dn,
+          phone: pd || null,
+          email: em || null,
+          role: inviteRole,
+        }),
+      }) as any;
+
+      setInviteResult({ url: resp.item.inviteUrl, name: dn });
+      setInviteName("");
+      setInvitePhone("");
+      setInviteEmail("");
+      await load();
+    } catch (e: any) {
+      setErr(String(e?.message || "Unable to send invite"));
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
   async function saveRate(displayName: string) {
     const raw = String(rateEdits[displayName] ?? "").trim();
     if (!raw) return;
@@ -382,6 +446,96 @@ export default function CrewMembersPage() {
             {busy === "add" ? "Adding…" : "Add employee"}
           </button>
         </div>
+      </div>
+
+      {/* Send invite link */}
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="font-semibold">Send portal invite</div>
+        <div className="mt-1 text-sm text-white/70">
+          Send an SMS link so employees can log into the web portal (PWA). Phone or email required.
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <input
+            value={inviteName}
+            onChange={(e) => setInviteName(e.target.value)}
+            placeholder="Employee name (required)"
+            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+          />
+          <input
+            value={invitePhone}
+            onChange={(e) => setInvitePhone(e.target.value)}
+            placeholder="Phone (for SMS)"
+            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+          />
+          <input
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="Email (optional)"
+            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+          />
+          <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value as "employee" | "board")}
+            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20"
+          >
+            <option value="employee">Employee</option>
+            <option value="board">Board member</option>
+          </select>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            onClick={sendInvite}
+            disabled={inviteBusy}
+            className={[
+              "rounded-xl px-3 py-2 text-sm font-medium transition border",
+              inviteBusy
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+            ].join(" ")}
+          >
+            {inviteBusy ? "Sending…" : "Send invite"}
+          </button>
+
+          {inviteResult && (
+            <div className="flex-1 text-xs text-white/70 break-all">
+              Invite sent to <strong>{inviteResult.name}</strong>.{" "}
+              <span className="text-white/40">Link: </span>
+              <a
+                href={inviteResult.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#D4A853] hover:underline"
+              >
+                {inviteResult.url}
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* Recent invites */}
+        {invites.length > 0 && (
+          <div className="mt-4 border-t border-white/10 pt-3">
+            <div className="text-xs text-white/50 mb-2">Recent invites</div>
+            <div className="grid gap-1.5">
+              {invites.slice(0, 5).map((inv) => (
+                <div key={inv.id} className="flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
+                  <span>
+                    <span className="text-white/80">{inv.employee_name}</span>
+                    {" · "}
+                    {inv.role}
+                    {inv.phone ? ` · ${inv.phone}` : ""}
+                    {inv.email ? ` · ${inv.email}` : ""}
+                  </span>
+                  <span className={inv.claimed_at ? "text-green-400" : new Date(inv.expires_at) < new Date() ? "text-red-400" : "text-white/40"}>
+                    {inv.claimed_at ? "Claimed" : new Date(inv.expires_at) < new Date() ? "Expired" : "Pending"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Members list */}

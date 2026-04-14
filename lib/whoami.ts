@@ -27,12 +27,17 @@ async function getAccessTokenWithRetry(opts?: { timeoutMs?: number; intervalMs?:
 export type BetaPlan = "free" | "starter" | "pro";
 export type BetaStatus = "requested" | "approved" | "denied";
 
+export type PortalRole = "owner" | "admin" | "employee" | "board" | null;
+
 export type WhoamiOk = {
   ok: true;
   userId: string;
   tenantId: string | null;
   hasWhatsApp: boolean;
   email: string | null;
+
+  // portal membership role
+  role: PortalRole;
 
   // canonical paid plan
   planKey: BetaPlan | null;
@@ -84,10 +89,12 @@ export async function fetchWhoami(): Promise<WhoamiOk | { ok: false; error: stri
   // ✅ IMPORTANT: return the full contract (do not “pick” fields)
   return {
     ok: true,
-    userId: String(j.userId || ""),
+    userId: String(j.userId || “”),
     tenantId: j.tenantId ? String(j.tenantId) : null,
     hasWhatsApp: !!j.hasWhatsApp,
     email: j.email ?? null,
+
+    role: (j.role ?? null) as PortalRole,
 
     planKey: j.planKey ?? null,
 

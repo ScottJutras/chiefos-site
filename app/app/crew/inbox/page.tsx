@@ -27,6 +27,21 @@ type InboxItem = {
   creator_role?: string | null;
 };
 
+type PendingTransaction = {
+  id: string;
+  kind: "expense" | "revenue";
+  amount_cents: number;
+  description?: string | null;
+  vendor?: string | null;
+  category?: string | null;
+  job_no?: string | null;
+  occurred_at?: string | null;
+  submitted_by?: string | null;
+  submission_status: string;
+  reviewer_note?: string | null;
+  created_at: string;
+};
+
 type InboxResp = {
   ok: true;
   role?: string | null;
@@ -93,6 +108,10 @@ export default function CrewInboxPage() {
   const [err, setErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Pending expense/revenue submissions
+  const [txItems, setTxItems] = useState<PendingTransaction[]>([]);
+  const [txBusyId, setTxBusyId] = useState<string | null>(null);
+
   // ✅ user controls
   const [groupMode, setGroupMode] = useState<GroupMode>("date_submitter");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -106,11 +125,15 @@ export default function CrewInboxPage() {
     setErr(null);
     setLoading(true);
     try {
-      // ✅ IMPORTANT: use the review inbox endpoint that already returns created_by_name
-      const data = (await apiFetch("/api/crew/review/inbox", { method: "GET" })) as InboxResp;
+      // Load crew log inbox + pending expense/revenue transactions in parallel
+      const [data, txData] = await Promise.all([
+        apiFetch("/api/crew/review/inbox", { method: "GET" }) as Promise<InboxResp>,
+        apiFetch("/api/crew/review/expenses/pending", { method: "GET" }).catch(() => ({ items: [] })) as Promise<{ items: PendingTransaction[] }>,
+      ]);
 
       setRole(data.role || null);
       setItems(Array.isArray(data.items) ? data.items : []);
+      setTxItems(Array.isArray(txData.items) ? txData.items : []);
     } catch (e: any) {
       const msg = String(e?.message || "Failed to load inbox");
       if (e?.status === 402 || msg.includes("NOT_INCLUDED")) {
@@ -178,6 +201,29 @@ export default function CrewInboxPage() {
       setErr(String(e?.message || "Action failed"));
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function actTx(txId: string, action: "approve" | "decline") {
+    setErr(null);
+    setTxBusyId(txId);
+    try {
+      let reviewerNote: string | undefined;
+      if (action === "decline") {
+        const note = (window.prompt("Decline reason (optional):", "") || "").trim();
+        reviewerNote = note || undefined;
+      }
+
+      await apiFetch(`/api/crew/review/expenses/${txId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action, reviewer_note: reviewerNote }),
+      });
+
+      await load();
+    } catch (e: any) {
+      setErr(String(e?.message || "Action failed"));
+    } finally {
+      setTxBusyId(null);
     }
   }
 
@@ -686,6 +732,72 @@ export default function CrewInboxPage() {
                 </div>
               </div>
             ))}
+        </div>
+      )}
+
+      {/* ── Pending expense/revenue submissions ── */}
+      {txItems.length > 0 && (
+        <div className="mt-6">
+          <div className="mb-3 text-sm font-semibold text-white/80">
+            Pending expense / revenue submissions ({txItems.length})
+          </div>
+          <div className="grid gap-3">
+            {txItems.map((tx) => {
+              const isBusy = txBusyId === tx.id;
+              const amountDollars = (tx.amount_cents / 100).toFixed(2);
+              return (
+                <div key={tx.id} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-white capitalize">
+                        {tx.kind} · ${amountDollars}
+                      </div>
+                      {tx.description && (
+                        <div className="mt-0.5 text-sm text-white/80">{tx.description}</div>
+                      )}
+                      <div className="mt-1 text-xs text-white/50 flex flex-wrap gap-2">
+                        {tx.vendor && <span>Vendor: {tx.vendor}</span>}
+                        {tx.category && <span>Category: {tx.category}</span>}
+                        {tx.job_no && <span>Job: {tx.job_no}</span>}
+                        {tx.submitted_by && <span>By: {tx.submitted_by}</span>}
+                        <span>{fmtDateTime(tx.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => actTx(tx.id, "approve")}
+                      disabled={isBusy}
+                      className={[
+                        "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                        isBusy
+                          ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                          : "border-green-500/30 bg-green-500/10 text-green-100 hover:bg-green-500/20",
+                      ].join(" ")}
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() => actTx(tx.id, "decline")}
+                      disabled={isBusy}
+                      className={[
+                        "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                        isBusy
+                          ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                          : "border-red-500/30 bg-red-500/10 text-red-100 hover:bg-red-500/20",
+                      ].join(" ")}
+                    >
+                      Decline
+                    </button>
+
+                    {isBusy && <span className="self-center text-xs text-white/60">Working…</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

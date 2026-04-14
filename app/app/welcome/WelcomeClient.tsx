@@ -162,6 +162,11 @@ const FREE_FEATURES: FeatureCard[] = [
     description: "Text Chief: clock in [Job Name] when you start, clock out when you finish. Chief logs your hours and links them to the job.",
   },
   {
+    icon: "👷",
+    title: "Employee Time Clock (up to 3 employees)",
+    description: "Employees can clock in and out directly via WhatsApp. Their hours are logged under your account automatically.",
+  },
+  {
     icon: "🔁",
     title: "Set Overhead & Recurring Costs",
     description: "Fixed costs like rent, insurance, and subscriptions. Set them once and Chief factors them into every job P&L automatically.",
@@ -211,13 +216,18 @@ const STARTER_FEATURES: FeatureCard[] = [
   {
     icon: "👷",
     title: "Add Employees (up to 10)",
-    description: "Invite crew members to log time and expenses under your account. Keep everything organized by employee.",
-    href: "/app/settings/team",
+    description: "Invite crew members to log time, mileage, and photos under your account. Send them a portal invite link via SMS.",
+    href: "/app/crew/members",
+  },
+  {
+    icon: "🚗",
+    title: "Employee Mileage Logging",
+    description: "Employees log mileage from their phones via WhatsApp. Each trip is attributed to them and linked to the job.",
   },
   {
     icon: "📸",
-    title: "Job Site Photos & Notes",
-    description: "Attach photos, notes, and documents to jobs for a complete project record. All stored and searchable.",
+    title: "Employee Job Site Photos",
+    description: "Employees submit job site photos via WhatsApp with notes. Attached to jobs for a complete visual record.",
   },
   {
     icon: "📊",
@@ -235,12 +245,17 @@ const PRO_FEATURES: FeatureCard[] = [
   {
     icon: "📱",
     title: "Crew Self-Logging via WhatsApp",
-    description: "Employees log their own time and expenses directly from their phones on WhatsApp — no portal login required.",
+    description: "Employees log their own time, mileage, photos, and expenses directly from their phones on WhatsApp.",
+  },
+  {
+    icon: "💰",
+    title: "Employee Expense & Revenue Submission",
+    description: "Employees submit expenses and revenue entries via WhatsApp. They land in your review queue — approve, decline, or edit before they hit your P&L.",
   },
   {
     icon: "✔️",
-    title: "Time Approvals & Edit Requests",
-    description: "Review and approve time entries submitted by crew members. Employees can request edits; you approve them.",
+    title: "Time Approvals & Crew Inbox",
+    description: "Review and approve time entries, expenses, and revenue submitted by crew members. Approve or decline with one tap.",
   },
   {
     icon: "📈",
@@ -254,8 +269,8 @@ const PRO_FEATURES: FeatureCard[] = [
   },
   {
     icon: "👥",
-    title: "Up to 50 Employees, 5 Board Members",
-    description: "Scale your crew tracking and give board-level visibility to partners or investors — all within one workspace.",
+    title: "Up to 50 Employees + 5 Board Members",
+    description: "Scale your crew with 50 employees and designate up to 5 board members who can review and approve time, expenses, and revenue submissions.",
   },
 ];
 

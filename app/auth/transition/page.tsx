@@ -239,8 +239,10 @@ function AuthTransitionInner() {
         // resolve-workspace — direct Supabase query (no core backend dependency)
         const { data: pu } = await supabase
           .from("chiefos_portal_users")
-          .select("tenant_id")
+          .select("tenant_id, role")
           .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         signalRealDone("resolve-workspace");
@@ -252,7 +254,14 @@ function AuthTransitionInner() {
         }
         signalRealDone("secure-tenant");
 
-        // prepare-chiefos
+        // prepare-chiefos — role-based redirect for employees/board
+        const portalRole = String(pu?.role || "").toLowerCase();
+        const isEmployee = portalRole === "employee" || portalRole === "board";
+        const defaultingToApp = returnToRef.current === "/app" || returnToRef.current === "/app/dashboard";
+        if (isEmployee && defaultingToApp) {
+          returnToRef.current = "/employee/dashboard";
+        }
+
         signalRealDone("prepare-chiefos");
 
       } catch {
