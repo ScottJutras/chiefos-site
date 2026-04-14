@@ -42,7 +42,9 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 - Ask Chief: 10 questions/month
 - Up to 3 active jobs
 - Up to 3 employees
-- Expense & revenue logging, time clock, tasks, reminders, mileage tracking, overhead & recurring expense tracking
+- Employee time clock via WhatsApp (available on ALL plans — employees text "clock in [Job]" from their own phone)
+- Employee web portal PWA (no app download needed)
+- Expense & revenue logging, time clock, overhead & recurring expense tracking
 - CSV export
 - 90-day rolling history
 
@@ -52,7 +54,14 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 - Ask Chief: 250 questions/month
 - Up to 25 active jobs
 - Up to 10 employees
-- Everything in Free, plus: receipt scanner (OCR), documents builder (quotes, contracts, change orders, invoices, receipts), job site photo storage & notes, bulk receipt uploads, payroll documents
+- Everything in Free, plus:
+- Tasks & reminders (for owner and employees)
+- Employee mileage logging via WhatsApp
+- Employee job site photo submission
+- Receipt scanner (OCR): send a photo, Chief extracts the details
+- Documents builder (quotes, contracts, change orders, invoices, receipts)
+- Job site photo storage & notes
+- Bulk receipt uploads, payroll documents
 - Exports: PDF, CSV, XLS
 - 3-year history
 
@@ -61,9 +70,13 @@ Chief reads live data — it doesn't guess. If data isn't logged, Chief says so 
 - Conversational logging: text & audio
 - Ask Chief: 2,000 questions/month
 - Jobs (no cap)
-- Up to 50 employees
-- Up to 5 board members (no access to financial intelligence — keeps sensitive data owner-only)
-- Everything in Starter, plus: forecasting, crew self-logging via WhatsApp, time approvals & edit requests
+- Up to 50 employees + up to 5 board members
+- Board members can use all OS features but cannot access Ask Chief (financial intelligence stays owner-only)
+- Everything in Starter, plus:
+- Employee expense & revenue submission via WhatsApp → goes into a pending-review queue; owner approves or declines before it hits the books
+- Forecasting
+- Crew self-logging via WhatsApp
+- Time approvals & edit requests
 - Exports: PDF, CSV, XLS
 - 7-year history
 
@@ -133,15 +146,15 @@ export async function POST(req: NextRequest) {
 
   const rawHistory = Array.isArray(body.history) ? body.history : [];
 
-  // Abuse guard: reject if client is sending an unreasonably long history
-  if (rawHistory.length > 20) {
+  // Abuse guard: reject only extremely long histories (50+ messages = likely automated abuse)
+  if (rawHistory.length > 50) {
     return new Response(
       JSON.stringify({ ok: false, error: "rate_limit", message: "Demo session limit reached." }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  // Sanitise and truncate history to last 10 entries
+  // Sanitise and truncate history to last 20 entries
   type HistoryEntry = { role: "user" | "assistant"; content: string };
   const history: HistoryEntry[] = rawHistory
     .filter(
@@ -156,7 +169,7 @@ export async function POST(req: NextRequest) {
         (e as any).content.trim().length > 0
     )
     .map((e) => ({ role: (e as any).role, content: String((e as any).content).slice(0, 2000) }))
-    .slice(-10);
+    .slice(-20);
 
   const messages: Anthropic.MessageParam[] = [
     ...history,

@@ -16,9 +16,6 @@ const C = {
   textFaint: "#706A60",
 };
 
-const SESSION_LIMIT = 10;
-const SOFT_UPSELL_AT = 7; // show upsell nudge when ≤ this many questions remain
-
 // ─── Categorised starter questions ────────────────────────────────────────────
 const CATEGORIES = [
   {
@@ -39,6 +36,7 @@ const CATEGORIES = [
     label: "Getting Started",
     questions: [
       "What's free vs. paid?",
+      "How do I integrate employees into this?",
     ],
   },
 ];
@@ -61,9 +59,10 @@ No credit card required.
 • Conversational logging: text only
 • Ask Chief: 10 questions / month
 • Up to 3 active jobs · up to 3 employees
+• Employee time clock via WhatsApp (all tiers)
+• Employee web portal (PWA)
 • Expense & revenue logging
 • Time clock & labour hours tracking
-• Tasks, reminders & mileage tracking
 • Overhead & recurring expense tracking
 • CSV export · 90-day rolling history
 
@@ -74,6 +73,9 @@ Capture faster. Start understanding.
 • Ask Chief: 250 questions / month
 • Up to 25 active jobs · up to 10 employees
 • Everything in Free, plus:
+• Tasks & reminders (owner + employees)
+• Employee mileage logging via WhatsApp
+• Employee job site photo submission
 • Receipt scanner (OCR)
 • Documents builder — quotes, contracts, change orders, invoices, receipts
 • Job site photo storage & notes
@@ -85,9 +87,9 @@ Give the crew tools. Keep control.
 • Web & WhatsApp portals
 • Conversational logging: text & audio
 • Ask Chief: 2,000 questions / month
-• Jobs (no cap) · up to 50 employees
-• Up to 5 board members*
+• Jobs (no cap) · up to 50 employees · up to 5 board members*
 • Everything in Starter, plus:
+• Employee expense & revenue submission (pending owner review)
 • Forecasting
 • Crew self-logging via WhatsApp
 • Time approvals & edit requests
@@ -96,6 +98,28 @@ Give the crew tools. Keep control.
 * Board members can use all OS features but do not have access to Ask Chief — keeping your financial intelligence owner-only.
 
 All plans: Your data is yours. Export anytime, on any tier. No lock-in.`,
+
+  "How do I integrate employees into this?":
+`Every tier includes employee time logging — your crew can clock in and out via WhatsApp from day one, no app required. Here's how employee features ladder up:
+
+FREE (up to 3 employees)
+• Employee time clock via WhatsApp — clock in/out by text
+• Employee web portal (PWA) — no app download needed
+• Invite employees via SMS link or email
+
+STARTER (up to 10 employees)
+• Everything in Free, plus:
+• Tasks & reminders assigned to employees
+• Employee mileage logging via WhatsApp
+• Employee job site photo submission
+
+PRO (up to 50 employees + 5 board members)
+• Everything in Starter, plus:
+• Employee expense & revenue submission — goes to a pending review queue
+• Owner (or board) approves or declines before it hits your books
+• Board member role — can review approvals but cannot access Ask Chief
+
+Inviting an employee is simple: you send them a link, they tap it, create an account, and land on their own limited portal. They can only see their own time, tasks, and submissions — your financials stay owner-only.`,
 };
 
 type ChatMessage = {
@@ -244,8 +268,6 @@ export default function DemoChiefChat() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [awaitingFirstToken, setAwaitingFirstToken] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [unread, setUnread] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [chipsExpanded, setChipsExpanded] = useState(false);
@@ -278,11 +300,6 @@ export default function DemoChiefChat() {
     const trimmed = (text ?? input).trim();
     if (!trimmed || isStreaming) return;
 
-    if (messageCount >= SESSION_LIMIT) {
-      setShowUpgrade(true);
-      return;
-    }
-
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmed };
 
     const history = messages
@@ -291,7 +308,6 @@ export default function DemoChiefChat() {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    setMessageCount((c) => c + 1);
     setIsStreaming(true);
     setAwaitingFirstToken(true);
 
@@ -445,15 +461,13 @@ export default function DemoChiefChat() {
       setAwaitingFirstToken(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [input, isStreaming, messageCount, messages, open]);
+  }, [input, isStreaming, messages, open]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
   const hasMessages = messages.length > 0;
-  const questionsLeft = SESSION_LIMIT - messageCount;
-  const showSoftUpsell = hasMessages && questionsLeft <= SOFT_UPSELL_AT && questionsLeft > 0 && !showUpgrade;
 
   return (
     <>
@@ -489,10 +503,6 @@ export default function DemoChiefChat() {
         }
         @keyframes chief-label-in {
           from{opacity:0;transform:translateY(6px)}
-          to{opacity:1;transform:translateY(0)}
-        }
-        @keyframes chief-upsell-in {
-          from{opacity:0;transform:translateY(4px)}
           to{opacity:1;transform:translateY(0)}
         }
       `}</style>
@@ -746,166 +756,78 @@ export default function DemoChiefChat() {
             )}
             {awaitingFirstToken && <TypingIndicator />}
 
-            {showUpgrade && (
-              <div style={{ padding: "12px 0 8px", textAlign: "center" }}>
-                <p style={{ fontSize: "12px", color: C.textMuted, marginBottom: "14px", lineHeight: 1.65 }}>
-                  Demo limit reached. Sign up free to ask Chief about{" "}
-                  <em style={{ color: C.text }}>your real data</em>.
-                </p>
-                <a href="/signup" style={{
-                  display: "inline-block", padding: "10px 28px",
-                  background: "linear-gradient(135deg, #D4A853, #C49840)",
-                  color: C.bg, borderRadius: "4px",
-                  fontSize: "12px", fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
-                  letterSpacing: "1.2px", textTransform: "uppercase", textDecoration: "none",
-                  boxShadow: "0 4px 20px rgba(212,168,83,0.32)",
-                }}>Start Free</a>
-              </div>
-            )}
             <div ref={bottomRef} style={{ height: "16px" }} />
           </div>
 
-          {/* Soft upsell strip — appears at ≤ 7 questions remaining */}
-          {showSoftUpsell && (
-            <div style={{
-              position: "relative", zIndex: 1,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              gap: "10px", flexWrap: "wrap",
-              padding: "9px 14px",
-              borderTop: "1px solid rgba(212,168,83,0.1)",
-              background: "linear-gradient(135deg, rgba(212,168,83,0.06) 0%, rgba(212,168,83,0.02) 100%)",
-              animation: "chief-upsell-in 0.3s ease",
-            }}>
-              <span style={{ fontSize: "11px", color: C.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-                {questionsLeft <= 3 ? "Almost out of questions —" : "Liking Chief?"}
-              </span>
-              <a
-                href="/signup"
-                style={{
-                  fontSize: "11px", fontWeight: 600, color: C.gold,
-                  fontFamily: "'DM Sans', sans-serif",
-                  textDecoration: "none", borderBottom: "1px solid rgba(212,168,83,0.35)",
-                  paddingBottom: "1px", transition: "border-color 0.15s ease",
-                }}
-              >
-                Sign up free →
-              </a>
-              <span style={{ fontSize: "11px", color: C.textFaint, fontFamily: "'DM Sans', sans-serif" }}>or</span>
-              <a
-                href="https://wa.me/12316802664"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontSize: "11px", fontWeight: 600, color: "#4ADE80",
-                  fontFamily: "'DM Sans', sans-serif",
-                  textDecoration: "none", borderBottom: "1px solid rgba(74,222,128,0.35)",
-                  paddingBottom: "1px",
-                }}
-              >
-                Add Chief on WhatsApp
-              </a>
-            </div>
-          )}
-
           {/* Input */}
-          {!showUpgrade && (
+          <div style={{
+            position: "relative", zIndex: 1,
+            padding: "10px 12px 0",
+            borderTop: "1px solid rgba(212,168,83,0.1)",
+            background: "rgba(212,168,83,0.02)",
+            flexShrink: 0,
+          }}>
             <div style={{
-              position: "relative", zIndex: 1,
-              padding: "10px 12px 0",
-              borderTop: showSoftUpsell ? "none" : "1px solid rgba(212,168,83,0.1)",
-              background: "rgba(212,168,83,0.02)",
-              flexShrink: 0,
+              display: "flex", alignItems: "center", gap: "8px",
+              background: inputFocused ? "rgba(212,168,83,0.08)" : "rgba(212,168,83,0.04)",
+              border: `1px solid ${inputFocused ? "rgba(212,168,83,0.35)" : "rgba(212,168,83,0.16)"}`,
+              borderRadius: "9px", padding: "8px 10px",
+              transition: "all 0.2s ease",
+              boxShadow: inputFocused
+                ? "0 0 0 3px rgba(212,168,83,0.08), 0 0 22px rgba(212,168,83,0.08)"
+                : "none",
+            }}>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder={hasMessages ? "Ask a follow-up…" : "Ask Chief anything…"}
+                disabled={isStreaming}
+                style={{
+                  flex: 1, background: "transparent", border: "none", outline: "none",
+                  fontSize: "13px", fontFamily: "'DM Sans', sans-serif",
+                  color: C.text, caretColor: C.gold,
+                }}
+              />
+              <button
+                onClick={() => handleSend()}
+                disabled={isStreaming || !input.trim()}
+                style={{
+                  flexShrink: 0, padding: "6px 14px",
+                  background: isStreaming || !input.trim()
+                    ? "transparent"
+                    : "linear-gradient(135deg, #D4A853, #C49840)",
+                  border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.16)" : "transparent"}`,
+                  borderRadius: "5px",
+                  color: isStreaming || !input.trim() ? C.textFaint : C.bg,
+                  fontSize: "12px", fontWeight: 700,
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: isStreaming || !input.trim() ? "not-allowed" : "pointer",
+                  transition: "all 0.15s ease",
+                  letterSpacing: "0.3px",
+                  boxShadow: isStreaming || !input.trim() ? "none" : "0 2px 14px rgba(212,168,83,0.3)",
+                }}
+              >
+                {isStreaming ? "···" : "Ask"}
+              </button>
+            </div>
+
+            {/* Branding footer */}
+            <div style={{
+              padding: "9px 0 11px",
+              display: "flex", justifyContent: "center",
             }}>
               <div style={{
-                display: "flex", alignItems: "center", gap: "8px",
-                background: inputFocused ? "rgba(212,168,83,0.08)" : "rgba(212,168,83,0.04)",
-                border: `1px solid ${inputFocused ? "rgba(212,168,83,0.35)" : "rgba(212,168,83,0.16)"}`,
-                borderRadius: "9px", padding: "8px 10px",
-                transition: "all 0.2s ease",
-                boxShadow: inputFocused
-                  ? "0 0 0 3px rgba(212,168,83,0.08), 0 0 22px rgba(212,168,83,0.08)"
-                  : "none",
+                fontSize: "10px", color: C.textFaint,
+                fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px",
               }}>
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => setInputFocused(true)}
-                  onBlur={() => setInputFocused(false)}
-                  placeholder={hasMessages ? "Ask a follow-up…" : "Ask Chief anything…"}
-                  disabled={isStreaming}
-                  style={{
-                    flex: 1, background: "transparent", border: "none", outline: "none",
-                    fontSize: "13px", fontFamily: "'DM Sans', sans-serif",
-                    color: C.text, caretColor: C.gold,
-                  }}
-                />
-                <button
-                  onClick={() => handleSend()}
-                  disabled={isStreaming || !input.trim()}
-                  style={{
-                    flexShrink: 0, padding: "6px 14px",
-                    background: isStreaming || !input.trim()
-                      ? "transparent"
-                      : "linear-gradient(135deg, #D4A853, #C49840)",
-                    border: `1px solid ${isStreaming || !input.trim() ? "rgba(212,168,83,0.16)" : "transparent"}`,
-                    borderRadius: "5px",
-                    color: isStreaming || !input.trim() ? C.textFaint : C.bg,
-                    fontSize: "12px", fontWeight: 700,
-                    fontFamily: "'DM Sans', sans-serif",
-                    cursor: isStreaming || !input.trim() ? "not-allowed" : "pointer",
-                    transition: "all 0.15s ease",
-                    letterSpacing: "0.3px",
-                    boxShadow: isStreaming || !input.trim() ? "none" : "0 2px 14px rgba(212,168,83,0.3)",
-                  }}
-                >
-                  {isStreaming ? "···" : "Ask"}
-                </button>
-              </div>
-
-              {/* Question counter + branding footer */}
-              <div style={{
-                padding: "9px 0 11px",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
-              }}>
-                {/* Counter — prominent, centered */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: "6px",
-                }}>
-                  <div style={{
-                    display: "flex", gap: "3px",
-                  }}>
-                    {Array.from({ length: SESSION_LIMIT }).map((_, i) => (
-                      <span key={i} style={{
-                        width: "5px", height: "5px", borderRadius: "50%",
-                        background: i < messageCount
-                          ? "rgba(212,168,83,0.35)"
-                          : "rgba(212,168,83,0.7)",
-                        transition: "background 0.3s ease",
-                        boxShadow: i < messageCount ? "none" : "0 0 4px rgba(212,168,83,0.3)",
-                      }} />
-                    ))}
-                  </div>
-                  <span style={{
-                    fontSize: "11px", fontWeight: 600,
-                    fontFamily: "'DM Sans', sans-serif",
-                    color: questionsLeft <= 3 ? C.gold : C.textMuted,
-                    transition: "color 0.3s ease",
-                  }}>
-                    {questionsLeft} question{questionsLeft !== 1 ? "s" : ""} remaining
-                  </span>
-                </div>
-                {/* Branding */}
-                <div style={{
-                  fontSize: "10px", color: C.textFaint,
-                  fontFamily: "'Space Mono', monospace", letterSpacing: "0.5px",
-                }}>
-                  Powered by ChiefOS · Demo Mode
-                </div>
+                Powered by ChiefOS · Demo Mode
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
