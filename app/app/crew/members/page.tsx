@@ -742,30 +742,9 @@ export default function CrewMembersPage() {
                             <span>Text</span>
                           </button>
 
-                          {/* WhatsApp */}
+                          {/* Email via Postmark */}
                           <button
-                            title={hasPhone ? "Send via WhatsApp" : "No phone number"}
-                            onClick={() => !inv?.busy && hasPhone && sendEmployeeInvite(m, "whatsapp")}
-                            disabled={inv?.busy || !hasPhone}
-                            className={[
-                              "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              inv?.busy || !hasPhone
-                                ? "border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            <svg viewBox="0 0 32 32" className="h-4 w-4 shrink-0" aria-hidden="true">
-                              <path
-                                fill={inv?.busy || !hasPhone ? "currentColor" : "#25D366"}
-                                d="M16 2C8.28 2 2 8.28 2 16c0 2.46.66 4.76 1.8 6.76L2 30l7.44-1.76A13.93 13.93 0 0 0 16 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm0 25.6a11.55 11.55 0 0 1-5.88-1.6l-.42-.25-4.42 1.04 1.08-4.3-.28-.44A11.55 11.55 0 0 1 4.4 16C4.4 9.6 9.6 4.4 16 4.4S27.6 9.6 27.6 16 22.4 27.6 16 27.6zm6.34-8.64c-.34-.17-2.02-.99-2.34-1.1-.31-.12-.54-.17-.77.17-.23.34-.88 1.1-1.08 1.33-.2.23-.39.26-.73.09-.34-.17-1.44-.53-2.74-1.69-1.01-.9-1.7-2.01-1.9-2.35-.2-.34-.02-.52.15-.69.15-.15.34-.39.51-.59.17-.2.23-.34.34-.57.12-.23.06-.43-.03-.6-.09-.17-.77-1.85-1.05-2.53-.28-.67-.56-.58-.77-.59h-.65c-.23 0-.6.09-.91.43-.31.34-1.19 1.16-1.19 2.83s1.22 3.28 1.39 3.51c.17.23 2.4 3.66 5.82 5.14.81.35 1.44.56 1.94.72.81.26 1.55.22 2.13.13.65-.1 2.02-.83 2.3-1.62.29-.8.29-1.48.2-1.62-.08-.14-.31-.23-.65-.4z"
-                              />
-                            </svg>
-                            <span>WhatsApp</span>
-                          </button>
-
-                          {/* Email (copy link — no mail service yet) */}
-                          <button
-                            title={hasEmail ? "Get invite link to email manually" : "No email address"}
+                            title={hasEmail ? "Send invite via email" : "No email address"}
                             onClick={() => !inv?.busy && hasEmail && sendEmployeeInvite(m, "email")}
                             disabled={inv?.busy || !hasEmail}
                             className={[
@@ -790,7 +769,7 @@ export default function CrewMembersPage() {
                             {inv.deliveryOk ? (
                               <span className="text-green-400">✓ Sent via {inv.deliveryMethod === "sms" ? "text message" : inv.deliveryMethod}</span>
                             ) : inv.deliveryMethod === "email" ? (
-                              <span className="text-white/50">Invite created — copy the link below and email it manually</span>
+                              <span className="text-white/50">Email delivery failed — copy link to send manually</span>
                             ) : (
                               <span className="text-amber-400">⚠ Delivery failed — try Text instead.{inv.deliveryError ? ` (${inv.deliveryError})` : ""}</span>
                             )}
