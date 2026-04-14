@@ -30,6 +30,13 @@ const mainGroups = [
     ],
   },
   {
+    label: "TEAM",
+    items: [
+      { href: "/app/crew/members", label: "Crew"     },
+      { href: "/app/crew/inbox",   label: "Crew Inbox" },
+    ],
+  },
+  {
     label: "SUPPLIERS",
     items: [
       { href: "/app/catalogs", label: "Catalogs" },
