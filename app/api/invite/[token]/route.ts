@@ -8,12 +8,12 @@ import { type NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
-  const token = String(params.token || "").trim();
-  return proxyToCorePublic(req, `/api/invite/${token}`);
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  return proxyToCorePublic(req, `/api/invite/${String(token || "").trim()}`);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
-  const token = String(params.token || "").trim();
-  return proxyToCore(req, `/api/invite/${token}/claim`);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  return proxyToCore(req, `/api/invite/${String(token || "").trim()}/claim`);
 }
