@@ -170,8 +170,7 @@ function InviteClaimInner() {
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <span className="text-[#D4A853]">Chief</span>
-            <span className="text-white/60 text-sm font-normal">by Sherpa AI</span>
+            <span className="text-[#D4A853]">ChiefOS</span>
           </div>
         </div>
 
@@ -296,7 +295,7 @@ function InviteClaimInner() {
         </div>
 
         <div className="mt-4 text-center text-xs text-white/30">
-          ChiefOS — AI-native operating system for small businesses
+          ChiefOS — Contractor Grade Business Intelligence
         </div>
       </div>
     </main>
