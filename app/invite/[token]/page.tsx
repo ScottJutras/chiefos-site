@@ -45,6 +45,11 @@ function InviteClaimInner() {
   const [errMsg, setErrMsg] = useState("");
   const claimedRef = useRef(false);
 
+  // Set-password step (shown after successful claim)
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordErr, setPasswordErr] = useState<string | null>(null);
+
   // ── 1. Load invite details ──────────────────────────────────────────────────
   useEffect(() => {
     if (!token) {
@@ -122,15 +127,39 @@ function InviteClaimInner() {
         return;
       }
 
+      // Don't auto-redirect — show a "set password" card first so the
+      // user has credentials to log back in next time. They can skip
+      // and still use the "email me a sign-in link" flow on /login.
       setPhase("done");
-      // Give user a moment to read the success message, then redirect
-      setTimeout(() => {
-        router.replace("/app/dashboard");
-      }, 2500);
     } catch (e: any) {
       setErrMsg(String(e?.message || "Could not claim invite."));
       setPhase("error");
     }
+  }
+
+  // ── Set password (after successful claim) ──────────────────────────────────
+  async function setPassword() {
+    setPasswordErr(null);
+    const pw = newPassword.trim();
+    if (pw.length < 8) {
+      setPasswordErr("Password must be at least 8 characters.");
+      return;
+    }
+
+    setPasswordBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw error;
+      router.replace("/app/dashboard");
+    } catch (e: any) {
+      setPasswordErr(String(e?.message || "Could not set password."));
+    } finally {
+      setPasswordBusy(false);
+    }
+  }
+
+  function skipSetPassword() {
+    router.replace("/app/dashboard");
   }
 
   // ── 3. Send magic link ──────────────────────────────────────────────────────
@@ -276,9 +305,54 @@ function InviteClaimInner() {
 
           {phase === "done" && invite && (
             <>
-              <div className="font-semibold text-white">Welcome to {invite.business_name}!</div>
-              <div className="mt-2 text-sm text-white/60">
-                Your account is ready. Redirecting to your dashboard…
+              <div className="text-xs font-medium uppercase tracking-widest text-[#D4A853] mb-3">
+                You're in
+              </div>
+              <div className="font-semibold text-white text-lg leading-snug">
+                Welcome to <span className="text-[#D4A853]">{invite.business_name}</span>
+              </div>
+              <div className="mt-1 text-sm text-white/55">
+                Set a password so you can sign in next time — or skip and we'll email you a sign-in link whenever you need one.
+              </div>
+
+              <div className="mt-5">
+                <label className="block text-xs font-medium text-white/60 mb-1.5">
+                  New password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") setPassword(); }}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                />
+
+                {passwordErr && (
+                  <div className="mt-2 text-xs text-red-300">{passwordErr}</div>
+                )}
+
+                <button
+                  onClick={setPassword}
+                  disabled={passwordBusy || !newPassword.trim()}
+                  className={[
+                    "mt-3 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition",
+                    passwordBusy || !newPassword.trim()
+                      ? "bg-[#D4A853]/30 text-white/40 cursor-not-allowed"
+                      : "bg-[#D4A853] text-[#0C0B0A] hover:bg-[#e0b860]",
+                  ].join(" ")}
+                >
+                  {passwordBusy ? "Saving…" : "Set password & continue"}
+                </button>
+
+                <button
+                  onClick={skipSetPassword}
+                  disabled={passwordBusy}
+                  className="mt-2 w-full text-center text-xs text-white/40 hover:text-white/60 transition"
+                >
+                  Skip for now
+                </button>
               </div>
             </>
           )}

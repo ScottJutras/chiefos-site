@@ -55,10 +55,51 @@ export default function LoginClient() {
 
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [magicLoading, setMagicLoading] = useState(false);
+  const [magicSentTo, setMagicSentTo] = useState<string | null>(null);
 
   function resetTurnstile() {
     setTurnstileToken(null);
     setTurnstileResetKey((k) => k + 1);
+  }
+
+  async function sendMagicLink() {
+    setErr(null);
+    const em = email.trim().toLowerCase();
+    if (!em) {
+      setErr("Enter your email first.");
+      return;
+    }
+    if (!turnstileToken) {
+      setErr("Please complete the bot check first.");
+      return;
+    }
+
+    setMagicLoading(true);
+    try {
+      const base = (
+        process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.usechiefos.com"
+      ).replace(/\/$/, "");
+      const redirectTo = `${base}/auth/callback?returnTo=${encodeURIComponent(returnTo)}`;
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: em,
+        options: {
+          emailRedirectTo: redirectTo,
+          shouldCreateUser: false,
+        },
+      });
+      if (error) throw error;
+
+      setMagicSentTo(em);
+      await track("login_magic_link_sent", {});
+    } catch (e: any) {
+      const friendly = normalizeAuthMessage(e);
+      setErr(friendly || e?.message || "Could not send sign-in link.");
+      resetTurnstile();
+    } finally {
+      setMagicLoading(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -123,6 +164,14 @@ export default function LoginClient() {
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-[#E8E2D8]">Sign in</h1>
         <p className="mt-2 text-[#A8A090]">If you just signed up, confirm your email first, then sign in.</p>
 
+        {magicSentTo && (
+          <div className="mt-6 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+            Check your email — we sent a sign-in link to{" "}
+            <strong>{magicSentTo}</strong>. Click the link and you'll be
+            signed in automatically. The link expires in 1 hour.
+          </div>
+        )}
+
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#A8A090]">Email</label>
@@ -182,6 +231,29 @@ export default function LoginClient() {
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
+
+          <div className="relative pt-1">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[rgba(212,168,83,0.15)]" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-[#0C0B0A] px-3 text-xs uppercase tracking-widest text-[#706A60]">
+                or
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={sendMagicLink}
+            disabled={magicLoading || loading}
+            className="w-full rounded-[2px] border border-[rgba(212,168,83,0.3)] bg-transparent px-4 py-2 text-[#D4A853] font-semibold hover:bg-[rgba(212,168,83,0.08)] disabled:opacity-60 transition"
+          >
+            {magicLoading ? "Sending…" : "Email me a sign-in link"}
+          </button>
+          <p className="text-center text-[11px] text-[#706A60]">
+            Don't have a password? Use the email link option instead.
+          </p>
         </form>
       </div>
     </main>
