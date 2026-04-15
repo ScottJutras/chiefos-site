@@ -2,25 +2,108 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fetchWhoami } from "@/lib/whoami";
 
 type TimeEntry = {
   id: string;
-  clock_in: string;
+  clock_in?: string | null;
   clock_out?: string | null;
+  start_at_utc?: string | null;
+  end_at_utc?: string | null;
   job_no?: string | null;
+  job_id?: number | null;
+  kind?: string | null;
   note?: string | null;
   submission_status?: string | null;
 };
 
+type ClockStatus = {
+  clocked_in: boolean;
+  open_shift: { id: string; start_at_utc: string; job_id: number | null } | null;
+};
+
+async function authedFetch(path: string, init?: RequestInit) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token || "";
+  return fetch(path, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+}
+
+function fmtDateTime(iso?: string | null) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function duration(startIso?: string | null, endIso?: string | null) {
+  if (!startIso) return "—";
+  try {
+    const start = new Date(startIso).getTime();
+    const end = endIso ? new Date(endIso).getTime() : Date.now();
+    const mins = Math.max(0, Math.round((end - start) / 60000));
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  } catch {
+    return "—";
+  }
+}
+
 export default function EmployeeTimeClockPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [tenantId, setTenantId] = useState<string>("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [status, setStatus] = useState<ClockStatus | null>(null);
+  const [jobNo, setJobNo] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+  const [busy, setBusy] = useState<"in" | "out" | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async (tid: string) => {
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: rows } = await supabase
+        .from("time_entries_v2")
+        .select("id, clock_in, clock_out, start_at_utc, end_at_utc, job_no, job_id, kind, note, submission_status")
+        .eq("tenant_id", tid)
+        .gte("start_at_utc", thirtyDaysAgo)
+        .order("start_at_utc", { ascending: false })
+        .limit(100);
+      setEntries((rows || []) as TimeEntry[]);
+    } catch {
+      // fail-soft
+    }
+  }, []);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const r = await authedFetch("/api/employee/time/status");
+      const j = await r.json();
+      if (j?.ok) setStatus({ clocked_in: !!j.clocked_in, open_shift: j.open_shift || null });
+    } catch {
+      // fail-soft
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -50,57 +133,72 @@ export default function EmployeeTimeClockPage() {
           return;
         }
 
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: rows } = await supabase
-          .from("time_entries_v2")
-          .select("id, clock_in, clock_out, job_no, note, submission_status")
-          .eq("tenant_id", pu.tenant_id)
-          .gte("clock_in", thirtyDaysAgo)
-          .order("clock_in", { ascending: false })
-          .limit(100);
-        setEntries((rows || []) as TimeEntry[]);
+        setTenantId(pu.tenant_id);
+        await Promise.all([loadHistory(pu.tenant_id), loadStatus()]);
       } catch (e: any) {
-        setErr(String(e?.message || "Could not load time entries."));
+        setErr(String(e?.message || "Could not load time clock."));
       } finally {
         setLoading(false);
       }
     })();
-  }, [router]);
+  }, [router, loadHistory, loadStatus]);
 
-  function fmtDateTime(iso: string) {
+  // Re-poll every 30s while clocked in so the "open shift" duration ticks.
+  useEffect(() => {
+    if (!status?.clocked_in) return;
+    const t = setInterval(() => {
+      setEntries((prev) => [...prev]); // trigger re-render so duration recalculates
+    }, 30000);
+    return () => clearInterval(t);
+  }, [status?.clocked_in]);
+
+  async function clockIn() {
+    setErr(null);
+    setOkMsg(null);
+    setBusy("in");
     try {
-      return new Date(iso).toLocaleString([], {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+      const body = {
+        job_id: jobNo.trim() && /^\d+$/.test(jobNo.trim()) ? Number(jobNo.trim()) : undefined,
+        note: note.trim() || undefined,
+      };
+      const r = await authedFetch("/api/employee/time/clock-in", {
+        method: "POST",
+        body: JSON.stringify(body),
       });
-    } catch {
-      return iso;
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.message || "Clock-in failed.");
+      setOkMsg("Clocked in.");
+      setJobNo("");
+      setNote("");
+      await Promise.all([loadHistory(tenantId), loadStatus()]);
+    } catch (e: any) {
+      setErr(String(e?.message || "Could not clock in."));
+    } finally {
+      setBusy(null);
     }
   }
 
-  function calcDuration(clockIn: string, clockOut?: string | null) {
+  async function clockOut() {
+    setErr(null);
+    setOkMsg(null);
+    setBusy("out");
     try {
-      const start = new Date(clockIn).getTime();
-      const end = clockOut ? new Date(clockOut).getTime() : Date.now();
-      const mins = Math.round((end - start) / 60000);
+      const r = await authedFetch("/api/employee/time/clock-out", { method: "POST" });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.message || "Clock-out failed.");
+      const mins = Number(j?.duration_minutes || 0);
       const h = Math.floor(mins / 60);
       const m = mins % 60;
-      return h > 0 ? `${h}h ${m}m` : `${m}m`;
-    } catch {
-      return "—";
+      setOkMsg(h > 0 ? `Clocked out — ${h}h ${m}m shift.` : `Clocked out — ${m}m shift.`);
+      await Promise.all([loadHistory(tenantId), loadStatus()]);
+    } catch (e: any) {
+      setErr(String(e?.message || "Could not clock out."));
+    } finally {
+      setBusy(null);
     }
   }
 
-  function statusBadge(status?: string | null) {
-    if (!status || status === "confirmed") return null;
-    if (status === "pending_review") return { text: "Pending review", color: "text-yellow-400" };
-    if (status === "declined") return { text: "Declined", color: "text-red-400" };
-    return null;
-  }
-
-  const openEntry = entries.find((e) => !e.clock_out);
+  const open = status?.open_shift || null;
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -111,70 +209,116 @@ export default function EmployeeTimeClockPage() {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
           Your shifts
         </h1>
-        <div className="mt-1 text-sm text-white/55">Last 30 days</div>
       </div>
 
-      {/* Current status card */}
+      {/* Clock in / out card */}
       <div
         className={[
           "rounded-2xl border px-4 py-4 mb-4",
-          openEntry ? "border-emerald-500/30 bg-emerald-500/10" : "border-white/10 bg-white/5",
+          status?.clocked_in
+            ? "border-emerald-500/30 bg-emerald-500/10"
+            : "border-white/10 bg-white/5",
         ].join(" ")}
       >
         <div className="text-xs font-medium uppercase tracking-widest text-white/40 mb-1">
-          Status
+          {status?.clocked_in ? "On the clock" : "Not clocked in"}
         </div>
-        {openEntry ? (
+
+        {status?.clocked_in && open ? (
           <>
-            <div className="font-semibold text-emerald-300">Clocked in</div>
-            <div className="mt-0.5 text-sm text-white/70">
-              Since {fmtDateTime(openEntry.clock_in)}
-              {openEntry.job_no ? ` · Job ${openEntry.job_no}` : ""}
-              {" · "}
-              {calcDuration(openEntry.clock_in)}
+            <div className="font-semibold text-emerald-300">
+              Since {fmtDateTime(open.start_at_utc)}
             </div>
+            <div className="mt-0.5 text-sm text-white/70">
+              {duration(open.start_at_utc)}
+              {open.job_id ? ` · Job ${open.job_id}` : ""}
+            </div>
+
+            <button
+              onClick={clockOut}
+              disabled={busy !== null}
+              className={[
+                "mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
+                busy !== null
+                  ? "bg-red-500/30 text-white/40 cursor-not-allowed"
+                  : "bg-red-500 text-white hover:bg-red-600",
+              ].join(" ")}
+            >
+              {busy === "out" ? "Clocking out…" : "Clock out"}
+            </button>
           </>
         ) : (
-          <div className="font-semibold text-white/60">Not clocked in</div>
+          <>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <input
+                value={jobNo}
+                onChange={(e) => setJobNo(e.target.value)}
+                placeholder="Job # (optional)"
+                inputMode="numeric"
+                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+              />
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Note (optional)"
+                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+              />
+            </div>
+            <button
+              onClick={clockIn}
+              disabled={busy !== null}
+              className={[
+                "mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
+                busy !== null
+                  ? "bg-[#D4A853]/30 text-white/40 cursor-not-allowed"
+                  : "bg-[#D4A853] text-[#0C0B0A] hover:bg-[#e0b860]",
+              ].join(" ")}
+            >
+              {busy === "in" ? "Clocking in…" : "Clock in"}
+            </button>
+          </>
         )}
-        <div className="mt-2 text-xs text-white/40">
-          Send "clock in [Job #]" or "clock out" via WhatsApp to start or end a shift.
-          Web portal clock-in is coming soon.
+
+        {err && <div className="mt-3 text-xs text-red-300">{err}</div>}
+        {okMsg && <div className="mt-3 text-xs text-emerald-300">{okMsg}</div>}
+
+        <div className="mt-3 text-xs text-white/35">
+          You can also send "clock in [Job #]" or "clock out" via WhatsApp.
         </div>
       </div>
 
       {/* History */}
       <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
         <div className="text-xs font-medium uppercase tracking-widest text-white/40 mb-3">
-          History
+          Last 30 days
         </div>
         {loading ? (
           <div className="text-sm text-white/50">Loading…</div>
-        ) : err ? (
-          <div className="text-sm text-red-300">{err}</div>
         ) : entries.length === 0 ? (
           <div className="text-sm text-white/50">
-            No time entries yet. Send "clock in [Job #]" via WhatsApp to log your first shift.
+            No shifts yet. Tap "Clock in" above to log your first one.
           </div>
         ) : (
           <div className="grid gap-2">
             {entries.map((e) => {
-              const badge = statusBadge(e.submission_status);
+              const startIso = e.start_at_utc || e.clock_in || null;
+              const endIso = e.end_at_utc || e.clock_out || null;
               return (
                 <div key={e.id} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2 text-sm">
                     <div>
-                      <span className="text-white/80">{fmtDateTime(e.clock_in)}</span>
-                      {" → "}
-                      <span className="text-white/60">
-                        {e.clock_out ? fmtDateTime(e.clock_out) : <span className="text-emerald-400">open</span>}
-                      </span>
-                      {e.job_no && <span className="text-white/40"> · Job {e.job_no}</span>}
+                      <div className="text-white/80">
+                        {fmtDateTime(startIso)}
+                        {" → "}
+                        <span className="text-white/60">
+                          {endIso ? fmtDateTime(endIso) : <span className="text-emerald-400">open</span>}
+                        </span>
+                      </div>
+                      {e.job_id && <div className="text-xs text-white/40">Job {e.job_id}</div>}
                       {e.note && <div className="mt-0.5 text-xs italic text-white/40">{e.note}</div>}
-                      {badge && <div className={`mt-1 text-xs ${badge.color}`}>{badge.text}</div>}
                     </div>
                     <div className="shrink-0 text-xs text-white/40">
-                      {calcDuration(e.clock_in, e.clock_out)}
+                      {duration(startIso, endIso)}
                     </div>
                   </div>
                 </div>

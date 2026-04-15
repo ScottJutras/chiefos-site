@@ -175,22 +175,20 @@ function ChiefPullTabInner() {
           </div>
         </div>
 
-        {/* Quota indicator */}
-        {quota !== null && (
+        {/* Quota indicator — only for metered users (owners/admins/board).
+            Support-mode users (employees) see nothing extra: the gold "C"
+            speaks for itself and there's no counter to display. */}
+        {quota !== null && !isSupport && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span style={{
               fontFamily: "'Space Mono', monospace",
               fontSize: 9,
               fontWeight: 600,
-              color: isSupport
-                ? "rgba(212,168,83,0.65)"
-                : remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
+              color: remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
               letterSpacing: "0.02em",
               whiteSpace: "nowrap",
             }}>
-              {isSupport
-                ? "Support"
-                : `${quota.used}/${isFree ? "10" : isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}`}
+              {quota.used}/{isFree ? "10" : isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}
             </span>
           </div>
         )}
