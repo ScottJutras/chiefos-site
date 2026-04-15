@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fetchWhoami } from "@/lib/whoami";
@@ -15,15 +15,15 @@ type TimeEntry = {
   start_at_utc?: string | null;
   end_at_utc?: string | null;
   job_no?: string | null;
-  job_id?: number | null;
   kind?: string | null;
   note?: string | null;
   submission_status?: string | null;
+  meta?: { job_name?: string | null; note?: string | null } | null;
 };
 
 type ClockStatus = {
   clocked_in: boolean;
-  open_shift: { id: string; start_at_utc: string; job_id: number | null } | null;
+  open_shift: { id: string; start_at_utc: string; job_name: string | null } | null;
 };
 
 async function authedFetch(path: string, init?: RequestInit) {
@@ -77,11 +77,6 @@ export default function EmployeeTimeClockPage() {
   const { jobs, loading: jobsLoading } = useEmployeeJobs();
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [note, setNote] = useState<string>("");
-  const jobsById = useMemo(() => {
-    const m = new Map<number, { name: string; job_no: number | null }>();
-    for (const j of jobs) m.set(j.id, { name: j.name, job_no: j.job_no });
-    return m;
-  }, [jobs]);
   const [busy, setBusy] = useState<"in" | "out" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -91,7 +86,7 @@ export default function EmployeeTimeClockPage() {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: rows } = await supabase
         .from("time_entries_v2")
-        .select("id, clock_in, clock_out, start_at_utc, end_at_utc, job_no, job_id, kind, note, submission_status")
+        .select("id, clock_in, clock_out, start_at_utc, end_at_utc, job_no, kind, note, submission_status, meta")
         .eq("tenant_id", tid)
         .gte("start_at_utc", thirtyDaysAgo)
         .order("start_at_utc", { ascending: false })
@@ -238,12 +233,7 @@ export default function EmployeeTimeClockPage() {
             </div>
             <div className="mt-0.5 text-sm text-white/70">
               {duration(open.start_at_utc)}
-              {(() => {
-                if (!open.job_id) return "";
-                const j = jobsById.get(open.job_id);
-                if (j) return ` · ${j.job_no ? `#${j.job_no} ` : ""}${j.name}`;
-                return ` · Job ${open.job_id}`;
-              })()}
+              {open.job_name ? ` · ${open.job_name}` : ""}
             </div>
 
             <button
@@ -328,12 +318,7 @@ export default function EmployeeTimeClockPage() {
             {entries.map((e) => {
               const startIso = e.start_at_utc || e.clock_in || null;
               const endIso = e.end_at_utc || e.clock_out || null;
-              const job = e.job_id ? jobsById.get(e.job_id) : null;
-              const jobLabel = job
-                ? `${job.job_no ? `#${job.job_no} · ` : ""}${job.name}`
-                : e.job_id
-                ? `Job ${e.job_id}`
-                : null;
+              const jobLabel = e.meta?.job_name || null;
               return (
                 <div key={e.id} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2 text-sm">
