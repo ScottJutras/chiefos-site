@@ -34,9 +34,9 @@ export default function EmployeeDashboardPage() {
           return;
         }
 
-        // Redirect owners to their dashboard
+        // Owners / admins / board members use the full /app portal.
         const role = whoami.role;
-        if (role === "owner" || role === "admin") {
+        if (role === "owner" || role === "admin" || role === "board") {
           router.replace("/app/dashboard");
           return;
         }
@@ -206,10 +206,24 @@ export default function EmployeeDashboardPage() {
         </div>
         <div className="grid gap-2">
           <Link
-            href="/employee/time"
+            href="/employee/time-clock"
             className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition"
           >
-            <span>Time history</span>
+            <span>Time clock &amp; history</span>
+            <span className="text-white/30">→</span>
+          </Link>
+          <Link
+            href="/employee/mileage"
+            className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition"
+          >
+            <span>Mileage</span>
+            <span className="text-white/30">→</span>
+          </Link>
+          <Link
+            href="/employee/settings"
+            className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition"
+          >
+            <span>Settings (password, logout)</span>
             <span className="text-white/30">→</span>
           </Link>
         </div>

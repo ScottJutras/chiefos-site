@@ -32,10 +32,11 @@ export default function AppIndexPage() {
     // useTenantGate already redirects when missing auth/tenant,
     // so if we get here and have user+tenant, we can route.
     if (userId && tenantId) {
-      // Employees and board members skip the owner onboarding flow
-      // entirely and go straight to their scoped dashboard.
-      if (role === "employee" || role === "board") {
-        router.replace("/app/dashboard");
+      // Employees skip the owner onboarding flow and land in the
+      // /employee tree, which has its own layout, sidebar, and pages.
+      // Board members and admins use the full owner portal.
+      if (role === "employee") {
+        router.replace("/employee/dashboard");
         return;
       }
       // First-time / not-yet-linked owners → onboarding welcome page

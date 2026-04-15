@@ -245,17 +245,17 @@ const PRO_FEATURES: FeatureCard[] = [
   {
     icon: "📱",
     title: "Crew Self-Logging via WhatsApp",
-    description: "Employees log their own time, mileage, photos, and expenses directly from their phones on WhatsApp.",
+    description: "Employees log their own time, mileage, photos, and tasks directly from their phones on WhatsApp or the web portal.",
   },
   {
     icon: "💰",
-    title: "Employee Expense & Revenue Submission",
-    description: "Employees submit expenses and revenue entries via WhatsApp. They land in your review queue — approve, decline, or edit before they hit your P&L.",
+    title: "Board Member Submission Review",
+    description: "Board members can submit expenses and revenue entries on your behalf. They land in your review queue — approve, decline, or edit before they hit your P&L. Employees can't submit financials — only time, mileage, photos, and tasks.",
   },
   {
     icon: "✔️",
-    title: "Time Approvals & Crew Inbox",
-    description: "Review and approve time entries, expenses, and revenue submitted by crew members. Approve or decline with one tap.",
+    title: "Crew Inbox & Approvals",
+    description: "Review and approve time, mileage, and job-site photos from employees, plus expense and revenue submissions from board members. One tap per item.",
   },
   {
     icon: "📈",

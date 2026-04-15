@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
-import EmployeeDashboardView from "./EmployeeDashboardView";
 import { fetchWhoami, type PortalRole } from "@/lib/whoami";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
@@ -583,24 +583,30 @@ export default function DashboardPage() {
     totalJobs: 0,
   });
 
-  // Resolve portal role once — employees see a completely different
-  // dashboard view (personal stats only, no tenant financials).
+  // Resolve portal role once. Employees don't belong here at all —
+  // the root redirect in app/app/page.tsx sends them to /employee/*.
+  // If one lands here anyway (stale link, bookmark) we bounce them.
+  const router = useRouter();
   useEffect(() => {
     let alive = true;
     (async () => {
       const w = await fetchWhoami();
       if (!alive) return;
-      setPortalRole(w?.ok ? (w.role as PortalRole) : null);
+      const r = w?.ok ? (w.role as PortalRole) : null;
+      setPortalRole(r);
+      if (r === "employee") {
+        router.replace("/employee/dashboard");
+      }
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
-    // Owner-only data fetch — skip entirely when the role is employee/board
-    // so we don't consume queries that the employee view doesn't render.
-    if (portalRole === "employee" || portalRole === "board") return;
+    // If role is still unresolved or an employee slipped through, skip
+    // the owner-only data fetch.
+    if (portalRole === "pending" || portalRole === "employee") return;
 
     let alive = true;
 
@@ -790,10 +796,10 @@ export default function DashboardPage() {
     return <div className="p-8 text-white/70">Loading your workspace…</div>;
   }
 
-  // Employees (and board members for now) see their own personal
-  // dashboard — hours, mileage, tasks, submissions. No tenant financials.
-  if (portalRole === "employee" || portalRole === "board") {
-    return <EmployeeDashboardView />;
+  // Employees should never reach this page — the useEffect above bounces
+  // them to /employee/dashboard. Show a spinner while that navigates.
+  if (portalRole === "employee") {
+    return <div className="p-8 text-white/70">Redirecting…</div>;
   }
 
   return (

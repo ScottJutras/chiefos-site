@@ -29,7 +29,7 @@ export default function EmployeeTimePage() {
         if (!whoami.ok) { router.replace("/login"); return; }
 
         const role = whoami.role;
-        if (role === "owner" || role === "admin") {
+        if (role === "owner" || role === "admin" || role === "board") {
           router.replace("/app/crew/time"); return;
         }
 
