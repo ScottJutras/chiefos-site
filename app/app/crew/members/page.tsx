@@ -88,6 +88,10 @@ export default function CrewMembersPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  // Per-member inline edit state
+  type EditDraft = { display_name: string; phone: string; email: string };
+  const [editing, setEditing] = useState<Record<string, EditDraft>>({});
+
   const [invites, setInvites] = useState<InviteRow[]>([]);
   type EmpInviteState = { busy: boolean; url: string | null; deliveryOk: boolean; deliveryMethod: string | null; deliveryError: string | null };
   // Per-employee invite state: actor_id -> EmpInviteState
@@ -212,6 +216,63 @@ export default function CrewMembersPage() {
       await load();
     } catch (e: any) {
       setErr(String(e?.message || "Unable to remove member"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function startEdit(m: Member) {
+    setErr(null);
+    setEditing((prev) => ({
+      ...prev,
+      [m.actor_id]: {
+        display_name: m.display_name || "",
+        phone: m.phone_digits || "",
+        email: m.email || "",
+      },
+    }));
+  }
+
+  function cancelEdit(actorId: string) {
+    setEditing((prev) => {
+      const next = { ...prev };
+      delete next[actorId];
+      return next;
+    });
+  }
+
+  async function saveMember(actorId: string) {
+    const draft = editing[actorId];
+    if (!draft) return;
+
+    const dn = draft.display_name.trim();
+    const em = draft.email.trim().toLowerCase();
+
+    let pd = "";
+    try {
+      pd = normalizePhoneDigitsOrThrow(draft.phone);
+    } catch (e: any) {
+      return setErr(String(e?.message || "Invalid phone number."));
+    }
+
+    if (!dn) return setErr("Display name is required.");
+    if (!pd && !em) return setErr("Phone or email is required.");
+
+    setErr(null);
+    setBusy(actorId);
+    try {
+      await apiFetch(`/api/crew/admin/members/${actorId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          display_name: dn,
+          phone: pd || null,
+          email: em || null,
+        }),
+      });
+      cancelEdit(actorId);
+      await load();
+    } catch (e: any) {
+      setErr(String(e?.message || "Unable to update member"));
     } finally {
       setBusy(null);
     }
@@ -572,6 +633,8 @@ export default function CrewMembersPage() {
             {items.map((m) => {
               const isBusy = busy === m.actor_id;
               const canChangeRole = m.role !== "owner"; // owner not editable here
+              const draft = editing[m.actor_id];
+              const isEditing = !!draft;
 
               return (
                 <div
@@ -579,18 +642,56 @@ export default function CrewMembersPage() {
                   className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="font-semibold text-white">
                         {m.display_name || "Unnamed"}
                         <span className="text-white/60"> · </span>
                         <span className="text-white/80">{m.role}</span>
                       </div>
 
-                      <div className="mt-1 text-xs text-white/60">
-                        {m.phone_digits ? `📱 ${m.phone_digits}` : ""}
-                        {m.phone_digits && m.email ? " · " : ""}
-                        {m.email ? `✉️ ${m.email}` : ""}
-                      </div>
+                      {isEditing ? (
+                        <div className="mt-2 grid gap-2 md:grid-cols-3">
+                          <input
+                            value={draft.display_name}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [m.actor_id]: { ...prev[m.actor_id], display_name: e.target.value },
+                              }))
+                            }
+                            placeholder="Display name"
+                            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                          />
+                          <input
+                            value={draft.phone}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [m.actor_id]: { ...prev[m.actor_id], phone: e.target.value },
+                              }))
+                            }
+                            placeholder="Phone"
+                            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                          />
+                          <input
+                            value={draft.email}
+                            onChange={(e) =>
+                              setEditing((prev) => ({
+                                ...prev,
+                                [m.actor_id]: { ...prev[m.actor_id], email: e.target.value },
+                              }))
+                            }
+                            placeholder="Email"
+                            className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
+                          />
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-xs text-white/60">
+                          {m.phone_digits ? `📱 ${m.phone_digits}` : ""}
+                          {m.phone_digits && m.email ? " · " : ""}
+                          {m.email ? `✉️ ${m.email}` : ""}
+                        </div>
+                      )}
 
                       <div className="mt-1 text-xs text-white/50">
                         Added: {fmtDate(m.created_at)}
@@ -598,8 +699,45 @@ export default function CrewMembersPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {canChangeRole && (
+                      {canChangeRole && isEditing && (
                         <>
+                          <button
+                            onClick={() => saveMember(m.actor_id)}
+                            disabled={isBusy}
+                            className={[
+                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                              isBusy
+                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20 hover:text-white",
+                            ].join(" ")}
+                          >
+                            {isBusy ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            onClick={() => cancelEdit(m.actor_id)}
+                            disabled={isBusy}
+                            className="rounded-xl px-3 py-1.5 text-sm font-medium transition border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      )}
+
+                      {canChangeRole && !isEditing && (
+                        <>
+                          <button
+                            onClick={() => startEdit(m)}
+                            disabled={isBusy}
+                            className={[
+                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                              isBusy
+                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                            ].join(" ")}
+                          >
+                            Edit
+                          </button>
+
                           <button
                             onClick={() => setRole(m.actor_id, "employee")}
                             disabled={isBusy}

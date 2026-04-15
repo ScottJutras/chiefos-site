@@ -11,3 +11,11 @@ export async function DELETE(
   const { actorId } = await params;
   return proxyToCore(req, `/api/crew/admin/members/${actorId}`);
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ actorId: string }> }
+) {
+  const { actorId } = await params;
+  return proxyToCore(req, `/api/crew/admin/members/${actorId}`);
+}
