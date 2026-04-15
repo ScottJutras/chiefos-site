@@ -2,10 +2,11 @@
 
 export const dynamic = "force-dynamic";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fetchWhoami } from "@/lib/whoami";
+import { useEmployeeJobs } from "../hooks/useEmployeeJobs";
 
 type TimeEntry = {
   id: string;
@@ -73,8 +74,14 @@ export default function EmployeeTimeClockPage() {
   const [tenantId, setTenantId] = useState<string>("");
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [status, setStatus] = useState<ClockStatus | null>(null);
-  const [jobNo, setJobNo] = useState<string>("");
+  const { jobs, loading: jobsLoading } = useEmployeeJobs();
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [note, setNote] = useState<string>("");
+  const jobsById = useMemo(() => {
+    const m = new Map<number, { name: string; job_no: number | null }>();
+    for (const j of jobs) m.set(j.id, { name: j.name, job_no: j.job_no });
+    return m;
+  }, [jobs]);
   const [busy, setBusy] = useState<"in" | "out" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
@@ -158,7 +165,7 @@ export default function EmployeeTimeClockPage() {
     setBusy("in");
     try {
       const body = {
-        job_id: jobNo.trim() && /^\d+$/.test(jobNo.trim()) ? Number(jobNo.trim()) : undefined,
+        job_id: selectedJobId ? Number(selectedJobId) : undefined,
         note: note.trim() || undefined,
       };
       const r = await authedFetch("/api/employee/time/clock-in", {
@@ -168,7 +175,7 @@ export default function EmployeeTimeClockPage() {
       const j = await r.json();
       if (!j?.ok) throw new Error(j?.message || "Clock-in failed.");
       setOkMsg("Clocked in.");
-      setJobNo("");
+      setSelectedJobId("");
       setNote("");
       await Promise.all([loadHistory(tenantId), loadStatus()]);
     } catch (e: any) {
@@ -231,7 +238,12 @@ export default function EmployeeTimeClockPage() {
             </div>
             <div className="mt-0.5 text-sm text-white/70">
               {duration(open.start_at_utc)}
-              {open.job_id ? ` · Job ${open.job_id}` : ""}
+              {(() => {
+                if (!open.job_id) return "";
+                const j = jobsById.get(open.job_id);
+                if (j) return ` · ${j.job_no ? `#${j.job_no} ` : ""}${j.name}`;
+                return ` · Job ${open.job_id}`;
+              })()}
             </div>
 
             <button
@@ -250,13 +262,26 @@ export default function EmployeeTimeClockPage() {
         ) : (
           <>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input
-                value={jobNo}
-                onChange={(e) => setJobNo(e.target.value)}
-                placeholder="Job # (optional)"
-                inputMode="numeric"
-                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-              />
+              <select
+                value={selectedJobId}
+                onChange={(e) => setSelectedJobId(e.target.value)}
+                disabled={jobsLoading}
+                className="rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20 disabled:opacity-50"
+              >
+                <option value="">
+                  {jobsLoading
+                    ? "Loading jobs…"
+                    : jobs.length === 0
+                    ? "No active jobs"
+                    : "Select a job (optional)"}
+                </option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={String(j.id)}>
+                    {j.job_no ? `#${j.job_no} · ` : ""}
+                    {j.name}
+                  </option>
+                ))}
+              </select>
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -303,6 +328,12 @@ export default function EmployeeTimeClockPage() {
             {entries.map((e) => {
               const startIso = e.start_at_utc || e.clock_in || null;
               const endIso = e.end_at_utc || e.clock_out || null;
+              const job = e.job_id ? jobsById.get(e.job_id) : null;
+              const jobLabel = job
+                ? `${job.job_no ? `#${job.job_no} · ` : ""}${job.name}`
+                : e.job_id
+                ? `Job ${e.job_id}`
+                : null;
               return (
                 <div key={e.id} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
                   <div className="flex items-start justify-between gap-2 text-sm">
@@ -314,7 +345,7 @@ export default function EmployeeTimeClockPage() {
                           {endIso ? fmtDateTime(endIso) : <span className="text-emerald-400">open</span>}
                         </span>
                       </div>
-                      {e.job_id && <div className="text-xs text-white/40">Job {e.job_id}</div>}
+                      {jobLabel && <div className="text-xs text-white/40">{jobLabel}</div>}
                       {e.note && <div className="mt-0.5 text-xs italic text-white/40">{e.note}</div>}
                     </div>
                     <div className="shrink-0 text-xs text-white/40">

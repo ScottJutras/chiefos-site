@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { fetchWhoami } from "@/lib/whoami";
+import { useEmployeeJobs } from "../hooks/useEmployeeJobs";
 
 type MileageRow = {
   id: number;
@@ -59,9 +60,10 @@ export default function EmployeeMileagePage() {
   const [unit, setUnit] = useState<"km" | "mi">("km");
   const [origin, setOrigin] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
-  const [jobName, setJobName] = useState<string>("");
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [busy, setBusy] = useState(false);
+  const { jobs, loading: jobsLoading } = useEmployeeJobs();
 
   const loadHistory = useCallback(async (tid: string, employeePhone: string) => {
     try {
@@ -153,15 +155,15 @@ export default function EmployeeMileagePage() {
 
     setBusy(true);
     try {
-      const body = {
+      const body: Record<string, unknown> = {
         trip_date: tripDate,
         distance: dist,
         unit,
         origin: origin.trim() || undefined,
         destination: destination.trim() || undefined,
-        job_name: jobName.trim() || undefined,
         notes: notes.trim() || undefined,
       };
+      if (selectedJobId) body.job_id = Number(selectedJobId);
       const r = await authedFetch("/api/employee/mileage", {
         method: "POST",
         body: JSON.stringify(body),
@@ -172,7 +174,7 @@ export default function EmployeeMileagePage() {
       setDistance("");
       setOrigin("");
       setDestination("");
-      setJobName("");
+      setSelectedJobId("");
       setNotes("");
       await loadHistory(tenantId, phone);
     } catch (e: any) {
@@ -250,13 +252,27 @@ export default function EmployeeMileagePage() {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="text-xs text-white/50">Job name (optional)</label>
-            <input
-              value={jobName}
-              onChange={(e) => setJobName(e.target.value)}
-              placeholder="e.g. Smith reno"
-              className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
-            />
+            <label className="text-xs text-white/50">Job (optional)</label>
+            <select
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+              disabled={jobsLoading}
+              className="mt-1 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-white/20 disabled:opacity-50"
+            >
+              <option value="">
+                {jobsLoading
+                  ? "Loading jobs…"
+                  : jobs.length === 0
+                  ? "No active jobs"
+                  : "Select a job (optional)"}
+              </option>
+              {jobs.map((j) => (
+                <option key={j.id} value={String(j.id)}>
+                  {j.job_no ? `#${j.job_no} · ` : ""}
+                  {j.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="md:col-span-2">
             <label className="text-xs text-white/50">Notes (optional)</label>
