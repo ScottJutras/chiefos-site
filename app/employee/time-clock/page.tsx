@@ -21,9 +21,18 @@ type TimeEntry = {
   meta?: { job_name?: string | null; note?: string | null } | null;
 };
 
+type SegmentKind = "break" | "lunch" | "drive";
+
+type OpenSegment = {
+  id: string;
+  kind: SegmentKind;
+  start_at_utc: string;
+};
+
 type ClockStatus = {
   clocked_in: boolean;
   open_shift: { id: string; start_at_utc: string; job_name: string | null } | null;
+  open_segments: OpenSegment[];
 };
 
 async function authedFetch(path: string, init?: RequestInit) {
@@ -77,7 +86,8 @@ export default function EmployeeTimeClockPage() {
   const { jobs, loading: jobsLoading } = useEmployeeJobs();
   const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [note, setNote] = useState<string>("");
-  const [busy, setBusy] = useState<"in" | "out" | null>(null);
+  type BusyAction = "in" | "out" | `${SegmentKind}:start` | `${SegmentKind}:stop`;
+  const [busy, setBusy] = useState<BusyAction | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
@@ -101,7 +111,13 @@ export default function EmployeeTimeClockPage() {
     try {
       const r = await authedFetch("/api/employee/time/status");
       const j = await r.json();
-      if (j?.ok) setStatus({ clocked_in: !!j.clocked_in, open_shift: j.open_shift || null });
+      if (j?.ok) {
+        setStatus({
+          clocked_in: !!j.clocked_in,
+          open_shift: j.open_shift || null,
+          open_segments: Array.isArray(j.open_segments) ? j.open_segments : [],
+        });
+      }
     } catch {
       // fail-soft
     }
@@ -180,6 +196,38 @@ export default function EmployeeTimeClockPage() {
     }
   }
 
+  async function runSegment(kind: SegmentKind, action: "start" | "stop") {
+    setErr(null);
+    setOkMsg(null);
+    setBusy(`${kind}:${action}` as BusyAction);
+    try {
+      const r = await authedFetch("/api/employee/time/segment", {
+        method: "POST",
+        body: JSON.stringify({ kind, action }),
+      });
+      const j = await r.json();
+      if (!j?.ok) throw new Error(j?.message || `Could not ${action} ${kind}.`);
+      const verb =
+        action === "start"
+          ? kind === "break"
+            ? "On break."
+            : kind === "lunch"
+            ? "On lunch."
+            : "Driving."
+          : kind === "break"
+          ? "Break ended."
+          : kind === "lunch"
+          ? "Lunch ended."
+          : "Drive ended.";
+      setOkMsg(verb);
+      await Promise.all([loadHistory(tenantId), loadStatus()]);
+    } catch (e: any) {
+      setErr(String(e?.message || `Could not ${action} ${kind}.`));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function clockOut() {
     setErr(null);
     setOkMsg(null);
@@ -236,11 +284,68 @@ export default function EmployeeTimeClockPage() {
               {open.job_name ? ` · ${open.job_name}` : ""}
             </div>
 
+            {/* Break / Lunch / Drive controls */}
+            {(() => {
+              const openKinds = new Set(
+                (status?.open_segments || []).map((s) => s.kind)
+              );
+              const renderPair = (kind: SegmentKind, label: string) => {
+                const isOpen = openKinds.has(kind);
+                const openSeg = status?.open_segments?.find((s) => s.kind === kind);
+                const busyStart = busy === `${kind}:start`;
+                const busyStop = busy === `${kind}:stop`;
+                if (isOpen) {
+                  return (
+                    <button
+                      key={kind}
+                      onClick={() => runSegment(kind, "stop")}
+                      disabled={busy !== null}
+                      className={[
+                        "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition border",
+                        busy !== null
+                          ? "border-amber-500/20 bg-amber-500/10 text-white/40 cursor-not-allowed"
+                          : "border-amber-500/40 bg-amber-500/20 text-amber-100 hover:bg-amber-500/30",
+                      ].join(" ")}
+                    >
+                      {busyStop ? "Ending…" : `End ${label}`}
+                      {openSeg && (
+                        <span className="ml-1 text-[10px] text-white/50">
+                          · {duration(openSeg.start_at_utc)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+                return (
+                  <button
+                    key={kind}
+                    onClick={() => runSegment(kind, "start")}
+                    disabled={busy !== null}
+                    className={[
+                      "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition border",
+                      busy !== null
+                        ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                        : "border-white/15 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
+                  >
+                    {busyStart ? "Starting…" : `Start ${label}`}
+                  </button>
+                );
+              };
+              return (
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {renderPair("break", "break")}
+                  {renderPair("lunch", "lunch")}
+                  {renderPair("drive", "drive")}
+                </div>
+              );
+            })()}
+
             <button
               onClick={clockOut}
               disabled={busy !== null}
               className={[
-                "mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
+                "mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold transition",
                 busy !== null
                   ? "bg-red-500/30 text-white/40 cursor-not-allowed"
                   : "bg-red-500 text-white hover:bg-red-600",
