@@ -8,6 +8,8 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
+import EmployeeDashboardView from "./EmployeeDashboardView";
+import { fetchWhoami, type PortalRole } from "@/lib/whoami";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
@@ -563,6 +565,7 @@ function CenterWorkspace({
 
 export default function DashboardPage() {
   const { loading, hasWhatsApp } = useTenantGate({ requireWhatsApp: false });
+  const [portalRole, setPortalRole] = useState<PortalRole | "pending">("pending");
   const [view, setView] = useState<ViewKey>("expenses");
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
@@ -580,7 +583,25 @@ export default function DashboardPage() {
     totalJobs: 0,
   });
 
+  // Resolve portal role once — employees see a completely different
+  // dashboard view (personal stats only, no tenant financials).
   useEffect(() => {
+    let alive = true;
+    (async () => {
+      const w = await fetchWhoami();
+      if (!alive) return;
+      setPortalRole(w?.ok ? (w.role as PortalRole) : null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Owner-only data fetch — skip entirely when the role is employee/board
+    // so we don't consume queries that the employee view doesn't render.
+    if (portalRole === "employee" || portalRole === "board") return;
+
     let alive = true;
 
     (async () => {
@@ -739,7 +760,8 @@ export default function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portalRole]);
 
   const pulsePoints = useMemo(
     () => buildPulsePoints(pulseRows, pulseRange),
@@ -764,7 +786,15 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-white/70">Loading your workspace…</div>;
+  if (loading || portalRole === "pending") {
+    return <div className="p-8 text-white/70">Loading your workspace…</div>;
+  }
+
+  // Employees (and board members for now) see their own personal
+  // dashboard — hours, mileage, tasks, submissions. No tenant financials.
+  if (portalRole === "employee" || portalRole === "board") {
+    return <EmployeeDashboardView />;
+  }
 
   return (
     <div className="mx-auto max-w-6xl py-2">

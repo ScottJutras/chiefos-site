@@ -4,7 +4,13 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-type Quota = { used: number; limit: number; planKey: string };
+type Quota = {
+  used: number;
+  limit: number;
+  planKey: string;
+  mode?: "metered" | "support";
+  unlimited?: boolean;
+};
 
 /**
  * Floating "Ask Chief" chat-head anchored to the right edge.
@@ -39,7 +45,13 @@ function ChiefPullTabInner() {
         });
         if (!r.ok) return;
         const j = await r.json();
-        if (j?.ok) setQuota({ used: j.used, limit: j.limit, planKey: j.planKey });
+        if (j?.ok) setQuota({
+          used: j.used,
+          limit: j.limit,
+          planKey: j.planKey,
+          mode: j.mode,
+          unlimited: j.unlimited,
+        });
       } catch {
         // fail-soft — quota indicator just won't show
       }
@@ -67,6 +79,8 @@ function ChiefPullTabInner() {
       if (e.data?.type === "chief-quota-used") {
         setQuota((prev) => {
           if (!prev) return prev;
+          // Support-mode users are unmetered — don't drift the counter.
+          if (prev.mode === "support") return prev;
           return { ...prev, used: Math.min(prev.used + 1, prev.limit) };
         });
       }
@@ -87,7 +101,8 @@ function ChiefPullTabInner() {
     );
   }
 
-  const remaining = quota ? Math.max(0, quota.limit - quota.used) : null;
+  const isSupport = quota?.mode === "support";
+  const remaining = quota && !isSupport ? Math.max(0, quota.limit - quota.used) : null;
   const isFree    = !quota || quota.planKey === "free";
   const isStarter = quota?.planKey === "starter";
   const isPro     = quota?.planKey === "pro";
@@ -163,16 +178,19 @@ function ChiefPullTabInner() {
         {/* Quota indicator */}
         {quota !== null && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            {/* X/10, X/250, or X/2,000 */}
             <span style={{
               fontFamily: "'Space Mono', monospace",
               fontSize: 9,
               fontWeight: 600,
-              color: remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
+              color: isSupport
+                ? "rgba(212,168,83,0.65)"
+                : remaining === 0 ? "rgba(212,168,83,0.4)" : "rgba(212,168,83,0.65)",
               letterSpacing: "0.02em",
               whiteSpace: "nowrap",
             }}>
-              {quota.used}/{isFree ? "10" : isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}
+              {isSupport
+                ? "Support"
+                : `${quota.used}/${isFree ? "10" : isStarter ? "250" : isPro ? "2,000" : quota.limit.toLocaleString()}`}
             </span>
           </div>
         )}

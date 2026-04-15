@@ -91,6 +91,10 @@ function ChiefClientInner() {
 
   // Stable ref so postMessage handler always sees latest callAskChief
   const callRef = useRef<((p: string) => void) | null>(null);
+  // Tracks whether the latest response was in support mode (employees).
+  // When true, we skip the optimistic quota increment postMessage so the
+  // pull-tab "Support" chip doesn't drift.
+  const supportModeRef = useRef<boolean>(false);
 
   const searchParams = useSearchParams();
   const didAutoRunRef = useRef(false);
@@ -487,6 +491,7 @@ function ChiefClientInner() {
 
           if (evt.done) {
             // Final event — replace streamText with the authoritative answer
+            if (evt.mode === "support") supportModeRef.current = true;
             const finalResp = normalizeResp(
               { ok: evt.ok ?? true, answer: evt.answer, evidence_meta: evt.evidence_meta, warnings: evt.warnings, actions: evt.actions },
               200
@@ -545,8 +550,14 @@ function ChiefClientInner() {
       setBusy(false);
       // Notify the parent frame (ChiefDock) that a question was consumed,
       // so the pull-tab quota indicator can decrement without a round-trip.
+      // Employees (support mode) are unmetered — skip the post so the
+      // "Support" chip doesn't accidentally morph into a counter.
       try {
-        if (typeof window !== "undefined" && window.parent !== window) {
+        if (
+          typeof window !== "undefined" &&
+          window.parent !== window &&
+          !supportModeRef.current
+        ) {
           window.parent.postMessage({ type: "chief-quota-used" }, window.location.origin);
         }
       } catch {
