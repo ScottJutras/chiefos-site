@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type InviteDetails = {
@@ -30,11 +30,14 @@ type Phase =
 
 function InviteClaimInner() {
   const params = useParams<{ token: string }>();
-  const sp = useSearchParams();
   const router = useRouter();
 
   const token = String(params?.token || "").trim();
-  const shouldClaim = sp.get("claim") === "1";
+  // Always attempt auto-claim on load. tryAutoClaim polls briefly for a
+  // Supabase session (handles the magic-link hash hydration race) and
+  // falls back to showing the invite card if none is found — so cold
+  // visits behave the same as before.
+  const shouldClaim = true;
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [invite, setInvite] = useState<InviteDetails | null>(null);
