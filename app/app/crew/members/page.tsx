@@ -42,6 +42,8 @@ type Quota = {
   employees_limit: number;
   board_used: number;
   board_limit: number;
+  admin_used: number;
+  admin_limit: number;
 };
 
 function fmtDate(s: string) {
@@ -723,74 +725,65 @@ export default function CrewMembersPage() {
                         </>
                       )}
 
-                      {canChangeRole && !isEditing && (
-                        <>
-                          <button
-                            onClick={() => startEdit(m)}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Edit
-                          </button>
+                      {canChangeRole && !isEditing && (() => {
+                        const boardLimit = quota?.board_limit ?? 0;
+                        const adminLimit = quota?.admin_limit ?? 0;
+                        const boardUsed = quota?.board_used ?? 0;
+                        const adminUsed = quota?.admin_used ?? 0;
+                        const roleSelectorDisabled = boardLimit === 0 && adminLimit === 0;
+                        const boardOptionDisabled = boardLimit === 0 || (boardUsed >= boardLimit && m.role !== "board");
+                        const adminOptionDisabled = adminLimit === 0 || (adminUsed >= adminLimit && m.role !== "admin");
+                        return (
+                          <>
+                            <button
+                              onClick={() => startEdit(m)}
+                              disabled={isBusy}
+                              className={[
+                                "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                                isBusy
+                                  ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                                  : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
+                              ].join(" ")}
+                            >
+                              Edit
+                            </button>
 
-                          <button
-                            onClick={() => setRole(m.actor_id, "employee")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Set employee
-                          </button>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-white/60">Set role to</span>
+                              <select
+                                value={m.role}
+                                onChange={(e) => {
+                                  const v = String(e.target.value || "");
+                                  if (!v || v === m.role) return;
+                                  setRole(m.actor_id, v as "employee" | "board" | "admin");
+                                }}
+                                disabled={isBusy || roleSelectorDisabled}
+                                className="rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-sm text-white outline-none focus:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <option value="employee">Employee</option>
+                                <option value="board" disabled={boardOptionDisabled}>Board</option>
+                                <option value="admin" disabled={adminOptionDisabled}>Admin</option>
+                              </select>
+                              {roleSelectorDisabled && (
+                                <span className="text-xs text-white/40">Upgrade to Pro</span>
+                              )}
+                            </div>
 
-                          <button
-                            onClick={() => setRole(m.actor_id, "board")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Make board
-                          </button>
-
-                          <button
-                            onClick={() => setRole(m.actor_id, "admin")}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Make admin
-                          </button>
-
-                          <button
-                            onClick={() => removeMember(m.actor_id)}
-                            disabled={isBusy}
-                            className={[
-                              "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
-                              isBusy
-                                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                                : "border-red-500/30 bg-red-500/10 text-red-100 hover:bg-red-500/20 hover:text-white",
-                            ].join(" ")}
-                          >
-                            Remove
-                          </button>
-                        </>
-                      )}
+                            <button
+                              onClick={() => removeMember(m.actor_id)}
+                              disabled={isBusy}
+                              className={[
+                                "rounded-xl px-3 py-1.5 text-sm font-medium transition border",
+                                isBusy
+                                  ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                                  : "border-red-500/30 bg-red-500/10 text-red-100 hover:bg-red-500/20 hover:text-white",
+                              ].join(" ")}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        );
+                      })()}
 
                       {isBusy && (
                         <span className="self-center text-xs text-white/60">Working…</span>
