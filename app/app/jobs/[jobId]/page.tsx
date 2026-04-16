@@ -86,7 +86,7 @@ type JobDocumentFile = {
   created_at: string;
 };
 
-type Tab = "expenses" | "revenue" | "timeclock" | "tasks" | "reminders" | "documents" | "photos";
+type Tab = "expenses" | "revenue" | "timeclock" | "mileage" | "tasks" | "reminders" | "documents" | "photos";
 
 type TxRow = {
   id: number;
@@ -1956,6 +1956,88 @@ function PhasesSection({ jobId, phases, onPhaseRemoved }: {
   );
 }
 
+function JobMileageTab({ jobName }: { jobName: string }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [phoneNames, setPhoneNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        let q = supabase
+          .from("mileage_logs")
+          .select("id, trip_date, origin, destination, distance, unit, deductible_cents, notes, employee_user_id, created_at")
+          .order("trip_date", { ascending: false })
+          .limit(100);
+        if (jobName) q = q.ilike("job_name", jobName);
+        const { data } = await q;
+        const list = data || [];
+        if (!alive) return;
+        setRows(list);
+
+        const phones = new Set<string>();
+        for (const r of list) if (r.employee_user_id) phones.add(r.employee_user_id);
+        if (phones.size > 0) {
+          try {
+            const { data: profiles } = await supabase
+              .from("chiefos_tenant_actor_profiles")
+              .select("phone_digits, display_name")
+              .in("phone_digits", Array.from(phones));
+            const map: Record<string, string> = {};
+            for (const p of (profiles || []) as any[]) {
+              if (p.phone_digits && p.display_name) map[p.phone_digits] = p.display_name;
+            }
+            if (alive) setPhoneNames(map);
+          } catch {}
+        }
+      } catch {}
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [jobName]);
+
+  if (loading) return <div className="text-sm text-white/50">Loading mileage…</div>;
+  if (!rows.length) return (
+    <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-sm text-white/60">
+      No mileage logged for this job yet.
+    </div>
+  );
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40">
+      <table className="min-w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-white/10 text-left text-xs text-white/60">
+            <th className="py-3 pl-4 pr-4">Date</th>
+            <th className="py-3 pr-4">Employee</th>
+            <th className="py-3 pr-4">Trip</th>
+            <th className="py-3 pr-4">Distance</th>
+            <th className="py-3 pr-4">Deductible</th>
+            <th className="py-3 pr-4">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any) => {
+            const trip = [r.origin, r.destination].filter(Boolean).join(" → ");
+            const empName = r.employee_user_id ? (phoneNames[r.employee_user_id] || r.employee_user_id) : "Owner";
+            return (
+              <tr key={r.id} className="border-b border-white/5">
+                <td className="py-3 pl-4 pr-4 whitespace-nowrap text-white/85">{String(r.trip_date || "").slice(0, 10)}</td>
+                <td className="py-3 pr-4 text-white/75">{empName}</td>
+                <td className="py-3 pr-4 text-white/75">{trip || "—"}</td>
+                <td className="py-3 pr-4 whitespace-nowrap text-white/85">{r.distance} {r.unit}</td>
+                <td className="py-3 pr-4 whitespace-nowrap font-medium text-white">${(r.deductible_cents / 100).toFixed(2)}</td>
+                <td className="py-3 pr-4 text-white/55">{r.notes ?? ""}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Partial<JobRow>) => void }) {
   const jobName = String(job.job_name || job.name || "").trim();
   return (
@@ -2654,7 +2736,7 @@ function JobReminderForm({ onDone }: { onDone: () => void }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "tasks", "reminders", "documents", "photos"];
+const VALID_TABS: Tab[] = ["expenses", "revenue", "timeclock", "mileage", "tasks", "reminders", "documents", "photos"];
 
 export default function JobDetailPage() {
   const params = useParams();
@@ -2786,6 +2868,7 @@ export default function JobDetailPage() {
     { key: "expenses", label: "Expenses" },
     { key: "revenue", label: "Revenue" },
     { key: "timeclock", label: "Time Clock" },
+    { key: "mileage", label: "Mileage" },
     { key: "tasks", label: "Tasks" },
     { key: "reminders", label: "Reminders" },
     { key: "documents", label: "Documents" },
@@ -2922,6 +3005,9 @@ export default function JobDetailPage() {
           )}
           {tab === "timeclock" && (
             <TimeClockTab job={job} onJobUpdated={(u) => setJob((j) => j ? { ...j, ...u } : j)} />
+          )}
+          {tab === "mileage" && (
+            <JobMileageTab jobName={String(job.job_name || job.name || "").trim()} />
           )}
           {tab === "tasks" && (
             <div className="space-y-4">

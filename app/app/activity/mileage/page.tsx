@@ -25,6 +25,8 @@ type MileageLog = {
   notes?: string | null;
   source_msg_id?: string | null;
   created_at: string;
+  employee_user_id?: string | null;
+  _employee_name?: string | null;
 };
 
 type SortBy = "date_desc" | "date_asc" | "distance_desc" | "distance_asc" | "job_asc" | "job_desc";
@@ -101,7 +103,39 @@ export default function MileagePage() {
           .order("trip_date", { ascending: false });
 
         if (error) throw error;
-        if (!cancelled) setLogs((data ?? []) as MileageLog[]);
+
+        // Resolve employee_user_id → display_name so the table shows
+        // who logged each trip. Build a phone→name lookup from profiles.
+        const rawLogs = (data ?? []) as MileageLog[];
+        const phoneSet = new Set<string>();
+        for (const log of rawLogs) {
+          if (log.employee_user_id) phoneSet.add(log.employee_user_id);
+        }
+
+        let phoneToName: Record<string, string> = {};
+        if (phoneSet.size > 0) {
+          try {
+            const { data: profiles } = await supabase
+              .from("chiefos_tenant_actor_profiles")
+              .select("phone_digits, display_name")
+              .in("phone_digits", Array.from(phoneSet));
+            for (const p of (profiles || []) as any[]) {
+              if (p.phone_digits && p.display_name) {
+                phoneToName[p.phone_digits] = p.display_name;
+              }
+            }
+          } catch {
+            // fail-soft — names just won't resolve
+          }
+        }
+
+        for (const log of rawLogs) {
+          if (log.employee_user_id && phoneToName[log.employee_user_id]) {
+            log._employee_name = phoneToName[log.employee_user_id];
+          }
+        }
+
+        if (!cancelled) setLogs(rawLogs);
 
         const { data: td } = await supabase
           .from("chiefos_tenants")
@@ -448,6 +482,7 @@ export default function MileagePage() {
               <thead>
                 <tr className="border-b border-white/10 text-left text-xs text-white/60">
                   <th className="py-3 pl-4 pr-4 w-10">#</th>
+                  <th className="py-3 pr-4">Employee</th>
                   <th className="py-3 pr-4">
                     <button type="button" onClick={() => toggleSort("date")}
                       className={["inline-flex items-center hover:text-white transition", sortBy.startsWith("date_") ? "text-white" : "text-white/60"].join(" ")}>
@@ -480,6 +515,7 @@ export default function MileagePage() {
                   return (
                     <tr key={l.id} className="border-b border-white/5">
                       <td className="py-3 pl-4 pr-4 text-white/45">{ix + 1}</td>
+                      <td className="py-3 pr-4 text-white/75">{l._employee_name || "Owner"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white/85">{isoDay(l.trip_date)}</td>
                       <td className="py-3 pr-4 text-white/75">{trip || "—"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white/85">
@@ -498,7 +534,7 @@ export default function MileagePage() {
                 })}
 
                 <tr className="border-t border-white/10">
-                  <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={5}>
+                  <td className="py-4 pl-4 pr-4 text-sm text-white/55 font-semibold" colSpan={6}>
                     Total (filtered)
                   </td>
                   <td className="py-4 pr-4 text-lg font-semibold text-white">
