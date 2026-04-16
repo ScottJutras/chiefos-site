@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import { useToast } from "@/app/components/Toast";
 import Slideover from "@/app/app/components/Slideover";
+import CrewClockCard from "@/app/app/components/CrewClockCard";
 
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -188,6 +189,7 @@ export default function TimePage() {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Slideover state
   const [editOpen, setEditOpen] = useState(false);
@@ -306,6 +308,7 @@ useEffect(() => {
   if (gateLoading) return;
 
   async function load() {
+    void reloadKey; // suppress unused dep warning; we use it in the array below
     try {
       if (!cancelled) {
         setLoading(true);
@@ -350,7 +353,7 @@ useEffect(() => {
   return () => {
     cancelled = true;
   };
-}, [gateLoading]);
+}, [gateLoading, reloadKey]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -686,6 +689,9 @@ useEffect(() => {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
+        {/* Clock-in card — owner/admin/board can act on self or team */}
+        <CrewClockCard onActivity={() => setReloadKey((k) => k + 1)} />
+
         {/* Title row */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
