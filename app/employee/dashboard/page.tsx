@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabase";
 import { fetchWhoami } from "@/lib/whoami";
 import Link from "next/link";
 
+type ActivityTab = "timeclock" | "mileage";
+
 type Shift = {
   id: number;
   start_at_utc: string;
@@ -34,6 +36,7 @@ export default function EmployeeDashboardPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [mileage, setMileage] = useState<MileageLog[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [activityTab, setActivityTab] = useState<ActivityTab>("timeclock");
 
   useEffect(() => {
     (async () => {
@@ -44,7 +47,7 @@ export default function EmployeeDashboardPage() {
           router.replace("/app/dashboard"); return;
         }
 
-        setDisplayName(whoami.display_name || whoami.email || null);
+        setDisplayName(whoami.email || null);
 
         const { data: user } = await supabase.auth.getUser();
         const uid = user?.user?.id || "";
@@ -185,45 +188,78 @@ export default function EmployeeDashboardPage() {
         </div>
       </div>
 
-      {/* Recent time clock logs */}
-      {shifts.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 mb-4">
-          <div className="text-xs font-medium uppercase tracking-widest text-white/40 mb-2">Time clock — last 30 days</div>
-          <div className="grid gap-1.5">
-            {shifts.slice(0, 10).map((s) => (
-              <div key={s.id} className="flex items-start justify-between gap-2 text-xs text-white/60">
-                <span>
-                  {fmtDate(s.start_at_utc)} · {fmtTime(s.start_at_utc)}–{s.end_at_utc ? fmtTime(s.end_at_utc) : "open"}
-                  {s.meta?.job_name ? ` · ${s.meta.job_name}` : ""}
-                </span>
-                <span className="text-white/40 shrink-0">{calcDuration(s.start_at_utc, s.end_at_utc)}</span>
-              </div>
+      {/* Activity section with tabs */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-xs font-medium uppercase tracking-widest text-white/40">Activity</div>
+          <div className="flex gap-1 rounded-xl border border-white/10 bg-black/30 p-0.5">
+            {(["timeclock", "mileage"] as const).map((t) => (
+              <button key={t} type="button" onClick={() => setActivityTab(t)}
+                className={["rounded-lg px-3 py-1 text-xs font-medium transition", activityTab === t ? "bg-white text-black" : "text-white/60 hover:text-white/85"].join(" ")}>
+                {t === "timeclock" ? "Time Clock" : "Mileage"}
+              </button>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Recent mileage logs */}
-      {mileage.length > 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <div className="text-xs font-medium uppercase tracking-widest text-white/40 mb-2">Mileage — recent trips</div>
-          <div className="grid gap-1.5">
-            {mileage.slice(0, 10).map((m) => {
-              const trip = [m.origin, m.destination].filter(Boolean).join(" → ");
-              return (
-                <div key={m.id} className="flex items-start justify-between gap-2 text-xs text-white/60">
-                  <span>
-                    {String(m.trip_date).slice(0, 10)}
-                    {trip ? ` · ${trip}` : ""}
-                    {m.job_name ? ` · ${m.job_name}` : ""}
-                  </span>
-                  <span className="text-white/40 shrink-0">{m.distance} {m.unit} · ${(m.deductible_cents / 100).toFixed(2)}</span>
+        {activityTab === "timeclock" && (
+          shifts.length > 0 ? (
+            <div className="grid gap-2">
+              {shifts.map((s) => (
+                <div key={s.id} className="flex items-start justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-sm text-white/85">
+                      {fmtDate(s.start_at_utc)}
+                      {s.meta?.job_name && <span className="text-white/50"> · {s.meta.job_name}</span>}
+                    </div>
+                    <div className="mt-0.5 text-xs text-white/50">
+                      {fmtTime(s.start_at_utc)} → {s.end_at_utc ? fmtTime(s.end_at_utc) : (
+                        <span className="inline-flex items-center gap-1 text-emerald-400">
+                          open
+                          <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" /></span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-sm font-medium tabular-nums text-white/85">{calcDuration(s.start_at_utc, s.end_at_utc)}</div>
+                    <div className="text-[10px] text-white/40">{s.end_at_utc ? "completed" : "active"}</div>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-white/15 bg-black/20 p-4 text-sm text-white/50 text-center">No time clock entries yet.</div>
+          )
+        )}
+
+        {activityTab === "mileage" && (
+          mileage.length > 0 ? (
+            <div className="grid gap-2">
+              {mileage.map((m) => {
+                const trip = [m.origin, m.destination].filter(Boolean).join(" → ");
+                return (
+                  <div key={m.id} className="flex items-start justify-between gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-sm text-white/85">
+                        {String(m.trip_date).slice(0, 10)}
+                        {m.job_name && <span className="text-white/50"> · {m.job_name}</span>}
+                      </div>
+                      {trip && <div className="mt-0.5 text-xs text-white/50">{trip}</div>}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-medium tabular-nums text-white/85">{m.distance} {m.unit}</div>
+                      <div className="text-xs text-white/50">${(m.deductible_cents / 100).toFixed(2)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-white/15 bg-black/20 p-4 text-sm text-white/50 text-center">No mileage entries yet.</div>
+          )
+        )}
+      </div>
     </div>
   );
 }
