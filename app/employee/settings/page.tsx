@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchWhoami } from "@/lib/whoami";
 
 function EyeIcon({ off }: { off?: boolean }) {
   return off ? (
@@ -46,7 +45,6 @@ function SettingsInner() {
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [phoneOk, setPhoneOk] = useState<string | null>(null);
   const [phoneErr, setPhoneErr] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string>("");
   const [actorId, setActorId] = useState<string>("");
 
   const [newPassword, setNewPassword] = useState("");
@@ -59,27 +57,29 @@ function SettingsInner() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
-      const em = String(data?.user?.email || "");
-      setEmail(em);
+      setEmail(String(data?.user?.email || ""));
 
-      const w = await fetchWhoami();
-      if (!w?.ok || !w.tenantId) return;
-      setTenantId(w.tenantId);
+      // Resolve profile via server-side middleware (uses req.actorId,
+      // avoids RLS issues on the client-side Supabase query).
+      const sess = await supabase.auth.getSession();
+      const token = sess?.data?.session?.access_token || "";
+      if (!token) return;
 
-      // Load profile to get current phone + actor_id
-      if (em) {
-        const { data: profiles } = await supabase
-          .from("chiefos_tenant_actor_profiles")
-          .select("actor_id, phone_digits")
-          .eq("tenant_id", w.tenantId)
-          .eq("email", em.toLowerCase())
-          .limit(1);
-        const row = (profiles as any[])?.[0];
-        if (row?.actor_id) setActorId(row.actor_id);
-        if (row?.phone_digits) {
-          setPhone(row.phone_digits);
-          setPhoneSaved(row.phone_digits);
+      try {
+        const r = await fetch("/api/employee/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const j = await r.json();
+        if (j?.ok) {
+          if (j.actor_id) setActorId(j.actor_id);
+          if (j.phone_digits) {
+            setPhone(j.phone_digits);
+            setPhoneSaved(j.phone_digits);
+          }
         }
+      } catch {
+        // fail-soft — phone card just won't pre-populate
       }
     })();
   }, []);
@@ -284,13 +284,14 @@ function SettingsInner() {
         <div className="text-sm font-semibold text-white mb-1">Phone number</div>
         <div className="text-xs text-white/50 mb-3">
           Link your phone so you can log hours and mileage via WhatsApp and receive notifications.
+          Enter 10 digits (the country code "1" is added automatically) or 11 digits starting with 1.
         </div>
 
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. 519 965 2188"
+          placeholder="e.g. 5199652188"
           className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20"
         />
 
