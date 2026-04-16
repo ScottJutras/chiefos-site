@@ -109,7 +109,7 @@ export default function EmployeeTimeClockPage() {
 
   const loadStatus = useCallback(async () => {
     try {
-      const r = await authedFetch("/api/employee/time/status");
+      const r = await authedFetch("/api/timeclock/status");
       const j = await r.json();
       if (j?.ok) {
         setStatus({
@@ -179,7 +179,7 @@ export default function EmployeeTimeClockPage() {
         job_id: selectedJobId ? Number(selectedJobId) : undefined,
         note: note.trim() || undefined,
       };
-      const r = await authedFetch("/api/employee/time/clock-in", {
+      const r = await authedFetch("/api/timeclock/clock-in", {
         method: "POST",
         body: JSON.stringify(body),
       });
@@ -201,7 +201,7 @@ export default function EmployeeTimeClockPage() {
     setOkMsg(null);
     setBusy(`${kind}:${action}` as BusyAction);
     try {
-      const r = await authedFetch("/api/employee/time/segment", {
+      const r = await authedFetch("/api/timeclock/segment", {
         method: "POST",
         body: JSON.stringify({ kind, action }),
       });
@@ -233,7 +233,7 @@ export default function EmployeeTimeClockPage() {
     setOkMsg(null);
     setBusy("out");
     try {
-      const r = await authedFetch("/api/employee/time/clock-out", { method: "POST" });
+      const r = await authedFetch("/api/timeclock/clock-out", { method: "POST" });
       const j = await r.json();
       if (!j?.ok) throw new Error(j?.message || "Clock-out failed.");
       const mins = Number(j?.duration_minutes || 0);
