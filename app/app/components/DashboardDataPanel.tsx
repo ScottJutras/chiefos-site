@@ -20,8 +20,14 @@ function money(cents?: number | null) {
 
 function fmtDateTime(s?: string | null) {
   if (!s) return "";
-  const d = new Date(s);
+  const d = new Date(String(s).replace(" ", "T"));
   return isNaN(d.getTime()) ? String(s) : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtTimeOnly(s?: string | null) {
+  if (!s) return "";
+  const d = new Date(String(s).replace(" ", "T"));
+  return isNaN(d.getTime()) ? "" : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function fmtDate(s?: string | null) {
@@ -250,6 +256,7 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
 
                 {view === "time" ? (() => {
                   const isLive = r.type === "clock_in" && !rows.some((o: any) => o.type === "clock_out" && o.employee_name === r.employee_name && o.id > r.id);
+                  const ts = r.local_time || r.timestamp || r.created_at;
                   return (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -263,11 +270,12 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
                         )}
                       </div>
                       <div className="mt-1 truncate text-xs text-white/55">
-                        {fmtDateTime(r.local_time || r.timestamp || r.created_at)} • {r.type === "clock_in" ? "Clocked in" : r.type === "clock_out" ? "Clocked out" : r.type || "event"}
+                        {fmtDate(ts)} • {r.type === "clock_in" ? "Clocked in" : r.type === "clock_out" ? "Clocked out" : r.type || "event"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-xs text-white/55">
-                      {r.type === "clock_in" ? "In" : r.type === "clock_out" ? "Out" : r.type || "—"}
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-medium tabular-nums text-white/85">{fmtTimeOnly(ts)}</div>
+                      <div className="text-[10px] text-white/45">{r.type === "clock_in" ? "IN" : r.type === "clock_out" ? "OUT" : ""}</div>
                     </div>
                   </div>
                   );

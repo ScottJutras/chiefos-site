@@ -96,7 +96,7 @@ export default function EmployeeTimeClockPage() {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data: rows } = await supabase
         .from("time_entries_v2")
-        .select("id, clock_in, clock_out, start_at_utc, end_at_utc, job_no, kind, note, submission_status, meta")
+        .select("id, start_at_utc, end_at_utc, kind, meta, source_msg_id")
         .eq("tenant_id", tid)
         .gte("start_at_utc", thirtyDaysAgo)
         .order("start_at_utc", { ascending: false })

@@ -131,7 +131,7 @@ export default function EarlyAccessBanner() {
     return {
       kind: "auth" as BannerKind,
       badge: "TAKE COMMAND",
-      message: "Your AI-powered business OS is ready to deploy.",
+      message: "ChiefOS Contractor-Grade Business Intelligence",
     };
   }, [pathname, signupMode, tenantName]);
 
