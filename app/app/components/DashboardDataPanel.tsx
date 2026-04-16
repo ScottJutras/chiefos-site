@@ -18,6 +18,12 @@ function money(cents?: number | null) {
   return dollars.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }
 
+function fmtDateTime(s?: string | null) {
+  if (!s) return "";
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? String(s) : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 function fmtDate(s?: string | null) {
   if (!s) return "";
   const d = new Date(s);
@@ -242,21 +248,30 @@ export default function DashboardDataPanel({ view, selectedJobName }: Props) {
                   </div>
                 ) : null}
 
-                {view === "time" ? (
+                {view === "time" ? (() => {
+                  const isLive = r.type === "clock_in" && !rows.some((o: any) => o.type === "clock_out" && o.employee_name === r.employee_name && o.id > r.id);
+                  return (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-white/85">
+                      <div className="flex items-center gap-2 truncate text-sm font-semibold text-white/85">
                         {(r.employee_name || "Crew") + (r.job_name ? ` • ${r.job_name}` : "")}
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                            <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" /></span>
+                            Live
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 truncate text-xs text-white/55">
-                        {fmtDate(r.local_time || r.timestamp || r.created_at)} • {r.type || "event"}
+                        {fmtDateTime(r.local_time || r.timestamp || r.created_at)} • {r.type === "clock_in" ? "Clocked in" : r.type === "clock_out" ? "Clocked out" : r.type || "event"}
                       </div>
                     </div>
                     <div className="shrink-0 text-xs text-white/55">
-                      {r.type || "—"}
+                      {r.type === "clock_in" ? "In" : r.type === "clock_out" ? "Out" : r.type || "—"}
                     </div>
                   </div>
-                ) : null}
+                  );
+                })() : null}
 
                 {view === "tasks" ? (
                   <div className="flex items-start justify-between gap-3">

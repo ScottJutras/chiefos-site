@@ -592,7 +592,7 @@ useEffect(() => {
         r.type ?? "",
         r.job_name ?? "",
         r.tz ?? "",
-        r.source_msg_id ? "WhatsApp" : "",
+        r.source_msg_id ? (r.source_msg_id.startsWith("tc:") || r.source_msg_id.startsWith("portal:") ? "Portal" : "WhatsApp") : "",
         r.address ?? "",
         String(r.id ?? ""),
       ];
@@ -914,7 +914,7 @@ useEffect(() => {
                       <td className="py-3 pr-4 text-white/75">{r.job_name ?? "—"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white/60">{r.tz ?? "—"}</td>
                       <td className="py-3 pr-4 whitespace-nowrap text-white/60">
-                        {r.source_msg_id ? "WhatsApp" : "—"}
+                        {r.source_msg_id ? (r.source_msg_id.startsWith("tc:") || r.source_msg_id.startsWith("portal:") ? "Portal" : "WhatsApp") : "—"}
                       </td>
                       <td className="py-3 pr-4 whitespace-nowrap">
                         <button
