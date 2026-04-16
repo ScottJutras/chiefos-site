@@ -1976,21 +1976,21 @@ function JobMileageTab({ jobName }: { jobName: string }) {
         if (!alive) return;
         setRows(list);
 
-        const phones = new Set<string>();
-        for (const r of list) if (r.employee_user_id) phones.add(r.employee_user_id);
-        if (phones.size > 0) {
-          try {
-            const { data: profiles } = await supabase
-              .from("chiefos_tenant_actor_profiles")
-              .select("phone_digits, display_name")
-              .in("phone_digits", Array.from(phones));
-            const map: Record<string, string> = {};
-            for (const p of (profiles || []) as any[]) {
-              if (p.phone_digits && p.display_name) map[p.phone_digits] = p.display_name;
-            }
-            if (alive) setPhoneNames(map);
-          } catch {}
-        }
+        // Build a comprehensive id→name lookup by both phone_digits
+        // and portal:actorId so we match both phone-linked and
+        // portal-only employees.
+        try {
+          const { data: profiles } = await supabase
+            .from("chiefos_tenant_actor_profiles")
+            .select("actor_id, phone_digits, display_name");
+          const map: Record<string, string> = {};
+          for (const p of (profiles || []) as any[]) {
+            if (!p.display_name) continue;
+            if (p.phone_digits) map[p.phone_digits] = p.display_name;
+            if (p.actor_id) map[`portal:${String(p.actor_id).slice(0, 16)}`] = p.display_name;
+          }
+          if (alive) setPhoneNames(map);
+        } catch {}
       } catch {}
       if (alive) setLoading(false);
     })();

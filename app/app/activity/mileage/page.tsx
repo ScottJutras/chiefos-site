@@ -104,34 +104,28 @@ export default function MileagePage() {
 
         if (error) throw error;
 
-        // Resolve employee_user_id → display_name so the table shows
-        // who logged each trip. Build a phone→name lookup from profiles.
+        // Resolve employee_user_id → display_name. Build a comprehensive
+        // lookup by phone_digits AND by portal:actorId prefix so we can
+        // match both phone-linked and portal-only employees.
         const rawLogs = (data ?? []) as MileageLog[];
-        const phoneSet = new Set<string>();
-        for (const log of rawLogs) {
-          if (log.employee_user_id) phoneSet.add(log.employee_user_id);
-        }
 
-        let phoneToName: Record<string, string> = {};
-        if (phoneSet.size > 0) {
-          try {
-            const { data: profiles } = await supabase
-              .from("chiefos_tenant_actor_profiles")
-              .select("phone_digits, display_name")
-              .in("phone_digits", Array.from(phoneSet));
-            for (const p of (profiles || []) as any[]) {
-              if (p.phone_digits && p.display_name) {
-                phoneToName[p.phone_digits] = p.display_name;
-              }
-            }
-          } catch {
-            // fail-soft — names just won't resolve
+        let idToName: Record<string, string> = {};
+        try {
+          const { data: profiles } = await supabase
+            .from("chiefos_tenant_actor_profiles")
+            .select("actor_id, phone_digits, display_name");
+          for (const p of (profiles || []) as any[]) {
+            if (!p.display_name) continue;
+            if (p.phone_digits) idToName[p.phone_digits] = p.display_name;
+            if (p.actor_id) idToName[`portal:${String(p.actor_id).slice(0, 16)}`] = p.display_name;
           }
+        } catch {
+          // fail-soft
         }
 
         for (const log of rawLogs) {
-          if (log.employee_user_id && phoneToName[log.employee_user_id]) {
-            log._employee_name = phoneToName[log.employee_user_id];
+          if (log.employee_user_id && idToName[log.employee_user_id]) {
+            log._employee_name = idToName[log.employee_user_id];
           }
         }
 
