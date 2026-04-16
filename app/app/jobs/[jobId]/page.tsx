@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
+import LiveActivityWidget from "@/app/app/components/LiveActivityWidget";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2042,6 +2043,7 @@ function TimeClockTab({ job, onJobUpdated }: { job: JobRow; onJobUpdated: (u: Pa
   const jobName = String(job.job_name || job.name || "").trim();
   return (
     <div className="space-y-4">
+      <LiveActivityWidget jobId={job.id} />
       <BudgetCard label="Labour hours budget" currentHours={job.labour_hours_budget} fieldType="labour_hours_budget" jobId={job.id}
         onSaved={(v) => onJobUpdated({ labour_hours_budget: v })} />
       <InlineLogButton job={job} type="hours" label="Log Hours" onDone={() => {}} />

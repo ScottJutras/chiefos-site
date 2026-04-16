@@ -9,6 +9,7 @@ import { useTenantGate } from "@/lib/useTenantGate";
 import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
+import LiveActivityWidget from "@/app/app/components/LiveActivityWidget";
 import { fetchWhoami, type PortalRole } from "@/lib/whoami";
 
 type ViewKey = "expenses" | "revenue" | "time" | "tasks";
@@ -510,6 +511,9 @@ function CenterWorkspace({
           sub="Still needs action"
         />
       </div>
+
+      {/* Live activity — shows who's currently clocked in */}
+      <LiveActivityWidget />
 
       {/* Business pulse — line chart embedded inside, responds to metric + range */}
       <BusinessPulseChart
