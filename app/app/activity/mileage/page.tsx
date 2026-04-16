@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
+import CrewMileageCard from "@/app/app/components/CrewMileageCard";
 
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -73,6 +74,7 @@ export default function MileagePage() {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState<"csv" | "xlsx" | "pdf" | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     document.title = "Mileage · ChiefOS";
@@ -116,7 +118,8 @@ export default function MileagePage() {
 
     load();
     return () => { cancelled = true; };
-  }, [gateLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateLoading, reloadKey]);
 
   const jobs = useMemo(() => {
     const set = new Set<string>();
@@ -311,6 +314,9 @@ export default function MileagePage() {
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-6xl py-6">
+        {/* Crew mileage log card — owner/admin/board can log for self or team */}
+        <CrewMileageCard onActivity={() => setReloadKey((k) => k + 1)} />
+
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className={chip("border-white/10 bg-white/5 text-white/60")}>Activity</div>

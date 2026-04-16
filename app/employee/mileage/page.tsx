@@ -164,7 +164,7 @@ export default function EmployeeMileagePage() {
         notes: notes.trim() || undefined,
       };
       if (selectedJobId) body.job_id = Number(selectedJobId);
-      const r = await authedFetch("/api/employee/mileage", {
+      const r = await authedFetch("/api/timeclock/mileage", {
         method: "POST",
         body: JSON.stringify(body),
       });
