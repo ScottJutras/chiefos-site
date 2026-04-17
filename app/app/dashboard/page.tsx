@@ -11,6 +11,7 @@ import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 import LiveActivityWidget from "@/app/app/components/LiveActivityWidget";
 import LabourSummaryWidget from "@/app/app/components/LabourSummaryWidget";
 import BillsComingDue from "@/app/app/components/BillsComingDue";
+import PendingReviewCard from "@/app/app/components/PendingReviewCard";
 import { fetchWhoami, type PortalRole } from "@/lib/whoami";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
 
@@ -478,6 +479,9 @@ function CenterWorkspace({
 
       {/* Live activity — who's on site right now */}
       <LiveActivityWidget />
+
+      {/* Pending review — crew submissions needing action */}
+      <PendingReviewCard />
 
       {/* Labour summary — hours today/week + estimated payroll */}
       <LabourSummaryWidget />
