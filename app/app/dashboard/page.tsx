@@ -440,10 +440,6 @@ function CenterWorkspace({
           <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Right now</h1>
           <p className="mt-1.5 text-sm text-white/50">What&apos;s happening today — live data, real time.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <UtilityLink href="/app/jobs/new" label="+ Create job" tone="primary" />
-          <UtilityLink href="/app/uploads" label="Log / Upload" />
-        </div>
       </div>
 
       {/* Margin alerts */}

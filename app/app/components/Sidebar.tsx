@@ -30,10 +30,9 @@ const mainGroups = [
     ],
   },
   {
-    label: "TEAM",
+    label: null,
     items: [
-      { href: "/app/crew/members", label: "Crew"     },
-      { href: "/app/crew/inbox",   label: "Crew Inbox" },
+      { href: "/app/crew/members", label: "Employees" },
     ],
   },
   {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type ActiveShift = {
   id: number;
@@ -33,8 +34,13 @@ export default function LiveActivityWidget({ jobId }: { jobId?: number }) {
     let alive = true;
     async function load() {
       try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
         const qs = jobId ? `?job_id=${jobId}` : "";
-        const r = await fetch(`/api/timeclock/active-shifts${qs}`, { credentials: "include" });
+        const r = await fetch(`/api/timeclock/active-shifts${qs}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const j = await r.json();
         if (alive && j.ok) setShifts(j.shifts || []);
       } catch {}
