@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
-import RevenueLineChart, { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
+// RevenueLineChart removed — chart lives on the dashboard only
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,130 +220,6 @@ function LifeBar({
   );
 }
 
-// ─── Business Pulse ───────────────────────────────────────────────────────────
-
-function BusinessPulse({
-  jobs,
-  expenses,
-  revenue,
-  labour,
-}: {
-  jobs: JobRow[];
-  expenses: Record<number, number>;
-  revenue: Record<number, number>;
-  labour: Record<number, number>;
-}) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  const activeJobs = jobs.filter((j) => normalizeStatus(j.status, j.active) === "active");
-
-  const totalRevenue = Object.values(revenue).reduce((a, b) => a + b, 0);
-  const totalExpenses = Object.values(expenses).reduce((a, b) => a + b, 0);
-  const netProfit = totalRevenue - totalExpenses;
-
-  // Aggregate budget totals (only jobs that have a budget set)
-  const totalContractCents = jobs.reduce((a, j) => a + (j.contract_value_cents ?? 0), 0);
-  const totalMaterialBudgetCents = jobs.reduce((a, j) => a + (j.material_budget_cents ?? 0), 0);
-  const totalLabourBudgetHours = jobs.reduce((a, j) => a + (j.labour_hours_budget ?? 0), 0);
-  const totalLabourHours = Object.values(labour).reduce((a, b) => a + b, 0);
-
-  const hasRevenueBudget = totalContractCents > 0;
-  const hasMaterialBudget = totalMaterialBudgetCents > 0;
-  const hasLabourBudget = totalLabourBudgetHours > 0;
-
-  // Jobs on track: active jobs where all bars with a budget are < 75%
-  const onTrackCount = activeJobs.filter((j) => {
-    const expPct = j.material_budget_cents ? (expenses[j.id] || 0) / j.material_budget_cents : 0;
-    const revPct = j.contract_value_cents ? (revenue[j.id] || 0) / j.contract_value_cents : 1;
-    const hrsPct = j.labour_hours_budget ? (labour[j.id] || 0) / j.labour_hours_budget : 0;
-    return expPct < 0.75 && (j.contract_value_cents ? revPct >= 0 : true) && hrsPct < 0.75;
-  }).length;
-
-  const hasSomeData = totalRevenue > 0 || totalExpenses > 0 || totalLabourHours > 0;
-  if (!hasSomeData && activeJobs.length === 0) return null;
-
-  return (
-    <div className="mb-6 rounded-[28px] border border-[var(--gold-border)] bg-white/[0.03]">
-      {/* Section header */}
-      <button
-        type="button"
-        onClick={() => setCollapsed((v) => !v)}
-        className="flex w-full items-center justify-between px-5 py-4 text-left"
-      >
-        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-          Business Pulse
-        </div>
-        <span className="text-white/30 text-xs">{collapsed ? "▶" : "▼"}</span>
-      </button>
-
-      {!collapsed && (
-        <div className="px-5 pb-5 space-y-5">
-          {/* KPI chips */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: "Active Jobs", value: String(activeJobs.length), color: "text-white/90" },
-              { label: "Total Revenue", value: fmtMoney(totalRevenue), color: "text-emerald-400" },
-              { label: "Total Expenses", value: fmtMoney(totalExpenses), color: "text-white/70" },
-              {
-                label: "Net Profit",
-                value: (netProfit >= 0 ? "+" : "") + fmtMoney(netProfit),
-                color: netProfit > 0 ? "text-emerald-400" : netProfit < 0 ? "text-red-400" : "text-white/50",
-              },
-            ].map((chip) => (
-              <div
-                key={chip.label}
-                className="rounded-xl border border-white/8 bg-black/30 px-3 py-3"
-              >
-                <div className="text-[10px] uppercase tracking-[0.12em] text-white/35">{chip.label}</div>
-                <div className={`mt-1 text-base font-semibold ${chip.color}`}>{chip.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Aggregate power bars */}
-          {(hasRevenueBudget || hasMaterialBudget || hasLabourBudget) && (
-            <div className="space-y-3">
-              <div className="text-[10px] uppercase tracking-[0.12em] text-white/30">Portfolio health</div>
-              {hasRevenueBudget && (
-                <LifeBar
-                  label="Revenue collected"
-                  actual={totalRevenue}
-                  budget={totalContractCents}
-                  unit="money"
-                  inverse
-                />
-              )}
-              {hasMaterialBudget && (
-                <LifeBar
-                  label="Materials spend"
-                  actual={totalExpenses}
-                  budget={totalMaterialBudgetCents}
-                  unit="money"
-                />
-              )}
-              {hasLabourBudget && (
-                <LifeBar
-                  label="Labour hours"
-                  actual={totalLabourHours}
-                  budget={totalLabourBudgetHours}
-                  unit="hours"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Jobs on track */}
-          {activeJobs.length > 0 && (
-            <p className="text-xs text-white/40">
-              <span className="font-semibold text-white/65">{onTrackCount} of {activeJobs.length}</span> active jobs on track
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Job Card ─────────────────────────────────────────────────────────────────
 
 function JobCard({
@@ -452,10 +328,6 @@ export default function JobsPage() {
   const FREE_JOB_LIMIT = 3;
 
   const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [tenantCreatedAt, setTenantCreatedAt] = useState<string | null>(null);
-  const [tenantCountry, setTenantCountry] = useState<string | null>(null);
-  const [chartRows, setChartRows] = useState<RevenueChartRow[]>([]);
-  const [chartLoading, setChartLoading] = useState(true);
   const [expenses, setExpenses] = useState<Record<number, number>>({});
   const [revenue, setRevenue] = useState<Record<number, number>>({});
   const [labour, setLabour] = useState<Record<number, number>>({});
@@ -552,41 +424,7 @@ export default function JobsPage() {
     if (!gateLoading) void load();
   }, [gateLoading, load]);
 
-  useEffect(() => {
-    if (gateLoading || !tenantId) return;
-    let alive = true;
-    (async () => {
-      try {
-        const { data: tenant } = await supabase
-          .from("chiefos_tenants")
-          .select("created_at, country")
-          .eq("id", tenantId)
-          .maybeSingle();
-
-        if (alive && tenant) {
-          setTenantCreatedAt((tenant as any).created_at ?? null);
-          setTenantCountry((tenant as any).country ?? null);
-        }
-
-        const { data: txData } = await supabase
-          .from("transactions")
-          .select("date, amount_cents, kind, created_at")
-          .eq("tenant_id", tenantId)
-          .in("kind", ["revenue"])
-          .order("date", { ascending: true })
-          .limit(5000);
-
-        if (alive) {
-          setChartRows((txData as RevenueChartRow[]) || []);
-        }
-      } catch {
-        // fail-soft
-      } finally {
-        if (alive) setChartLoading(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [gateLoading, tenantId]);
+  // Chart data fetch removed — chart lives on the dashboard only
 
   const counts = useMemo(() => {
     const out = { all: 0, active: 0, paused: 0, closed: 0, other: 0, archived: 0 };
@@ -729,24 +567,6 @@ export default function JobsPage() {
         </div>
         <span className="text-white/20">·</span>
         <span>Revenue bar: green = more collected is better</span>
-      </div>
-
-      {/* Business Pulse */}
-      <BusinessPulse
-        jobs={jobs}
-        expenses={expenses}
-        revenue={revenue}
-        labour={labour}
-      />
-
-      {/* Revenue line chart */}
-      <div className="mb-6">
-        <RevenueLineChart
-          txRows={chartRows}
-          accountCreatedAt={tenantCreatedAt}
-          country={tenantCountry}
-          loading={chartLoading}
-        />
       </div>
 
       {/* Job grid */}

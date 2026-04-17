@@ -210,6 +210,15 @@ function ItemForm({
       notes: form.notes.trim() || null,
       active: true,
       updated_at: new Date().toISOString(),
+      next_due_at: (() => {
+        if (!isRecurring || !form.due_day.trim()) return null;
+        const day = parseInt(form.due_day, 10);
+        if (isNaN(day) || day < 1 || day > 28) return null;
+        const now = new Date();
+        const thisMonth = new Date(now.getFullYear(), now.getMonth(), day);
+        const next = thisMonth > now ? thisMonth : new Date(now.getFullYear(), now.getMonth() + 1, day);
+        return next.toISOString().slice(0, 10);
+      })(),
     };
 
     try {

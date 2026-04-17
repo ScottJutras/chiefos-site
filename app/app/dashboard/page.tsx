@@ -6,13 +6,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useTenantGate } from "@/lib/useTenantGate";
 
-import DashboardDataPanel from "@/app/app/components/DashboardDataPanel";
 import BusinessPulseChart, { type PulsePoint } from "@/app/app/components/BusinessPulseChart";
 import { type RevenueChartRow } from "@/app/app/components/RevenueLineChart";
 import LiveActivityWidget from "@/app/app/components/LiveActivityWidget";
+import LabourSummaryWidget from "@/app/app/components/LabourSummaryWidget";
+import BillsComingDue from "@/app/app/components/BillsComingDue";
 import { fetchWhoami, type PortalRole } from "@/lib/whoami";
-
-type ViewKey = "expenses" | "revenue" | "time" | "tasks";
 type RangeKey = "wtd" | "mtd" | "qtd" | "ytd" | "all";
 
 type JobRow = {
@@ -363,8 +362,6 @@ function AskChiefNudge({ txCount }: { txCount: number }) {
 }
 
 function CenterWorkspace({
-  view,
-  setView,
   summary,
   pulsePoints,
   pulseRows,
@@ -379,8 +376,6 @@ function CenterWorkspace({
   tenantCreatedAt,
   tenantCountry,
 }: {
-  view: ViewKey;
-  setView: (v: ViewKey) => void;
   summary: Summary;
   pulsePoints: PulsePoint[];
   pulseRows: TxRow[];
@@ -442,8 +437,8 @@ function CenterWorkspace({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Dashboard</div>
-          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Business overview</h1>
-          <p className="mt-1.5 text-sm text-white/50">Your numbers at a glance — real data, real time.</p>
+          <h1 className="mt-1.5 text-3xl font-semibold tracking-tight text-white/95">Right now</h1>
+          <p className="mt-1.5 text-sm text-white/50">What&apos;s happening today — live data, real time.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <UtilityLink href="/app/jobs/new" label="+ Create job" tone="primary" />
@@ -451,16 +446,16 @@ function CenterWorkspace({
         </div>
       </div>
 
-      {/* Margin alerts — shown when active jobs have low/declining margins */}
+      {/* Margin alerts */}
       <MarginAlertsBanner alerts={marginAlerts} onDismiss={onDismissAlert} />
 
-      {/* Setup banner — shown until WhatsApp is linked and first transaction exists */}
+      {/* Setup banner */}
       <SetupBanner setupComplete={setupComplete} />
 
-      {/* Ask Chief nudge — surfaces once ≥ 3 transactions exist */}
+      {/* Ask Chief nudge */}
       <AskChiefNudge txCount={txCount} />
 
-      {/* 8 KPI cards — 2 rows of 4 */}
+      {/* 4 KPI cards — single row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
           label={`Revenue (${rangeLabel})`}
@@ -468,32 +463,9 @@ function CenterWorkspace({
           color="text-emerald-400"
         />
         <KpiCard
-          label={`Expenses (${rangeLabel})`}
-          value={moneyFmt(rangeExpenses)}
-          color="text-white/90"
-        />
-        <KpiCard
           label={`Net profit (${rangeLabel})`}
           value={(rangeNet >= 0 ? "+" : "–") + moneyFmt(Math.abs(rangeNet))}
           color={rangeNet >= 0 ? "text-emerald-400" : "text-red-400"}
-        />
-        <KpiCard
-          label="Monthly overhead"
-          value={monthlyOverhead > 0 ? moneyFmt(monthlyOverhead) : "—"}
-          sub="Fixed monthly burden"
-          color="text-amber-400"
-        />
-        <KpiCard
-          label={`True net (${rangeLabel})`}
-          value={
-            monthlyOverhead > 0
-              ? ((rangeNet - overheadForRange) >= 0 ? "+" : "–") + moneyFmt(Math.abs(rangeNet - overheadForRange))
-              : "—"
-          }
-          sub={monthlyOverhead > 0 ? "After overhead" : "Set overhead to see"}
-          color={monthlyOverhead > 0
-            ? (rangeNet - overheadForRange) >= 0 ? "text-emerald-400" : "text-red-400"
-            : "text-white/40"}
         />
         <KpiCard
           label="Active jobs"
@@ -501,27 +473,27 @@ function CenterWorkspace({
           sub={`${summary.totalJobs} total`}
         />
         <KpiCard
-          label="Pending review"
-          value={String(summary.pendingReview)}
-          sub="Awaiting confirmation"
-        />
-        <KpiCard
-          label="Open tasks"
-          value={String(summary.openTasks)}
-          sub="Still needs action"
+          label="Monthly overhead"
+          value={monthlyOverhead > 0 ? moneyFmt(monthlyOverhead) : "—"}
+          sub="Fixed monthly burden"
+          color="text-amber-400"
         />
       </div>
 
-      {/* Live activity — shows who's currently clocked in */}
+      {/* Live activity — who's on site right now */}
       <LiveActivityWidget />
 
-      {/* Business pulse — line chart embedded inside, responds to metric + range */}
+      {/* Labour summary — hours today/week + estimated payroll */}
+      <LabourSummaryWidget />
+
+      {/* Bills coming due */}
+      <BillsComingDue />
+
+      {/* Business pulse — Coinbase-style hero chart */}
       <BusinessPulseChart
         points={pulsePoints}
         activeJobs={summary.activeJobs}
         totalJobs={summary.totalJobs}
-        title="Business performance pulse"
-        subtitle="Revenue, expenses, and profit — bucketed by day across your selected range."
         loading={pulseLoading}
         range={pulseRange}
         onRangeChange={setPulseRange}
@@ -529,40 +501,6 @@ function CenterWorkspace({
         country={tenantCountry}
         accountCreatedAt={tenantCreatedAt}
       />
-
-      {/* Records panel */}
-      <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 pb-4">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/40">Records</div>
-            <div className="mt-2 text-lg font-semibold text-white/92">Business records</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-black/30 p-1">
-            <div className="flex flex-wrap gap-1">
-              {(["expenses", "revenue", "time", "tasks"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setView(k)}
-                  className={[
-                    "rounded-xl px-3 py-1.5 text-xs font-medium transition",
-                    view === k
-                      ? "bg-white text-black"
-                      : "text-white/60 hover:bg-white/5 hover:text-white/85",
-                  ].join(" ")}
-                >
-                  {k === "expenses" ? "Expenses" : k === "revenue" ? "Revenue" : k === "time" ? "Time" : "Tasks"}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <DashboardDataPanel view={view} selectedJobName={null} />
-        </div>
-      </section>
     </div>
   );
 }
@@ -570,7 +508,6 @@ function CenterWorkspace({
 export default function DashboardPage() {
   const { loading, hasWhatsApp } = useTenantGate({ requireWhatsApp: false });
   const [portalRole, setPortalRole] = useState<PortalRole | "pending">("pending");
-  const [view, setView] = useState<ViewKey>("expenses");
   const [pulseRange, setPulseRange] = useState<RangeKey>("mtd");
   const [pulseRows, setPulseRows] = useState<TxRow[]>([]);
   const [pulseLoading, setPulseLoading] = useState(true);
@@ -809,8 +746,6 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl py-2">
       <CenterWorkspace
-        view={view}
-        setView={setView}
         summary={summary}
         pulsePoints={pulsePoints}
         pulseRows={pulseRows}
