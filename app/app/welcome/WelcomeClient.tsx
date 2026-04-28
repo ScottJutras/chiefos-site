@@ -287,8 +287,9 @@ export default function WelcomeClient() {
   const [planKey, setPlanKey] = useState<string | null>(null);
   const [planAcknowledged, setPlanAcknowledged] = useState(false);
 
-  // Link code state
+  // Link code state (R2.5)
   const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [linkPhoneInput, setLinkPhoneInput] = useState("");
   const [codeLoading, setCodeLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [phoneNumberCopied, setPhoneNumberCopied] = useState(false);
@@ -327,39 +328,32 @@ export default function WelcomeClient() {
     }
   }
 
-  // ── Link code ────────────────────────────────────────────────────────────────
+  // ── Link code (R2.5: portal_phone_link_otp via /api/link-phone/start) ───────
 
-  async function fetchOrCreateCode(uid: string) {
+  // Generates a fresh OTP via the backend phoneLinkOtp service. Requires the
+  // caller to supply the phone number they plan to text from — the OTP is
+  // bound to that phone at generation time; the webhook verifies the sender
+  // matches on consumption.
+  async function generateLinkCode(phoneDigits: string) {
     setCodeLoading(true);
     try {
-      const { data } = await supabase
-        .from("chiefos_link_codes")
-        .select("code")
-        .eq("portal_user_id", uid)
-        .is("used_at", null)
-        .or("expires_at.is.null,expires_at.gt.now()")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      if (!phoneDigits || phoneDigits.length < 7) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
 
-      if (data?.code) {
-        setLinkCode(digitsOnly(data.code));
-        return;
+      const resp = await fetch("/api/link-phone/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ phoneDigits }),
+      });
+      const payload = await resp.json().catch(() => null);
+      if (resp.ok && payload?.ok && payload?.code) {
+        setLinkCode(digitsOnly(payload.code));
       }
-
-      await supabase.rpc("chiefos_create_link_code", {});
-
-      const { data: fresh } = await supabase
-        .from("chiefos_link_codes")
-        .select("code")
-        .eq("portal_user_id", uid)
-        .is("used_at", null)
-        .or("expires_at.is.null,expires_at.gt.now()")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      setLinkCode(fresh?.code ? digitsOnly(fresh.code) : null);
     } catch {
       // non-blocking
     } finally {
@@ -388,9 +382,9 @@ export default function WelcomeClient() {
       setPortalUserId(uid);
       setPlanKey(w.planKey ?? "free");
 
-      if (!w.hasWhatsApp) {
-        void fetchOrCreateCode(uid);
-      }
+      // R2.5: code is no longer auto-generated on load. User enters their
+      // WhatsApp phone, then taps "Generate code" — phoneLinkOtp binds the
+      // OTP to that phone number for verification.
 
       // Restore persisted state
       try {
@@ -464,8 +458,6 @@ export default function WelcomeClient() {
             .eq("tenant_id", tenantId)
             .limit(1);
           setHasExpense((count ?? 0) > 0);
-        } else if (!linkCode && portalUserId) {
-          void fetchOrCreateCode(portalUserId);
         }
       }
     } catch { /* ignore */ } finally {
@@ -571,17 +563,31 @@ export default function WelcomeClient() {
 
       {/* Sub-step C */}
       <div className="space-y-2">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">3 · Send this code to Chief on WhatsApp</div>
+        <div className="text-[10px] uppercase tracking-[0.14em] text-white/35 font-medium">3 · Generate a code and send it from your WhatsApp phone</div>
+        <input
+          value={linkPhoneInput}
+          onChange={(e) => setLinkPhoneInput(e.target.value)}
+          placeholder="Your WhatsApp number (digits only, e.g. 19053279955)"
+          inputMode="numeric"
+          className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white outline-none"
+        />
         <div className="rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.05)] px-5 py-4 text-center">
           {codeLoading ? (
             <span className="text-white/30 text-sm">Generating code…</span>
           ) : linkCode ? (
             <span className="font-mono text-2xl tracking-[0.35em] text-[#D4A853]">{linkCode}</span>
           ) : (
-            <span className="text-white/30 text-sm">No code available</span>
+            <span className="text-white/30 text-sm">Enter your phone, then tap "Generate code"</span>
           )}
         </div>
         <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            onClick={() => void generateLinkCode(digitsOnly(linkPhoneInput))}
+            disabled={codeLoading || digitsOnly(linkPhoneInput).length < 7}
+            className="inline-flex items-center rounded-xl border border-[rgba(212,168,83,0.3)] bg-[rgba(212,168,83,0.12)] px-3 py-2 text-xs text-[#D4A853] hover:bg-[rgba(212,168,83,0.18)] transition disabled:opacity-40"
+          >
+            {codeLoading ? "…" : "Generate code"}
+          </button>
           <button
             onClick={async () => {
               if (!linkCode) return;
@@ -600,13 +606,6 @@ export default function WelcomeClient() {
           >
             Open WhatsApp →
           </a>
-          <button
-            onClick={() => portalUserId && void fetchOrCreateCode(portalUserId)}
-            disabled={codeLoading || !portalUserId}
-            className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/50 hover:bg-white/10 transition disabled:opacity-40"
-          >
-            {codeLoading ? "…" : "New code"}
-          </button>
         </div>
       </div>
 

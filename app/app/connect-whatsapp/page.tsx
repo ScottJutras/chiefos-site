@@ -6,12 +6,11 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { fetchWhoami } from "@/lib/whoami";
 
-type LinkCodeRow = {
-  id: string;
+// R2.5: code generation moved to /api/link-phone/start (backend portal_phone_link_otp flow).
+// The stored OTP row expires in 10 minutes; regenerate via the same endpoint.
+type GeneratedCode = {
   code: string;
-  expires_at: string | null;
-  used_at: string | null;
-  created_at: string;
+  expiresAt: string;
 };
 
 function fmtTime(ts: string | null) {
@@ -25,6 +24,15 @@ function fmtTime(ts: string | null) {
 
 function digitsOnly(code: string | null | undefined) {
   return String(code || "").replace(/\D/g, "");
+}
+
+async function getBearerToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || null;
+  } catch {
+    return null;
+  }
 }
 
 function safeReturnTo(input: string | null | undefined) {
@@ -48,13 +56,14 @@ export default function ConnectWhatsAppPage() {
   const [pollingActive, setPollingActive] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [codeRow, setCodeRow] = useState<LinkCodeRow | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<GeneratedCode | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
   const [copied, setCopied] = useState(false);
 
   // null = unknown, true = linked, false = not linked
   const [isLinked, setIsLinked] = useState<boolean | null>(null);
 
-  const codeDigits = useMemo(() => digitsOnly(codeRow?.code), [codeRow?.code]);
+  const codeDigits = useMemo(() => digitsOnly(generatedCode?.code), [generatedCode?.code]);
   const has6Digits = codeDigits.length === 6;
 
   useEffect(() => {
@@ -65,24 +74,6 @@ export default function ConnectWhatsAppPage() {
       setReturnTo("/app/dashboard");
     }
   }, []);
-
-  const LINK_CODE_RPC_NAME = "chiefos_create_link_code";
-  const LINK_CODE_RPC_ARGS: Record<string, any> = {};
-
-  async function fetchLatestUnexpiredUnusedCode(portalUserId: string) {
-    const { data, error } = await supabase
-      .from("chiefos_link_codes")
-      .select("id, code, expires_at, used_at, created_at")
-      .eq("portal_user_id", portalUserId)
-      .is("used_at", null)
-      .or("expires_at.is.null,expires_at.gt.now()")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    return (data as LinkCodeRow | null) ?? null;
-  }
 
   async function checkLinkStatus(): Promise<boolean> {
     const w: any = await fetchWhoami();
@@ -96,19 +87,34 @@ export default function ConnectWhatsAppPage() {
     setCopied(false);
 
     try {
-      if (!userId || !tenantId) return;
-
-      const { error: rpcErr } = await supabase.rpc(LINK_CODE_RPC_NAME, LINK_CODE_RPC_ARGS);
-      if (rpcErr) throw rpcErr;
-
-      const latest = await fetchLatestUnexpiredUnusedCode(userId);
-      setCodeRow(latest);
-
-      if (!latest) {
-        setError(
-          "No link code found after RPC. That usually means the RPC wrote a code for a different portal_user_id, or RLS blocked the insert."
-        );
+      const phoneDigits = digitsOnly(phoneInput);
+      if (phoneDigits.length < 7) {
+        setError("Enter your WhatsApp phone number (digits only, include country code).");
+        return;
       }
+
+      const token = await getBearerToken();
+      if (!token) {
+        setError("Session expired. Please sign in again.");
+        return;
+      }
+
+      const resp = await fetch("/api/link-phone/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ phoneDigits }),
+      });
+
+      const payload = await resp.json().catch(() => null);
+      if (!resp.ok || !payload?.ok || !payload?.code) {
+        setError(payload?.error?.message || payload?.message || "Unable to generate a code right now.");
+        return;
+      }
+
+      setGeneratedCode({ code: String(payload.code), expiresAt: String(payload.expiresAt || "") });
     } catch (e: any) {
       setError(e?.message ?? "Unknown error creating link code.");
     } finally {
@@ -126,14 +132,6 @@ export default function ConnectWhatsAppPage() {
 
       const linked = await checkLinkStatus();
       setIsLinked(linked);
-
-      if (!linked) {
-        const latest = await fetchLatestUnexpiredUnusedCode(userId);
-        setCodeRow(latest);
-        if (!latest) {
-          await createNewCode();
-        }
-      }
     } catch (e: any) {
       setError(e?.message ?? "Unknown error loading connect page.");
     } finally {
@@ -174,10 +172,6 @@ export default function ConnectWhatsAppPage() {
       try {
         const linked = await checkLinkStatus();
         setIsLinked(linked);
-        // If now unlinked and no code exists, fetch/create one
-        if (!linked) {
-          setCodeRow((prev) => prev); // keep existing code, don't reset
-        }
       } catch {
         // silent
       } finally {
@@ -188,22 +182,6 @@ export default function ConnectWhatsAppPage() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gateLoading, pageLoading, userId, tenantId]);
-
-  // If we detect unlinked during polling and have no code, fetch one
-  useEffect(() => {
-    if (isLinked === false && !codeRow && userId && tenantId && !pageLoading) {
-      fetchLatestUnexpiredUnusedCode(userId)
-        .then((latest) => {
-          if (latest) {
-            setCodeRow(latest);
-          } else {
-            createNewCode();
-          }
-        })
-        .catch(() => null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLinked, codeRow, userId, tenantId, pageLoading]);
 
   // Reset "Copied!" after a moment
   useEffect(() => {
@@ -283,19 +261,31 @@ export default function ConnectWhatsAppPage() {
             </div>
           </div>
 
-          {/* Step 2 — Send code */}
+          {/* Step 2 — Enter phone + generate code */}
           <div className="rounded-[28px] border border-[var(--gold-border)] bg-white/[0.04] p-6 space-y-5">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Step 2 — Send your link code</div>
+
+            <div>
+              <label className="block text-xs text-[var(--text-faint)] mb-2">Your WhatsApp number (digits only, include country code)</label>
+              <input
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="19053279955"
+                inputMode="numeric"
+                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none"
+              />
+            </div>
+
             <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-              Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> as a message to Chief on WhatsApp:
+              Send <span className="font-semibold text-[var(--text-primary)]">only this 6-digit code</span> as a message to Chief on WhatsApp from the phone above:
             </p>
 
             <div className="rounded-2xl border border-[var(--gold-border-strong)] bg-[var(--gold-dim)] px-6 py-5 font-mono text-3xl tracking-[0.35em] text-[var(--gold)] text-center">
-              {has6Digits ? codeDigits : <span className="text-[var(--text-faint)] text-base tracking-normal">No code available</span>}
+              {has6Digits ? codeDigits : <span className="text-[var(--text-faint)] text-base tracking-normal">No code yet</span>}
             </div>
 
-            {codeRow?.expires_at ? (
-              <div className="text-xs text-[var(--text-faint)]">Expires at {fmtTime(codeRow.expires_at)} — this page checks automatically.</div>
+            {generatedCode?.expiresAt ? (
+              <div className="text-xs text-[var(--text-faint)]">Expires at {fmtTime(generatedCode.expiresAt)} — this page checks automatically.</div>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
