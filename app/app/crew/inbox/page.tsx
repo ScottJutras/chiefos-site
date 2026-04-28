@@ -3,26 +3,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/apiFetch";
 
+// R3b shape: backend returns canonical-row-pivoted items.
+// Legacy fields (log_no, content_text, structured, status, source, etc.) are
+// retained as optionals so this page renders without immediate UI rework, but
+// the authoritative review identity is now (target_table, id).
 type InboxItem = {
   id: string;
-  log_no: number;
-  type: "task" | "time" | "expense" | "revenue" | string;
-  source: string;
-  content_text: string;
-  structured?: any;
-  status: "submitted" | "needs_clarification" | "approved" | "rejected" | string;
+  target_table: "time_entries_v2" | "tasks";
+  submitter_user_id: string;
+  submission_status: "pending_review" | "needs_clarification" | string;
   created_at: string;
+  detail?: any;
 
-  created_by_actor_id: string;
-  reviewer_actor_id: string;
-
-  // These are optional, but your /api/crew/review/inbox already returns created_by_name
+  // Legacy/derived fields — backend may or may not populate these post-R3b.
+  log_no?: number;
+  type?: "task" | "time" | "expense" | "revenue" | string;
+  source?: string;
+  content_text?: string;
+  structured?: any;
+  status?: string;
+  created_by_actor_id?: string;
+  reviewer_actor_id?: string;
   created_by_name?: string | null;
-
-  // optional future fields
   reviewed_by_name?: string | null;
   reviewed_at?: string | null;
-
   source_msg_id?: string | null;
   creator_role?: string | null;
 };
@@ -91,10 +95,16 @@ function displayNameFor(item: InboxItem) {
   return a ? a.slice(0, 8) + "…" : "Unknown";
 }
 
-async function patchReview(logId: string, payload: Record<string, any>): Promise<void> {
-  await apiFetch(`/api/crew/review/${logId}`, {
+// R3b: backend now requires target_table in the body so it knows which
+// canonical table (time_entries_v2 or tasks) to mutate.
+async function patchReview(
+  id: string,
+  target_table: InboxItem["target_table"],
+  payload: Record<string, any>
+): Promise<void> {
+  await apiFetch(`/api/crew/review/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ target_table, ...payload }),
   });
 }
 
@@ -164,35 +174,39 @@ export default function CrewInboxPage() {
     setBusyId(id);
 
     const before = items.find((x) => x.id === id);
+    const target_table = before?.target_table;
+    if (!target_table) {
+      setErr("Item missing target_table — cannot route action.");
+      setBusyId(null);
+      return;
+    }
 
     try {
       if (action === "approve") {
-        optimisticUpdate(id, { status: "approved" });
-        await patchReview(id, { action: "approve", status: "approved" });
+        optimisticUpdate(id, { submission_status: "approved", status: "approved" });
+        await patchReview(id, target_table, { action: "approve" });
       } else if (action === "reject") {
         const reason = (window.prompt("Reason (required):", "") || "").trim();
         if (!reason) {
           setErr("Reject requires a reason.");
           return;
         }
-        optimisticUpdate(id, { status: "rejected" });
-        await patchReview(id, { action: "reject", status: "rejected", reason });
+        optimisticUpdate(id, { submission_status: "rejected", status: "rejected" });
+        await patchReview(id, target_table, { action: "reject", reason });
       } else if (action === "needs-clarification") {
         const note = (window.prompt("Clarification note (required):", "") || "").trim();
         if (!note) {
           setErr("Needs clarification requires a note.");
           return;
         }
-        optimisticUpdate(id, { status: "needs_clarification" });
-        await patchReview(id, { action: "needs_clarification", status: "needs_clarification", note });
+        optimisticUpdate(id, { submission_status: "needs_clarification", status: "needs_clarification" });
+        await patchReview(id, target_table, { action: "needs_clarification", note });
       } else {
-        const nextText = (window.prompt("Edit text (required):", before?.content_text || "") || "").trim();
-        if (!nextText) {
-          setErr("Edit requires text.");
-          return;
-        }
-        optimisticUpdate(id, { content_text: nextText });
-        await patchReview(id, { action: "edit", content_text: nextText });
+        // R3b: 'edit' action removed — content_text no longer exists on
+        // canonical rows. Editing a submission is out of scope (content lives
+        // on the canonical row's own fields, not on a generic text column).
+        setErr("Edit action is not supported in the canonical-row review model.");
+        return;
       }
 
       await load();
