@@ -148,7 +148,12 @@ export async function POST(req: Request) {
     const url = mustEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
     const anon = mustEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
-    const acceptedVia = signupMode === "tester" ? "tester_signup" : "signup";
+    // accepted_via encodes CHANNEL (portal/whatsapp/email/api per the
+    // chiefos_legal_acceptances CHECK constraint), not signup-lifecycle.
+    // Both standard and tester signups happen via the portal/web app.
+    // Lifecycle distinction (standard vs tester) is captured separately
+    // in signup_mode below.
+    const acceptedVia = "portal";
 
     // GoTrue /signup body: top-level `data` becomes raw_user_meta_data on the
     // newly created auth.users row. chiefos_finish_signup() reads from there.

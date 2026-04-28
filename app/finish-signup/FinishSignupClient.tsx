@@ -546,7 +546,10 @@ export default function FinishSignupClient() {
           privacyVersion: pending.privacy_version,
           aiPolicyVersion: pending.ai_policy_version,
           dpaVersion: pending.dpa_version,
-          acceptedVia: pending.accepted_via || (pending.signup_mode === "tester" ? "tester_signup" : "signup"),
+          // accepted_via encodes channel (portal/whatsapp/email/api per
+          // chiefos_legal_acceptances CHECK), not lifecycle. Default to
+          // 'portal' since this code path runs in the portal/web app.
+          acceptedVia: pending.accepted_via || "portal",
         }),
       });
       const j = await res.json().catch(() => ({}));
