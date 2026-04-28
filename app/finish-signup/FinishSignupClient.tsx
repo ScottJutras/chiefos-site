@@ -553,14 +553,6 @@ export default function FinishSignupClient() {
       if (!res.ok) throw new Error(j?.error || "Failed to record legal acceptance.");
     }
 
-    async function setTenantMeta(accessToken: string) {
-      await fetch("/api/auth/pending-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ action: "set-tenant-meta" }),
-      });
-    }
-
     async function maybeActivateTester(pending: PendingSignup | null, accessToken: string) {
       if (!pending || pending.signup_mode !== "tester") return;
       const res = await fetch("/api/tester-access/activate", {
@@ -644,12 +636,14 @@ export default function FinishSignupClient() {
         signalRealDone("resolve-workspace");
 
         // ── Step 4: create-workspace (new users only) ──────────────────────
+        // RPC reads all onboarding state from auth.users.raw_user_meta_data;
+        // the company_name_override arg is purely a display/override hook —
+        // metadata is the source of truth.
         if (!returning) {
           const { error: rpcErr } = await supabase.rpc("chiefos_finish_signup", {
-            company_name: pending?.company_name || null,
+            company_name_override: pending?.company_name || null,
           });
           if (rpcErr) throw rpcErr;
-          await setTenantMeta(accessToken);
           signalRealDone("create-workspace");
         }
 
