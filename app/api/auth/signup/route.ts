@@ -48,7 +48,28 @@ function cleanText(x: any) {
   return String(x || "").trim();
 }
 
-function canonicalCallbackUrl() {
+// Resolves the email-confirmation redirect URL from the request host so a
+// signup submitted to a preview deployment redirects back to that same
+// preview (instead of leaking through to production via a hardcoded base).
+//
+// Trust posture: Vercel sets `x-forwarded-host` to the actual deployment
+// hostname; we still allowlist before using it (cheap defense against
+// host-header injection at any non-Vercel edge / future deploy target).
+// If host fails the allowlist or headers are stripped (SSR edges,
+// scheduled jobs, future programmatic callers), fall back to
+// NEXT_PUBLIC_APP_BASE_URL → hardcoded production.
+const HOST_ALLOWLIST = /^(app\.usechiefos\.com|chiefos-site-.*-scott-jutras-projects\.vercel\.app)$/;
+
+function canonicalCallbackUrl(req: Request) {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = forwardedHost || req.headers.get("host") || "";
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+
+  if (host && HOST_ALLOWLIST.test(host)) {
+    return `${proto}://${host}/auth/callback?returnTo=/app`;
+  }
+
+  // Fallback when headers absent or host fails allowlist
   const base = (process.env.NEXT_PUBLIC_APP_BASE_URL || "https://app.usechiefos.com").replace(/\/$/, "");
   return `${base}/auth/callback?returnTo=/app`;
 }
@@ -155,7 +176,7 @@ export async function POST(req: Request) {
 
         accepted_via: acceptedVia,
       },
-      options: { emailRedirectTo: canonicalCallbackUrl() },
+      options: { emailRedirectTo: canonicalCallbackUrl(req) },
     };
 
     const r = await fetch(`${url}/auth/v1/signup`, {
